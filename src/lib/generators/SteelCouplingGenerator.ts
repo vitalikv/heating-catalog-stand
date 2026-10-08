@@ -108,8 +108,8 @@ export class SteelCouplingGenerator implements ModelGenerator<SteelCouplingParam
 
     // Разъёмы в центре резьбовых участков, как cr_CenterPoint в gl2.
     const connectors: Connector[] = [
-      { id: 'left', position: at(-(x3L + x1 / 2)), direction: { x: -1, y: 0, z: 0 }, nominal: params.r1, gender: 'internal' },
-      { id: 'right', position: at(x3R + x2 / 2), direction: { x: 1, y: 0, z: 0 }, nominal: params.r2, gender: 'internal' },
+      { id: 'left', position: at(-(x3L + x1 / 2)), direction: { x: -1, y: 0, z: 0 }, nominal: params.r1, joint: 'thread', gender: 'internal' },
+      { id: 'right', position: at(x3R + x2 / 2), direction: { x: 1, y: 0, z: 0 }, nominal: params.r2, joint: 'thread', gender: 'internal' },
     ];
 
     let disposed = false;

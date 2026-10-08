@@ -14,10 +14,18 @@ export interface Connector {
   position: Vector3Data;
   /** Единичный вектор выхода наружу. */
   direction: Vector3Data;
-  /** Номинал резьбы или трубы, например '1/2'. */
+  /** Номинал резьбы или трубы, например '1/2' или '20'. */
   nominal: string;
+  /**
+   * Способ соединения: номинал сравним только внутри одного способа
+   * ('20' у ПП-раструба — не то же, что дюймовая резьба).
+   */
+  joint: ConnectorJoint;
   gender: 'internal' | 'external';
 }
+
+/** 'thread' — дюймовая резьба, 'pp-socket' — раструб под пайку ПП-трубы. */
+export type ConnectorJoint = 'thread' | 'pp-socket';
 
 export interface ValidationError {
   code: string;

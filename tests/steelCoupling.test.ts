@@ -103,8 +103,8 @@ describe.each(PRESETS)('муфта $r1 × $r2, m1 = $m1', (params) => {
     const model = generator.build(params);
     const [left, right] = model.connectors;
 
-    expect(left).toMatchObject({ id: 'left', nominal: params.r1, gender: 'internal', direction: { x: -1, y: 0, z: 0 } });
-    expect(right).toMatchObject({ id: 'right', nominal: params.r2, gender: 'internal', direction: { x: 1, y: 0, z: 0 } });
+    expect(left).toMatchObject({ id: 'left', nominal: params.r1, joint: 'thread', gender: 'internal', direction: { x: -1, y: 0, z: 0 } });
+    expect(right).toMatchObject({ id: 'right', nominal: params.r2, joint: 'thread', gender: 'internal', direction: { x: 1, y: 0, z: 0 } });
     expect(left.position.x).toBeCloseTo(exp.left, 9);
     expect(right.position.x).toBeCloseTo(exp.right, 9);
     expect([left.position.y, left.position.z, right.position.y, right.position.z]).toEqual([0, 0, 0, 0]);

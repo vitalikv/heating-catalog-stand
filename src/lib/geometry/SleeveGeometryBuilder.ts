@@ -26,6 +26,11 @@ export interface SleeveOptions {
   innerDiameterStart?: number;
   outerSegments?: number;
   innerSegments?: number;
+  /**
+   * Поворот вокруг начала координат, рад (rot в gl2): сначала X, потом Y, потом Z,
+   * до сдвига в center. UV считаются до поворота, как в gl2.
+   */
+  rotation?: Vector3Data;
   /** Центр втулки, м. */
   center?: Vector3Data;
   /** По умолчанию все части — материал 0. */
@@ -54,8 +59,12 @@ export class SleeveGeometryBuilder {
       { geometry: this.ring(outerEnd, innerEnd, outerSegments, innerSegments, half), materialIndex: materials.end },
     ];
 
+    const rotation = options.rotation ?? { x: 0, y: 0, z: 0 };
     const { x, y, z } = options.center ?? { x: 0, y: 0, z: 0 };
-    for (const part of parts) part.geometry.translate(x, y, z);
+    for (const part of parts) {
+      part.geometry.rotateX(rotation.x).rotateY(rotation.y).rotateZ(rotation.z);
+      part.geometry.translate(x, y, z);
+    }
     return parts;
   }
 

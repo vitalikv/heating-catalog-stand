@@ -1,14 +1,18 @@
 import { Color, DoubleSide, MathUtils, MeshPhongMaterial, RepeatWrapping, SRGBColorSpace } from 'three';
 import type { Material, Texture } from 'three';
 
-export type MaterialKey = 'metal' | 'thread';
+export type MaterialKey = 'metal' | 'thread' | 'plastic';
 
-// Источник: gl2/sceneParams.js, metal_1 и rezba_1. lightMap_1 не переносится.
+// Источник: gl2/sceneParams.js, metal_1, rezba_1 и white_1. lightMap_1 не переносится.
 const METAL_COLOR = 0xc1c6c9;
 const METAL_SPECULAR = 0xa3a3a3;
 const METAL_SHININESS = 100;
 const THREAD_REPEAT_X = 900;
 const THREAD_ROTATION_DEG = 2;
+// white_1 (полипропилен): shininess и specular — значения Phong по умолчанию.
+const PLASTIC_COLOR = 0xf0f0f0;
+const PLASTIC_SPECULAR = 0x111111;
+const PLASTIC_SHININESS = 30;
 
 /**
  * Общие материалы генераторов. Модели только ссылаются на них, поэтому
@@ -21,7 +25,7 @@ export class MaterialLibrary {
   private threadTexture: Texture | null = null;
 
   constructor(threadTexture: Texture | null = null) {
-    this.materials = { metal: this.createMetal(), thread: this.createMetal() };
+    this.materials = { metal: this.createMetal(), thread: this.createMetal(), plastic: this.createPlastic() };
     this.setThreadTexture(threadTexture);
   }
 
@@ -59,6 +63,15 @@ export class MaterialLibrary {
       color: new Color(METAL_COLOR),
       specular: new Color(METAL_SPECULAR),
       shininess: METAL_SHININESS,
+      side: DoubleSide,
+    });
+  }
+
+  private createPlastic(): MeshPhongMaterial {
+    return new MeshPhongMaterial({
+      color: new Color(PLASTIC_COLOR),
+      specular: new Color(PLASTIC_SPECULAR),
+      shininess: PLASTIC_SHININESS,
       side: DoubleSide,
     });
   }

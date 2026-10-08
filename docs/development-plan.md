@@ -19,7 +19,7 @@
 
 ## 2. Текущее состояние проекта
 
-Каркас создан 9 октября 2026. Перенесена стальная муфта `st_mufta_1`, стенд показывает её наборы.
+Каркас создан 9 октября 2026. Перенесены стальная муфта `st_mufta_1` и угол ПП 90° `pl_ugol_90_1`, стенд показывает их наборы.
 
 | Команда | Назначение |
 | --- | --- |
@@ -37,10 +37,10 @@ src/
     index.ts                  # Единственная точка импорта
     contracts.ts              # Connector, GeneratedModel, ModelGenerator, ValidationError
     GeneratorParamsError.ts   # build() с неверными параметрами
-    sizes/ThreadSizes.ts      # sizeRezba
-    geometry/                 # BoxProjectionUv, MaterialGroupMerger, SleeveGeometryBuilder
+    sizes/                    # ThreadSizes (sizeRezba), PpPipeSizes (sizeTubePP)
+    geometry/                 # BoxProjectionUv, MaterialGroupMerger, SleeveGeometryBuilder, SphereGeometryBuilder
     materials/MaterialLibrary.ts
-    generators/               # SteelCouplingGenerator, GeneratorRegistry
+    generators/               # SteelCouplingGenerator, PpElbowGenerator, GeneratorRegistry
   stand/
     main.ts                   # Точка входа: сборка модели, строка сведений
     Viewer.ts                 # Сцена, свет, камера, сетка, подписи CSS2D, frame(object)
@@ -49,7 +49,7 @@ src/
     presets.ts                # Наборы параметров из start.js
     style.css
 public/textures/              # Ресурсы из gl2, источники — в README
-tests/                        # setup, threadSizes, boxProjectionUv, steelCoupling
+tests/                        # setup, threadSizes, boxProjectionUv, steelCoupling, ppElbow
 ```
 
 Правила:
@@ -145,6 +145,7 @@ interface Connector {
   position: Vector3Data;   // локально относительно корня, метры
   direction: Vector3Data;  // единичный вектор выхода наружу
   nominal: string;         // '1/2', '20'
+  joint: 'thread' | 'pp-socket'; // способ соединения; номиналы сравнимы только внутри него
   gender: 'internal' | 'external';
 }
 
@@ -169,7 +170,7 @@ interface ModelGenerator<TParams> {
 - Параметры — простые сериализуемые данные, без `Vector3`, мешей и функций.
 - Генератор не хранит состояние модели и не меняет входные параметры.
 - Ошибки параметров — код и имя параметра; модель при ошибке не строится.
-- Материалы — из `MaterialLibrary` по ключу (`metal`, `thread`).
+- Материалы — из `MaterialLibrary` по ключу (`metal`, `thread`, `plastic`).
   `dispose()` модели не освобождает общие материалы и текстуры.
 - Реестр генераторов — явный список с импортами, без `window[имя]`.
 - Единицы — метры. В интерфейсе размеры можно показывать в миллиметрах.
@@ -383,6 +384,14 @@ d_nr = max(d1.n, d2.n),  d_vn = min(d1.v, d2.v)
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | t | 4.2 | 5.4 | 6.7 | 8.3 | 10.5 | 12.5 | 15.0 | 18.3 | 20.8 |
 
+Сделано 9 октября 2026 (`PpElbowGenerator`). Плечи — по +X и +Y из начала
+координат: втулка `x_2 = m1 − 0.015` и раструб `x_1 = 0.015`, вертикальное плечо
+повёрнуто `rotateZ(−π/2)`. Внешний угол — четверть сферы (`crSphere_2`,
+`phiLength = π/2`, `rotateX(π/2)`), наружная и внутренняя. Материал `white_1` → `plastic`.
+Разъёмы `right` (+X) и `top` (+Y) в центре раструбов, `joint: 'pp-socket'`.
+Вывод для контракта: номинал без способа соединения неоднозначен,
+поэтому в `Connector` добавлено поле `joint`.
+
 ### Алюминиевый радиатор `al_radiator_1` (`radiator/al_radiator.js`)
 
 Повторение секций. Параметры: `count` — 1…10 секций,
@@ -443,4 +452,8 @@ pixel ratio в `worker/messages.ts`. Менеджеры редактора не 
 | 2026-10-09 | все | Неизвестный номинал — ошибка параметра, а не нулевые диаметры | `sizeRezba` молча возвращал нули |
 | 2026-10-09 | `st_mufta_1` | `m1 ≤ 2·max(x_1, x_2)` — ошибка параметра `too_short` | В gl2 получался гладкий участок нулевой или отрицательной длины |
 | 2026-10-09 | `st_mufta_1` | Название — в `root.name` | `userData.obj3D.nameRus` из `assignObjParams` не переносится |
+| 2026-10-09 | все | В `Connector` добавлено поле `joint` (`thread`, `pp-socket`) | `'20'` ПП-раструба нельзя отличить от номинала резьбы без разбора названия |
+| 2026-10-09 | `pl_ugol_90_1` | ID разъёмов `right`/`top` по стороне выхода; в `gl2` — порядковые 0 (верх) и 1 (право) | Контракт п. 4: ID по назначению |
+| 2026-10-09 | `pl_ugol_90_1` | `m1 ≤ 0.015` — ошибка `too_short` | В `gl2` плечо `x_2` получалось нулевой или отрицательной длины |
+| 2026-10-09 | `pl_ugol_90_1` | Сверка `20`, `32`, `63` с `gl2` ([снимок](img/pl-ugol-90-gl2-vs-stand.png), серый фон): геометрия и скругление совпадают; габариты `pl_ugol_90_1` в `gl2` и стенде равны | На белом фоне светлые грани белого пластика сливаются с фоном — сверять на сером |
 | 2026-10-09 | `st_mufta_1` | Сверка `1/2×1/2`, `2×2`, `1/2×3/8`, `2×1` с `gl2` ([снимок](img/st-mufta-gl2-vs-stand.png)): геометрия, кольца и резьба совпадают; в стенде деталь темнее и без блика, резьба менее контрастна | Свет стенда — как в редакторе, а не в `gl2`; управление цветом. Вид согласовать с редактором (п. 10) |

@@ -102,7 +102,8 @@ export class ModelInspector {
 
         const element = document.createElement('div');
         element.className = 'connector-label';
-        element.textContent = `${connector.id} · ${connector.nominal} (${connector.gender === 'internal' ? 'в' : 'н'})`;
+        const kind = connector.joint === 'thread' ? (connector.gender === 'internal' ? 'в' : 'н') : 'пайка';
+        element.textContent = `${connector.id} · ${connector.nominal} (${kind})`;
         const label = new CSS2DObject(element);
         label.position.set(0, length * 1.15, 0);
         arrow.add(label);
