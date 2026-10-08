@@ -12,12 +12,15 @@ import {
   WebGLRenderer,
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 
 /** Сцена просмотра. Свет и камера повторяют настройки src-heating. */
 export class Viewer {
   readonly scene = new Scene();
   readonly camera = new PerspectiveCamera(75, 1, 0.001, 100);
   readonly renderer: WebGLRenderer;
+  /** Подписи HTML поверх канваса (ID и номиналы разъёмов). */
+  readonly labelRenderer = new CSS2DRenderer();
   readonly controls: OrbitControls;
   readonly grid: GridHelper;
   readonly axes: AxesHelper;
@@ -31,6 +34,8 @@ export class Viewer {
     this.renderer = new WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(this.renderer.domElement);
+    this.labelRenderer.domElement.classList.add('labels');
+    container.appendChild(this.labelRenderer.domElement);
 
     this.scene.background = new Color(0xffffff);
     this.scene.add(new AmbientLight(0xffffff, 0.5 * Math.PI));
@@ -57,6 +62,7 @@ export class Viewer {
     this.renderer.setAnimationLoop(() => {
       this.controls.update();
       this.renderer.render(this.scene, this.camera);
+      this.labelRenderer.render(this.scene, this.camera);
     });
   }
 
@@ -80,6 +86,7 @@ export class Viewer {
     this.controls.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();
+    this.labelRenderer.domElement.remove();
   }
 
   private resize(): void {
@@ -90,5 +97,6 @@ export class Viewer {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
+    this.labelRenderer.setSize(width, height);
   }
 }

@@ -1,8 +1,7 @@
 # heating-catalog-stand
 
 Независимый стенд для переноса и проверки параметрических моделей отопления
-из старого проекта `3d-stroyka/gl2`. План первого шага —
-`skeleton-wf/docs/heating/heating-generator-stand-mvp.md`.
+из старого проекта `3d-stroyka/gl2`. План работы — `docs/development-plan.md`.
 
 Не требует OpenServer, PHP или БД и не импортирует код соседних проектов.
 
@@ -35,5 +34,6 @@ npm run build      # проверка типов и сборка в dist/
 
 ## Источники ресурсов
 
-Текстуры будут копироваться в `public/textures/` из `3d-stroyka/gl2/img`
-с указанием исходного файла здесь.
+| Файл | Источник |
+| --- | --- |
+| `public/textures/rezba_1.png` | `3d-stroyka/gl2/img/obj/rezba_1.png` — текстура резьбы (материал `thread`) |
