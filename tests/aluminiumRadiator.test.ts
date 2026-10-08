@@ -1,0 +1,118 @@
+import { Mesh } from 'three';
+import { describe, expect, it } from 'vitest';
+import { AluminiumRadiatorGenerator, GeneratorParamsError, MaterialLibrary } from '../src/lib/index';
+import type { AluminiumRadiatorParams } from '../src/lib/index';
+
+// Наборы al_radiator_1 из gl2/createObj/start.js: 6 высот × 1…10 секций.
+const PRESETS: AluminiumRadiatorParams[] = [0.2, 0.35, 0.5, 0.6, 0.7, 0.8].flatMap((y) =>
+  Array.from({ length: 10 }, (_, i) => ({ count: i + 1, size: { x: 0.08, y, z: 0.08 }, r1: '1' })),
+);
+
+/**
+ * Ожидаемые размеры по формулам al_radiator_1, независимо от генератора.
+ * Для '1': d = 33.5 мм, коллектор n = 1.2 × d. Значения для 1×200, 3×500 и 10×800
+ * дополнительно сверены с моделью, построенной в gl2 (9 октября 2026).
+ */
+function expected({ count, size }: AluminiumRadiatorParams) {
+  const n = 0.0335 * 1.2;
+  const step = size.x + 0.002; // ширина секции: резьбовые участки выступают на 1 мм с каждой стороны
+  const x2 = (size.x - 0.04) / 2 + 0.001;
+  const connectorX = 0.02 + x2 / 2 + 0.007;
+  return {
+    step,
+    min: [-step / 2, -size.y / 2 - 0.025, -(n / 2 + 0.025)],
+    max: [step / 2 + step * (count - 1), size.y / 2 + 0.03, n / 2 + 0.025 + 0.003],
+    leftX: -connectorX,
+    rightX: connectorX + step * (count - 1),
+  };
+}
+
+const generator = new AluminiumRadiatorGenerator(new MaterialLibrary());
+
+describe.each(PRESETS)('радиатор $count шт., h = $size.y', (params) => {
+  const exp = expected(params);
+
+  it('секции — меши с общей геометрией, буферы согласованы', () => {
+    expect(generator.validate(params)).toEqual([]);
+    const model = generator.build(params);
+    const sections = model.root.children;
+    expect(sections).toHaveLength(params.count);
+
+    const geometry = (sections[0] as Mesh).geometry;
+    sections.forEach((section, i) => {
+      expect(section).toBeInstanceOf(Mesh);
+      expect((section as Mesh).geometry).toBe(geometry);
+      expect(section.position.x).toBeCloseTo(exp.step * i, 6);
+    });
+
+    const position = geometry.getAttribute('position');
+    expect(geometry.index).toBeNull();
+    // В gl2 у секции 2036 треугольников.
+    expect(position.count / 3).toBe(2036);
+    for (const name of ['position', 'normal', 'uv']) {
+      const attribute = geometry.getAttribute(name);
+      expect(attribute.count).toBe(position.count);
+      expect(Array.from(attribute.array).every(Number.isFinite)).toBe(true);
+    }
+    expect(geometry.groups.map((group) => group.materialIndex)).toEqual([0, 1]);
+    model.dispose();
+  });
+
+  it('габариты', () => {
+    const model = generator.build(params);
+    expect(model.bounds.min.toArray().map((v, i) => v - exp.min[i]).every((d) => Math.abs(d) < 1e-6)).toBe(true);
+    expect(model.bounds.max.toArray().map((v, i) => v - exp.max[i]).every((d) => Math.abs(d) < 1e-6)).toBe(true);
+    model.dispose();
+  });
+
+  it('четыре разъёма по углам', () => {
+    const model = generator.build(params);
+    const h = params.size.y / 2;
+    const common = { nominal: '1', joint: 'thread', gender: 'internal' };
+    const byId = Object.fromEntries(model.connectors.map((c) => [c.id, c]));
+
+    expect(Object.keys(byId).sort()).toEqual(['bottom-left', 'bottom-right', 'top-left', 'top-right']);
+    for (const [id, x, y, dx] of [
+      ['bottom-left', exp.leftX, -h, -1],
+      ['top-left', exp.leftX, h, -1],
+      ['top-right', exp.rightX, h, 1],
+      ['bottom-right', exp.rightX, -h, 1],
+    ] as const) {
+      expect(byId[id]).toMatchObject({ direction: { x: dx, y: 0, z: 0 }, ...common });
+      expect(byId[id].position.x).toBeCloseTo(x, 6);
+      expect(byId[id].position.y).toBeCloseTo(y, 9);
+      expect(byId[id].position.z).toBe(0);
+    }
+    model.dispose();
+  });
+});
+
+describe('радиатор: параметры и ресурсы', () => {
+  const base: AluminiumRadiatorParams = { count: 3, size: { x: 0.08, y: 0.5, z: 0.08 }, r1: '1' };
+  const codes = (patch: Partial<AluminiumRadiatorParams>) =>
+    generator.validate({ ...base, ...patch }).map(({ code, param }) => `${code}:${param}`);
+
+  it('ошибки параметров', () => {
+    expect(codes({ count: 0 })).toEqual(['out_of_range:count']);
+    expect(codes({ count: 11 })).toEqual(['out_of_range:count']);
+    expect(codes({ count: 2.5 })).toEqual(['out_of_range:count']);
+    expect(codes({ r1: '7/8' })).toEqual(['unknown_nominal:r1']);
+    expect(codes({ size: { x: 0.04, y: 0.5, z: 0.08 } })).toEqual(['too_short:size.x']);
+    expect(codes({ size: { x: 0.08, y: 0.05, z: 0.08 } })).toEqual(['too_short:size.y']);
+    expect(() => generator.build({ ...base, count: 0 })).toThrow(GeneratorParamsError);
+  });
+
+  it('название как в gl2', () => {
+    expect(generator.build(base).root.name).toBe('Ал.радиатор h500 (3шт.)');
+  });
+
+  it('общая геометрия освобождается один раз, повторный dispose безопасен', () => {
+    const model = generator.build(base);
+    let disposals = 0;
+    (model.root.children[0] as Mesh).geometry.addEventListener('dispose', () => disposals++);
+
+    model.dispose();
+    model.dispose();
+    expect(disposals).toBe(1);
+  });
+});

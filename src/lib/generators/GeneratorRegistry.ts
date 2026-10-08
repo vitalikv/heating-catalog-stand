@@ -1,5 +1,6 @@
 import type { ModelGenerator } from '../contracts';
 import type { MaterialLibrary } from '../materials/MaterialLibrary';
+import { AluminiumRadiatorGenerator } from './AluminiumRadiatorGenerator';
 import { PpElbowGenerator } from './PpElbowGenerator';
 import { SteelCouplingGenerator } from './SteelCouplingGenerator';
 
@@ -12,7 +13,11 @@ export class GeneratorRegistry {
   private readonly generators: ReadonlyMap<string, ModelGenerator<unknown>>;
 
   constructor(materials: MaterialLibrary) {
-    const list: ModelGenerator<unknown>[] = [new SteelCouplingGenerator(materials), new PpElbowGenerator(materials)];
+    const list: ModelGenerator<unknown>[] = [
+      new SteelCouplingGenerator(materials),
+      new PpElbowGenerator(materials),
+      new AluminiumRadiatorGenerator(materials),
+    ];
     this.generators = new Map(list.map((generator) => [generator.id, generator]));
   }
 

@@ -1,12 +1,15 @@
 import { PpPipeSizes, ThreadSizes } from '../lib/index';
 
-export type ParamValue = string | number;
-export type StandParams = Record<string, ParamValue>;
+export type StandParams = Record<string, unknown>;
 
-/** Поле панели. Длины хранятся в метрах, а в панели показываются в миллиметрах. */
+/**
+ * Поле панели; key — путь в параметрах, например 'size.y'.
+ * Длины хранятся в метрах, а в панели показываются в миллиметрах.
+ */
 export type ParamField =
   | { key: string; label: string; kind: 'choice'; options: readonly string[] }
-  | { key: string; label: string; kind: 'length'; min: number; max: number; step: number };
+  | { key: string; label: string; kind: 'length'; min: number; max: number; step: number }
+  | { key: string; label: string; kind: 'integer'; min: number; max: number };
 
 export interface Preset {
   label: string;
@@ -50,6 +53,10 @@ const PP_ELBOWS: [string, number][] = [
   ['63', 0.06],
 ];
 
+/** Высоты al_radiator_1 из gl2/createObj/start.js; там count = 1…10 для каждой. */
+const AL_RADIATOR_HEIGHTS = [0.2, 0.35, 0.5, 0.6, 0.7, 0.8];
+const AL_RADIATOR_COUNTS = [1, 5, 10];
+
 const mm = (meters: number) => Math.round(meters * 10000) / 10;
 
 export const STAND_PRESETS: GeneratorPresets[] = [
@@ -72,5 +79,20 @@ export const STAND_PRESETS: GeneratorPresets[] = [
       { key: 'm1', label: 'Длина плеча, мм', kind: 'length', min: 1, max: 200, step: 0.5 },
     ],
     presets: PP_ELBOWS.map(([r1, m1]) => ({ label: `${r1}, ${mm(m1)} мм`, params: { r1, m1 } })),
+  },
+  {
+    generatorId: 'al_radiator_1',
+    fields: [
+      { key: 'count', label: 'Секций', kind: 'integer', min: 1, max: 10 },
+      { key: 'size.y', label: 'Высота, мм', kind: 'length', min: 100, max: 1000, step: 5 },
+      { key: 'size.x', label: 'Ширина секции, мм', kind: 'length', min: 41, max: 120, step: 1 },
+      { key: 'r1', label: 'Резьба', kind: 'choice', options: ThreadSizes.nominals },
+    ],
+    presets: AL_RADIATOR_HEIGHTS.flatMap((y) =>
+      AL_RADIATOR_COUNTS.map((count) => ({
+        label: `h${mm(y)}, ${count} шт.`,
+        params: { count, size: { x: 0.08, y, z: 0.08 }, r1: '1' },
+      })),
+    ),
   },
 ];

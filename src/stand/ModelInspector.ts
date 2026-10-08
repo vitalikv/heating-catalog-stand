@@ -97,7 +97,8 @@ export class ModelInspector {
       for (const connector of model.connectors) {
         const origin = new Vector3().copy(connector.position).applyMatrix4(model.root.matrixWorld);
         const direction = new Vector3().copy(connector.direction).normalize();
-        const length = scale * 0.6;
+        // От габарита, но не длиннее 6 см: у радиатора иначе стрелки на полметра.
+        const length = Math.min(scale * 0.6, 0.06);
         const arrow = new ArrowHelper(direction, origin, length, 0x18a058, length * 0.25, length * 0.12);
 
         const element = document.createElement('div');

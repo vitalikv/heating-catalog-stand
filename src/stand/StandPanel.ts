@@ -54,8 +54,8 @@ export class StandPanel {
     const preset = this.entry.presets[this.state.preset];
     this.ui = {};
     for (const field of this.entry.fields) {
-      const value = preset.params[field.key];
-      this.ui[field.key] = field.kind === 'length' ? Math.round(Number(value) * 1e6) / 1000 : value;
+      const value = getPath(preset.params, field.key);
+      this.ui[field.key] = field.kind === 'length' ? Math.round(Number(value) * 1e6) / 1000 : (value as string | number);
     }
     this.rebuildParamsFolder();
     this.emit(reframe);
@@ -69,17 +69,34 @@ export class StandPanel {
       const controller =
         field.kind === 'choice'
           ? this.paramsFolder.add(this.ui, field.key, [...field.options])
-          : this.paramsFolder.add(this.ui, field.key, field.min, field.max, field.step);
+          : this.paramsFolder.add(this.ui, field.key, field.min, field.max, field.kind === 'integer' ? 1 : field.step);
       controller.name(field.label).onChange(() => this.emit(false));
     }
   }
 
   private emit(reframe: boolean): void {
-    const params: StandParams = {};
+    // Поля, которых нет в панели (например, size.z), берутся из набора.
+    const params = structuredClone(this.entry.presets[this.state.preset].params);
     for (const field of this.entry.fields) {
       const value = this.ui[field.key];
-      params[field.key] = field.kind === 'length' ? Number(value) / 1000 : value;
+      setPath(params, field.key, field.kind === 'length' ? Number(value) / 1000 : value);
     }
     this.onChange(this.state.generator, params, reframe);
   }
+}
+
+/** Значение по пути вида 'size.y'. */
+function getPath(source: StandParams, path: string): unknown {
+  return path.split('.').reduce<unknown>((value, key) => (value as Record<string, unknown> | undefined)?.[key], source);
+}
+
+function setPath(target: StandParams, path: string, value: unknown): void {
+  const keys = path.split('.');
+  const last = keys.pop()!;
+  let node: Record<string, unknown> = target;
+  for (const key of keys) {
+    if (typeof node[key] !== 'object' || node[key] === null) node[key] = {};
+    node = node[key] as Record<string, unknown>;
+  }
+  node[last] = value;
 }
