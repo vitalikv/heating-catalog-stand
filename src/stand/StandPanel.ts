@@ -1,34 +1,50 @@
 import type GUI from 'lil-gui';
 import type { Controller } from 'lil-gui';
+import { ParamSchema } from '../lib/index';
+import type { ModelGenerator, ParamSpec } from '../lib/index';
 import type { GeneratorPresets, StandParams } from './presets';
 
 /** Вызывается при каждом изменении; reframe — сменилась модель, а не только параметр. */
 export type PanelChangeHandler = (generatorId: string, params: StandParams, reframe: boolean) => void;
 
+/** Генератор и его наборы на стенде. */
+interface PanelEntry {
+  generator: ModelGenerator<unknown>;
+  presets: GeneratorPresets['presets'];
+}
+
 /**
  * Папка «Модель»: выбор генератора и набора, ручная правка параметров, сброс.
- * Длины показываются в миллиметрах, наружу отдаются в метрах.
+ * Поля строятся по paramSpecs генератора. Длины показываются в миллиметрах,
+ * наружу отдаются в метрах.
  */
 export class StandPanel {
   private readonly folder: GUI;
+  private readonly entries: PanelEntry[];
   private readonly state = { generator: '', preset: 0 };
   private presetController: Controller;
   private paramsFolder: GUI;
-  /** Значения полей в единицах панели (мм для длин). */
+  /** Значения полей в единицах панели (мм для длин), по ключу ParamSpec.key. */
   private ui: Record<string, string | number> = {};
+  private controls = new Map<ParamSpec, Controller>();
 
   constructor(
     gui: GUI,
-    private readonly catalog: GeneratorPresets[],
-    titles: ReadonlyMap<string, string>,
+    generators: readonly ModelGenerator<unknown>[],
+    catalog: readonly GeneratorPresets[],
     private readonly onChange: PanelChangeHandler,
   ) {
-    if (catalog.length === 0) throw new Error('StandPanel: нет наборов параметров');
-    this.state.generator = catalog[0].generatorId;
+    // На стенде только генераторы, для которых есть наборы.
+    this.entries = generators.flatMap((generator) => {
+      const presets = catalog.find((entry) => entry.generatorId === generator.id)?.presets ?? [];
+      return presets.length > 0 ? [{ generator, presets }] : [];
+    });
+    if (this.entries.length === 0) throw new Error('StandPanel: нет генераторов с наборами параметров');
+    this.state.generator = this.entries[0].generator.id;
 
     this.folder = gui.addFolder('Модель');
-    const generators = Object.fromEntries(catalog.map((entry) => [titles.get(entry.generatorId) ?? entry.generatorId, entry.generatorId]));
-    this.folder.add(this.state, 'generator', generators).name('Генератор').onChange(() => this.selectGenerator());
+    const options = Object.fromEntries(this.entries.map(({ generator }) => [generator.title, generator.id]));
+    this.folder.add(this.state, 'generator', options).name('Генератор').onChange(() => this.selectGenerator());
     this.presetController = this.folder.add(this.state, 'preset', {}).name('Набор');
     this.folder.add({ reset: () => this.applyPreset(true) }, 'reset').name('Сбросить к набору');
     this.paramsFolder = this.folder.addFolder('Параметры');
@@ -36,8 +52,18 @@ export class StandPanel {
     this.selectGenerator();
   }
 
-  private get entry(): GeneratorPresets {
-    return this.catalog.find((entry) => entry.generatorId === this.state.generator) ?? this.catalog[0];
+  /** Скрывает папку на время режима сборки. */
+  setVisible(visible: boolean): void {
+    this.folder.show(visible);
+  }
+
+  /** Повторно отдаёт текущие параметры (возврат из режима сборки). */
+  refresh(): void {
+    this.emit(true);
+  }
+
+  private get entry(): PanelEntry {
+    return this.entries.find((entry) => entry.generator.id === this.state.generator) ?? this.entries[0];
   }
 
   private selectGenerator(): void {
@@ -53,9 +79,12 @@ export class StandPanel {
   private applyPreset(reframe: boolean): void {
     const preset = this.entry.presets[this.state.preset];
     this.ui = {};
-    for (const field of this.entry.fields) {
-      const value = getPath(preset.params, field.key);
-      this.ui[field.key] = field.kind === 'length' ? Math.round(Number(value) * 1e6) / 1000 : (value as string | number);
+    for (const spec of this.entry.generator.paramSpecs) {
+      const value = ParamSchema.get(preset.params, spec.key);
+      if (spec.kind === 'length') this.ui[spec.key] = toMm(Number(value));
+      // Неактивный в наборе выбор (r2: 0 у заглушки) — первый вариант, чтобы его можно было включить.
+      else if (spec.kind === 'choice') this.ui[spec.key] = spec.options.includes(String(value)) ? String(value) : spec.options[0];
+      else this.ui[spec.key] = value as number;
     }
     this.rebuildParamsFolder();
     this.emit(reframe);
@@ -65,38 +94,44 @@ export class StandPanel {
     this.paramsFolder.destroy();
     this.paramsFolder = this.folder.addFolder('Параметры');
 
-    for (const field of this.entry.fields) {
-      const controller =
-        field.kind === 'choice'
-          ? this.paramsFolder.add(this.ui, field.key, [...field.options])
-          : this.paramsFolder.add(this.ui, field.key, field.min, field.max, field.kind === 'integer' ? 1 : field.step);
-      controller.name(field.label).onChange(() => this.emit(false));
+    this.controls = new Map();
+    for (const spec of this.entry.generator.paramSpecs) {
+      this.controls.set(spec, this.addControl(spec).onChange(() => this.emit(false)));
+    }
+  }
+
+  private addControl(spec: ParamSpec): Controller {
+    switch (spec.kind) {
+      case 'choice': {
+        const options = Object.fromEntries(spec.options.map((option) => [spec.optionLabels?.[option] ?? option, option]));
+        return this.paramsFolder.add(this.ui, spec.key, options).name(spec.label);
+      }
+      case 'integer':
+        return this.paramsFolder.add(this.ui, spec.key, spec.min, spec.max, 1).name(spec.label);
+      case 'length':
+        return this.paramsFolder.add(this.ui, spec.key, toMm(spec.min), toMm(spec.max), toMm(spec.step)).name(`${spec.label}, мм`);
     }
   }
 
   private emit(reframe: boolean): void {
-    // Поля, которых нет в панели (например, size.z), берутся из набора.
+    // Параметры вне схемы (например, size.z радиатора) берутся из набора.
     const params = structuredClone(this.entry.presets[this.state.preset].params);
-    for (const field of this.entry.fields) {
-      const value = this.ui[field.key];
-      setPath(params, field.key, field.kind === 'length' ? Number(value) / 1000 : value);
+    for (const spec of this.entry.generator.paramSpecs) {
+      const value = this.ui[spec.key];
+      ParamSchema.set(params, spec.key, spec.kind === 'length' ? Number(value) / 1000 : value);
+    }
+    // Поля с условием when: неактивные скрыты и остаются как в наборе.
+    const preset = this.entry.presets[this.state.preset].params;
+    for (const [spec, control] of this.controls) {
+      const active = ParamSchema.isActive(spec, params);
+      control.show(active);
+      if (!active) ParamSchema.set(params, spec.key, ParamSchema.get(preset, spec.key));
     }
     this.onChange(this.state.generator, params, reframe);
   }
 }
 
-/** Значение по пути вида 'size.y'. */
-function getPath(source: StandParams, path: string): unknown {
-  return path.split('.').reduce<unknown>((value, key) => (value as Record<string, unknown> | undefined)?.[key], source);
-}
-
-function setPath(target: StandParams, path: string, value: unknown): void {
-  const keys = path.split('.');
-  const last = keys.pop()!;
-  let node: Record<string, unknown> = target;
-  for (const key of keys) {
-    if (typeof node[key] !== 'object' || node[key] === null) node[key] = {};
-    node = node[key] as Record<string, unknown>;
-  }
-  node[last] = value;
+/** Метры → миллиметры без хвостов float: 0.033 → 33. */
+function toMm(meters: number): number {
+  return Math.round(meters * 1e6) / 1000;
 }

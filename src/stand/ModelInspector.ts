@@ -1,6 +1,8 @@
 import {
   ArrowHelper,
+  Box3,
   Box3Helper,
+  BufferGeometry,
   Color,
   DoubleSide,
   Group,
@@ -27,34 +29,52 @@ export interface InspectorOptions {
 
 /**
  * Диагностические оверлеи поверх модели: каркас, нормали, габарит,
- * нейтральный материал и стрелки разъёмов с подписями.
+ * нейтральный материал, стрелки разъёмов с подписями и глубиной ввода.
  * Материалы и геометрию модели не меняет — только подменяет материал меша.
  */
 export class ModelInspector {
-  readonly options: InspectorOptions = {
-    wireframe: false,
-    normals: false,
-    bounds: false,
-    neutral: false,
-    connectors: true,
-  };
+  static defaultOptions(): InspectorOptions {
+    return { wireframe: false, normals: false, bounds: false, neutral: false, connectors: true };
+  }
 
   private readonly overlays = new Group();
   private readonly neutralMaterial = new MeshStandardMaterial({ color: 0xb0b0b0, side: DoubleSide });
   private readonly wireMaterial = new LineBasicMaterial({ color: new Color(0x1f5fbf) });
+  /** Глубина ввода разъёма: видна сквозь деталь. */
+  private readonly depthMaterial = new LineBasicMaterial({ color: new Color(0xe0560b), depthTest: false });
   private readonly originalMaterials = new Map<Mesh, Material | Material[]>();
   private model: GeneratedModel | null = null;
+  /** Разъёмы, которые не рисуются: в сборке — уже состыкованные. */
+  private hidden: ReadonlySet<string> = new Set();
 
-  constructor(parent: Object3D) {
+  /** options можно разделить между несколькими инспекторами (детали сборки). */
+  constructor(
+    parent: Object3D,
+    readonly options: InspectorOptions = ModelInspector.defaultOptions(),
+  ) {
     this.overlays.name = 'inspector';
     parent.add(this.overlays);
   }
 
   /** Показывает оверлеи для модели; null — убирает их. */
-  attach(model: GeneratedModel | null): void {
+  attach(model: GeneratedModel | null, hiddenConnectors: ReadonlySet<string> = new Set()): void {
+    this.hidden = hiddenConnectors;
     this.restoreMaterials();
     this.model = model;
     this.update();
+  }
+
+  /** Габарит модели вместе с оверлеями (стрелки разъёмов); подписи учитываются запасом. */
+  framingBox(): Box3 {
+    const box = this.model ? this.model.bounds.clone().applyMatrix4(this.model.root.matrixWorld) : new Box3();
+    for (const overlay of this.overlays.children) {
+      if (overlay instanceof ArrowHelper) {
+        // Остриё стрелки — cone.position.y; подпись стоит выше него на 15 % длины.
+        overlay.updateMatrixWorld(true);
+        box.expandByPoint(overlay.localToWorld(new Vector3(0, overlay.cone.position.y * 1.3, 0)));
+      }
+    }
+    return box;
   }
 
   /** Перестраивает оверлеи после изменения options. */
@@ -66,6 +86,8 @@ export class ModelInspector {
 
     model.root.updateMatrixWorld(true);
     const meshes = this.meshesOf(model.root);
+    // bounds и разъёмы модели — в её локальных координатах; деталь сборки может стоять со сдвигом и поворотом.
+    const worldBounds = model.bounds.clone().applyMatrix4(model.root.matrixWorld);
     const size = model.bounds.getSize(new Vector3());
     const scale = Math.max(size.x, size.y, size.z);
 
@@ -90,26 +112,34 @@ export class ModelInspector {
     }
 
     if (this.options.bounds) {
-      this.overlays.add(new Box3Helper(model.bounds.clone(), 0xe08000));
+      this.overlays.add(new Box3Helper(worldBounds, 0xe08000));
     }
 
     if (this.options.connectors) {
       for (const connector of model.connectors) {
+        if (this.hidden.has(connector.id)) continue;
         const origin = new Vector3().copy(connector.position).applyMatrix4(model.root.matrixWorld);
-        const direction = new Vector3().copy(connector.direction).normalize();
+        const direction = new Vector3().copy(connector.direction).transformDirection(model.root.matrixWorld);
         // От габарита, но не длиннее 6 см: у радиатора иначе стрелки на полметра.
         const length = Math.min(scale * 0.6, 0.06);
         const arrow = new ArrowHelper(direction, origin, length, 0x18a058, length * 0.25, length * 0.12);
 
         const element = document.createElement('div');
         element.className = 'connector-label';
-        const kind = connector.joint === 'thread' ? (connector.gender === 'internal' ? 'в' : 'н') : 'пайка';
+        const gender = connector.gender === 'internal' ? 'в' : 'н';
+        const kind = { thread: gender, 'radiator-thread': `рад. ${gender}`, 'pp-socket': 'пайка' }[connector.joint];
         element.textContent = `${connector.id} · ${connector.nominal} (${kind})`;
         const label = new CSS2DObject(element);
         label.position.set(0, length * 1.15, 0);
         arrow.add(label);
 
         this.overlays.add(arrow);
+
+        // Отрезок от торца внутрь на глубину ввода ответной детали.
+        const end = origin.clone().addScaledVector(direction, -connector.depth);
+        const depth = new LineSegments(new BufferGeometry().setFromPoints([origin, end]), this.depthMaterial);
+        depth.renderOrder = 1;
+        this.overlays.add(depth);
       }
     }
   }
@@ -119,6 +149,7 @@ export class ModelInspector {
     this.overlays.removeFromParent();
     this.neutralMaterial.dispose();
     this.wireMaterial.dispose();
+    this.depthMaterial.dispose();
   }
 
   private meshesOf(root: Object3D): Mesh[] {
@@ -143,7 +174,7 @@ export class ModelInspector {
       if (overlay instanceof ArrowHelper || overlay instanceof Box3Helper || overlay instanceof VertexNormalsHelper) {
         overlay.dispose();
       } else if (overlay instanceof LineSegments) {
-        // Каркас: своя геометрия, общий wireMaterial.
+        // Каркас и глубина разъёма: своя геометрия, общий материал.
         overlay.geometry.dispose();
       }
       overlay.removeFromParent();

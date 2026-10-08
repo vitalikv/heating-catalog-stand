@@ -2,7 +2,9 @@ import type { ModelGenerator } from '../contracts';
 import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { AluminiumRadiatorGenerator } from './AluminiumRadiatorGenerator';
 import { PpElbowGenerator } from './PpElbowGenerator';
+import { RadiatorPlugGenerator } from './RadiatorPlugGenerator';
 import { SteelCouplingGenerator } from './SteelCouplingGenerator';
+import { SteelNippleGenerator } from './SteelNippleGenerator';
 
 /**
  * Явный список генераторов вместо window[funcName] из gl2.
@@ -15,8 +17,10 @@ export class GeneratorRegistry {
   constructor(materials: MaterialLibrary) {
     const list: ModelGenerator<unknown>[] = [
       new SteelCouplingGenerator(materials),
+      new SteelNippleGenerator(materials),
       new PpElbowGenerator(materials),
       new AluminiumRadiatorGenerator(materials),
+      new RadiatorPlugGenerator(materials),
     ];
     this.generators = new Map(list.map((generator) => [generator.id, generator]));
   }

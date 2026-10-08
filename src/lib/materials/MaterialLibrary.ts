@@ -1,9 +1,9 @@
 import { Color, DoubleSide, MathUtils, MeshPhongMaterial, RepeatWrapping, SRGBColorSpace } from 'three';
 import type { Material, Texture } from 'three';
 
-export type MaterialKey = 'metal' | 'thread' | 'plastic';
+export type MaterialKey = 'metal' | 'thread' | 'plastic' | 'plasticFlat';
 
-// Источник: gl2/sceneParams.js, metal_1, rezba_1 и white_1. lightMap_1 не переносится.
+// Источник: gl2/sceneParams.js, metal_1, rezba_1, white_1 и white_1_edge. lightMap_1 не переносится.
 const METAL_COLOR = 0xc1c6c9;
 const METAL_SPECULAR = 0xa3a3a3;
 const METAL_SHININESS = 100;
@@ -25,7 +25,10 @@ export class MaterialLibrary {
   private threadTexture: Texture | null = null;
 
   constructor(threadTexture: Texture | null = null) {
-    this.materials = { metal: this.createMetal(), thread: this.createMetal(), plastic: this.createPlastic() };
+    const plasticFlat = this.createPlastic();
+    // white_1_edge: тот же пластик с плоским затенением — для граней гаек.
+    plasticFlat.flatShading = true;
+    this.materials = { metal: this.createMetal(), thread: this.createMetal(), plastic: this.createPlastic(), plasticFlat };
     this.setThreadTexture(threadTexture);
   }
 

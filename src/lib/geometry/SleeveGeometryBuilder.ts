@@ -54,10 +54,14 @@ export class SleeveGeometryBuilder {
 
     const parts: GeometryPart[] = [
       { geometry: this.tube(outerEnd, outerStart, options.length, outerSegments), materialIndex: materials.outer },
-      { geometry: this.tube(innerEnd, innerStart, options.length, innerSegments), materialIndex: materials.inner },
       { geometry: this.ring(outerStart, innerStart, outerSegments, innerSegments, -half), materialIndex: materials.start },
       { geometry: this.ring(outerEnd, innerEnd, outerSegments, innerSegments, half), materialIndex: materials.end },
     ];
+    // Сплошная втулка (внутренний диаметр 0) — без внутреннего цилиндра. В gl2 здесь
+    // получался вырожденный цилиндр и отверстие из NaN (crCircle_2 с radius_vn = {}).
+    if (innerEnd > 0 || innerStart > 0) {
+      parts.splice(1, 0, { geometry: this.tube(innerEnd, innerStart, options.length, innerSegments), materialIndex: materials.inner });
+    }
 
     const rotation = options.rotation ?? { x: 0, y: 0, z: 0 };
     const { x, y, z } = options.center ?? { x: 0, y: 0, z: 0 };

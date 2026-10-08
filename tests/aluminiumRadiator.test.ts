@@ -17,13 +17,15 @@ function expected({ count, size }: AluminiumRadiatorParams) {
   const n = 0.0335 * 1.2;
   const step = size.x + 0.002; // ширина секции: резьбовые участки выступают на 1 мм с каждой стороны
   const x2 = (size.x - 0.04) / 2 + 0.001;
-  const connectorX = 0.02 + x2 / 2 + 0.007;
+  // Торец коллектора — край секции, глубина — резьбовой участок x_2.
+  const faceX = 0.02 + x2;
   return {
+    depth: x2,
     step,
     min: [-step / 2, -size.y / 2 - 0.025, -(n / 2 + 0.025)],
     max: [step / 2 + step * (count - 1), size.y / 2 + 0.03, n / 2 + 0.025 + 0.003],
-    leftX: -connectorX,
-    rightX: connectorX + step * (count - 1),
+    leftX: -faceX,
+    rightX: faceX + step * (count - 1),
   };
 }
 
@@ -65,10 +67,10 @@ describe.each(PRESETS)('радиатор $count шт., h = $size.y', (params) =>
     model.dispose();
   });
 
-  it('четыре разъёма по углам', () => {
+  it('четыре разъёма по углам на торцах коллекторов', () => {
     const model = generator.build(params);
     const h = params.size.y / 2;
-    const common = { nominal: '1', joint: 'thread', gender: 'internal' };
+    const common = { nominal: '1', joint: 'radiator-thread', gender: 'internal' };
     const byId = Object.fromEntries(model.connectors.map((c) => [c.id, c]));
 
     expect(Object.keys(byId).sort()).toEqual(['bottom-left', 'bottom-right', 'top-left', 'top-right']);
@@ -82,6 +84,7 @@ describe.each(PRESETS)('радиатор $count шт., h = $size.y', (params) =>
       expect(byId[id].position.x).toBeCloseTo(x, 6);
       expect(byId[id].position.y).toBeCloseTo(y, 9);
       expect(byId[id].position.z).toBe(0);
+      expect(byId[id].depth).toBeCloseTo(exp.depth, 9);
     }
     model.dispose();
   });
@@ -95,15 +98,15 @@ describe('радиатор: параметры и ресурсы', () => {
   it('ошибки параметров', () => {
     expect(codes({ count: 0 })).toEqual(['out_of_range:count']);
     expect(codes({ count: 11 })).toEqual(['out_of_range:count']);
-    expect(codes({ count: 2.5 })).toEqual(['out_of_range:count']);
-    expect(codes({ r1: '7/8' })).toEqual(['unknown_nominal:r1']);
-    expect(codes({ size: { x: 0.04, y: 0.5, z: 0.08 } })).toEqual(['too_short:size.x']);
-    expect(codes({ size: { x: 0.08, y: 0.05, z: 0.08 } })).toEqual(['too_short:size.y']);
+    expect(codes({ count: 2.5 })).toEqual(['not_integer:count']);
+    expect(codes({ r1: '7/8' })).toEqual(['unknown_option:r1']);
+    expect(codes({ size: { x: 0.04, y: 0.5, z: 0.08 } })).toEqual(['out_of_range:size.x']);
+    expect(codes({ size: { x: 0.08, y: 0.05, z: 0.08 } })).toEqual(['out_of_range:size.y']);
     expect(() => generator.build({ ...base, count: 0 })).toThrow(GeneratorParamsError);
   });
 
   it('название как в gl2', () => {
-    expect(generator.build(base).root.name).toBe('Ал.радиатор h500 (3шт.)');
+    expect(generator.build(base).title).toBe('Ал.радиатор h500 (3шт.)');
   });
 
   it('общая геометрия освобождается один раз, повторный dispose безопасен', () => {

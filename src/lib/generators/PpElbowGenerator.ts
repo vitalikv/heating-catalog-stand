@@ -1,10 +1,11 @@
 import { Box3, Group, Mesh } from 'three';
-import type { Connector, GeneratedModel, ModelGenerator, ValidationError } from '../contracts';
+import type { Connector, GeneratedModel, ModelGenerator, ParamSpec, ValidationError } from '../contracts';
 import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
 import { SphereGeometryBuilder } from '../geometry/SphereGeometryBuilder';
 import type { MaterialLibrary } from '../materials/MaterialLibrary';
+import { ParamSchema } from '../params/ParamSchema';
 import { PpPipeSizes } from '../sizes/PpPipeSizes';
 
 /** Параметры в формате cdm из gl2. */
@@ -25,6 +26,10 @@ const SOCKET_LENGTH = 0.015;
 export class PpElbowGenerator implements ModelGenerator<PpElbowParams> {
   readonly id = 'pl_ugol_90_1';
   readonly title = 'Угол ПП 90°';
+  readonly paramSpecs: readonly ParamSpec[] = [
+    { kind: 'choice', key: 'r1', label: 'Труба, мм', options: PpPipeSizes.nominals },
+    { kind: 'length', key: 'm1', label: 'Длина плеча', min: 0.001, max: 0.2, step: 0.0005 },
+  ];
 
   private readonly sleeves = new SleeveGeometryBuilder();
   private readonly spheres = new SphereGeometryBuilder();
@@ -32,15 +37,9 @@ export class PpElbowGenerator implements ModelGenerator<PpElbowParams> {
   constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: PpElbowParams): ValidationError[] {
-    const errors: ValidationError[] = [];
+    const errors = ParamSchema.validate(this.paramSpecs, params);
 
-    if (!PpPipeSizes.has(params.r1)) {
-      errors.push({ code: 'unknown_nominal', param: 'r1', message: `Неизвестный диаметр ПП-трубы r1: '${params.r1}'` });
-    }
-
-    if (!Number.isFinite(params.m1) || params.m1 <= 0) {
-      errors.push({ code: 'not_positive', param: 'm1', message: `Длина m1 должна быть больше нуля: ${params.m1}` });
-    } else if (params.m1 <= SOCKET_LENGTH) {
+    if (errors.length === 0 && params.m1 <= SOCKET_LENGTH) {
       // Плечо до раструба (x_2 в gl2) было бы нулевой или отрицательной длины.
       errors.push({ code: 'too_short', param: 'm1', message: `Длина m1 должна быть больше ${SOCKET_LENGTH * 1000} мм` });
     }
@@ -76,20 +75,22 @@ export class PpElbowGenerator implements ModelGenerator<PpElbowParams> {
 
     const mesh = new Mesh(geometry, [this.materials.get('plastic')]);
     const root = new Group();
-    root.name = `Угол ${params.r1}`;
+    const title = `Угол ${params.r1}`;
+    root.name = title;
     root.add(mesh);
 
-    // Разъёмы в центре раструбов, как cr_CenterPoint в gl2. ID — по стороне выхода.
-    const socket = x2 + x1 / 2;
-    const common = { nominal: params.r1, joint: 'pp-socket', gender: 'internal' } as const;
+    // Торец раструба — конец плеча m1, глубина — длина раструба x_1.
+    // В gl2 точка разъёма стояла в центре раструба. ID — по стороне выхода.
+    const common = { depth: x1, nominal: params.r1, joint: 'pp-socket', gender: 'internal' } as const;
     const connectors: Connector[] = [
-      { id: 'right', position: { x: socket, y: 0, z: 0 }, direction: { x: 1, y: 0, z: 0 }, ...common },
-      { id: 'top', position: { x: 0, y: socket, z: 0 }, direction: { x: 0, y: 1, z: 0 }, ...common },
+      { id: 'right', position: { x: params.m1, y: 0, z: 0 }, direction: { x: 1, y: 0, z: 0 }, ...common },
+      { id: 'top', position: { x: 0, y: params.m1, z: 0 }, direction: { x: 0, y: 1, z: 0 }, ...common },
     ];
 
     let disposed = false;
     return {
       root,
+      title,
       connectors,
       bounds,
       warnings: [],

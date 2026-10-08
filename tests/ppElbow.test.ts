@@ -19,8 +19,7 @@ const WALL_MM: Record<string, number> = { '20': 4.2, '25': 5.4, '32': 6.7, '40':
 /** Ожидаемые размеры по формулам pl_ugol_90_1, независимо от генератора. */
 function expected({ r1, m1 }: PpElbowParams) {
   const n = Math.round((Number(r1) + 1.4 * WALL_MM[r1]) * 10) / 10000;
-  const socket = m1 - 0.015 / 2;
-  return { size: new Vector3(m1 + n / 2, m1 + n / 2, n), socket };
+  return { size: new Vector3(m1 + n / 2, m1 + n / 2, n) };
 }
 
 const generator = new PpElbowGenerator(new MaterialLibrary());
@@ -65,16 +64,17 @@ describe.each(PRESETS)('угол ПП $r1, m1 = $m1', (params) => {
     model.dispose();
   });
 
-  it('разъёмы right и top под пайку', () => {
+  it('разъёмы right и top под пайку на торцах плеч', () => {
     const model = generator.build(params);
-    const common = { nominal: params.r1, joint: 'pp-socket', gender: 'internal' };
+    // Глубина — длина раструба x_1 = 15 мм.
+    const common = { depth: 0.015, nominal: params.r1, joint: 'pp-socket', gender: 'internal' };
     expect(model.connectors).toHaveLength(2);
     const [right, top] = model.connectors;
 
     expect(right).toMatchObject({ id: 'right', direction: { x: 1, y: 0, z: 0 }, ...common });
     expect(top).toMatchObject({ id: 'top', direction: { x: 0, y: 1, z: 0 }, ...common });
-    expect(right.position.x).toBeCloseTo(exp.socket, 9);
-    expect(top.position.y).toBeCloseTo(exp.socket, 9);
+    expect(right.position.x).toBeCloseTo(params.m1, 9);
+    expect(top.position.y).toBeCloseTo(params.m1, 9);
     expect([right.position.y, right.position.z, top.position.x, top.position.z]).toEqual([0, 0, 0, 0]);
     model.dispose();
   });
@@ -84,8 +84,8 @@ describe('угол ПП: параметры', () => {
   const codes = (params: PpElbowParams) => generator.validate(params).map(({ code, param }) => `${code}:${param}`);
 
   it('ошибки параметров', () => {
-    expect(codes({ r1: '1/2', m1: 0.026 })).toEqual(['unknown_nominal:r1']);
-    expect(codes({ r1: '20', m1: 0 })).toEqual(['not_positive:m1']);
+    expect(codes({ r1: '1/2', m1: 0.026 })).toEqual(['unknown_option:r1']);
+    expect(codes({ r1: '20', m1: 0 })).toEqual(['out_of_range:m1']);
     expect(codes({ r1: '20', m1: 0.015 })).toEqual(['too_short:m1']);
     expect(codes({ r1: '20', m1: 0.0151 })).toEqual([]);
     expect(() => generator.build({ r1: '20', m1: 0.01 })).toThrow(GeneratorParamsError);
@@ -93,7 +93,7 @@ describe('угол ПП: параметры', () => {
 
   it('название и повторный dispose', () => {
     const model = generator.build(PRESETS[0]);
-    expect(model.root.name).toBe('Угол 20');
+    expect(model.title).toBe('Угол 20');
     model.dispose();
     expect(() => model.dispose()).not.toThrow();
   });

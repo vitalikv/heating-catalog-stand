@@ -1,5 +1,5 @@
 import { Box3, Group, Mesh } from 'three';
-import type { Connector, GeneratedModel, ModelGenerator, ValidationError, Vector3Data } from '../contracts';
+import type { Connector, GeneratedModel, ModelGenerator, ParamSpec, ValidationError, Vector3Data } from '../contracts';
 import { GeneratorParamsError } from '../GeneratorParamsError';
 import { ExtrudedShapeBuilder } from '../geometry/ExtrudedShapeBuilder';
 import type { ExtrudedShapeOptions } from '../geometry/ExtrudedShapeBuilder';
@@ -7,6 +7,7 @@ import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
 import type { SleeveOptions } from '../geometry/SleeveGeometryBuilder';
 import type { MaterialLibrary } from '../materials/MaterialLibrary';
+import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 
 /** Параметры в формате cdm из gl2. */
@@ -19,16 +20,10 @@ export interface AluminiumRadiatorParams {
   r1: string;
 }
 
-const MIN_COUNT = 1;
-const MAX_COUNT = 10;
 /** Ширина центральной части коллектора, м (x_1 в gl2). */
 const COLLECTOR_CENTER = 0.04;
 /** Толщина рёбер, м (t1 в gl2). */
 const FIN = 0.003;
-/** Минимальная высота: ниже неё рёбра у коллекторов перекрываются. */
-const MIN_HEIGHT = 0.1;
-/** Сдвиг разъёмов наружу от центра резьбового участка, м (xk в gl2). */
-const CONNECTOR_SHIFT = 0.007;
 /** В gl2 наружный диаметр коллектора — диаметр резьбы × 1.2. */
 const COLLECTOR_SCALE = 1.2;
 
@@ -38,6 +33,14 @@ const THREAD = 1;
 export class AluminiumRadiatorGenerator implements ModelGenerator<AluminiumRadiatorParams> {
   readonly id = 'al_radiator_1';
   readonly title = 'Радиатор алюминиевый';
+  // count 1…10 — как в каталоге start.js. Ширина больше x_1, иначе нет резьбовых участков;
+  // высота от 100 мм — ниже рёбра у коллекторов перекрываются.
+  readonly paramSpecs: readonly ParamSpec[] = [
+    { kind: 'integer', key: 'count', label: 'Секций', min: 1, max: 10 },
+    { kind: 'length', key: 'size.y', label: 'Высота', min: 0.1, max: 1, step: 0.005 },
+    { kind: 'length', key: 'size.x', label: 'Ширина секции', min: COLLECTOR_CENTER + 0.001, max: 0.12, step: 0.001 },
+    { kind: 'choice', key: 'r1', label: 'Резьба', options: ThreadSizes.nominals },
+  ];
 
   private readonly sleeves = new SleeveGeometryBuilder();
   private readonly shapes = new ExtrudedShapeBuilder();
@@ -45,24 +48,7 @@ export class AluminiumRadiatorGenerator implements ModelGenerator<AluminiumRadia
   constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: AluminiumRadiatorParams): ValidationError[] {
-    const errors: ValidationError[] = [];
-
-    if (!Number.isInteger(params.count) || params.count < MIN_COUNT || params.count > MAX_COUNT) {
-      errors.push({ code: 'out_of_range', param: 'count', message: `Число секций — целое от ${MIN_COUNT} до ${MAX_COUNT}: ${params.count}` });
-    }
-    if (!ThreadSizes.has(params.r1)) {
-      errors.push({ code: 'unknown_nominal', param: 'r1', message: `Неизвестный номинал резьбы r1: '${params.r1}'` });
-    }
-    const width = params.size?.x;
-    if (!Number.isFinite(width) || width <= COLLECTOR_CENTER) {
-      errors.push({ code: 'too_short', param: 'size.x', message: `Ширина секции должна быть больше ${COLLECTOR_CENTER * 1000} мм` });
-    }
-    const height = params.size?.y;
-    if (!Number.isFinite(height) || height < MIN_HEIGHT) {
-      errors.push({ code: 'too_short', param: 'size.y', message: `Высота секции должна быть не меньше ${MIN_HEIGHT * 1000} мм` });
-    }
-
-    return errors;
+    return ParamSchema.validate(this.paramSpecs, params);
   }
 
   build(params: AluminiumRadiatorParams): GeneratedModel {
@@ -75,7 +61,8 @@ export class AluminiumRadiatorGenerator implements ModelGenerator<AluminiumRadia
     const h = params.size.y;
     const x1 = COLLECTOR_CENTER;
     const x2 = (params.size.x - x1) / 2 + 0.001;
-    const threadX = x1 / 2 + x2 / 2;
+    // Торец резьбового участка коллектора — край секции.
+    const threadEnd = x1 / 2 + x2;
 
     const geometry = this.buildSection(params.size.x, h, n, v);
     geometry.computeBoundingBox();
@@ -85,7 +72,8 @@ export class AluminiumRadiatorGenerator implements ModelGenerator<AluminiumRadia
     // Секции — меши с общей геометрией, как в gl2.
     const meshMaterials = [this.materials.get('plastic'), this.materials.get('thread')];
     const root = new Group();
-    root.name = `Ал.радиатор h${Math.round(h * 1000)} (${params.count}шт.)`;
+    const title = `Ал.радиатор h${Math.round(h * 1000)} (${params.count}шт.)`;
+    root.name = title;
     for (let i = 0; i < params.count; i++) {
       const section = new Mesh(geometry, meshMaterials);
       section.position.x = step * i;
@@ -94,10 +82,12 @@ export class AluminiumRadiatorGenerator implements ModelGenerator<AluminiumRadia
     root.updateMatrixWorld(true);
     const bounds = new Box3().setFromObject(root);
 
-    // Разъёмы — у резьбовых участков коллекторов, сдвинуты наружу на xk.
-    const leftX = -threadX - CONNECTOR_SHIFT;
-    const rightX = threadX + step * (params.count - 1) + CONNECTOR_SHIFT;
-    const common = { nominal: params.r1, joint: 'thread', gender: 'internal' } as const;
+    // Разъёмы на торцах коллекторов, глубина — резьбовой участок x_2.
+    // В gl2 точка стояла в центре резьбового участка со сдвигом наружу на 7 мм.
+    const leftX = -threadEnd;
+    const rightX = threadEnd + step * (params.count - 1);
+    // Порты радиатора — своя резьба: подходят только радиаторные переходники и пробки.
+    const common = { depth: x2, nominal: params.r1, joint: 'radiator-thread', gender: 'internal' } as const;
     const left = { x: -1, y: 0, z: 0 };
     const right = { x: 1, y: 0, z: 0 };
     const connectors: Connector[] = [
@@ -110,6 +100,7 @@ export class AluminiumRadiatorGenerator implements ModelGenerator<AluminiumRadia
     let disposed = false;
     return {
       root,
+      title,
       connectors,
       bounds,
       warnings: [],

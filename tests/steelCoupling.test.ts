@@ -43,10 +43,13 @@ function expected({ r1, r2, m1 }: SteelCouplingParams) {
   const x1 = Math.max(0.3 * n1, 0.012);
   const x2 = Math.max(0.3 * n2, 0.012);
   const x4 = Math.max(n1, n2) / 7;
+  // Торец — наружная грань кольца; резьба от него до гладкого участка (m1/2 − x_1).
+  const face = m1 / 2 + x4 / 2;
   return {
     size: new Vector3(m1 + x4, Math.max(n1, n2) + 0.002, Math.max(n1, n2) + 0.002),
-    left: -(m1 / 2 - x1 + x1 / 2),
-    right: m1 / 2 - x2 + x2 / 2,
+    face,
+    leftDepth: face - (m1 / 2 - x1),
+    rightDepth: face - (m1 / 2 - x2),
   };
 }
 
@@ -99,14 +102,18 @@ describe.each(PRESETS)('муфта $r1 × $r2, m1 = $m1', (params) => {
     model.dispose();
   });
 
-  it('разъёмы left и right', () => {
+  it('разъёмы left и right на торцах', () => {
     const model = generator.build(params);
     const [left, right] = model.connectors;
 
     expect(left).toMatchObject({ id: 'left', nominal: params.r1, joint: 'thread', gender: 'internal', direction: { x: -1, y: 0, z: 0 } });
     expect(right).toMatchObject({ id: 'right', nominal: params.r2, joint: 'thread', gender: 'internal', direction: { x: 1, y: 0, z: 0 } });
-    expect(left.position.x).toBeCloseTo(exp.left, 9);
-    expect(right.position.x).toBeCloseTo(exp.right, 9);
+    expect(left.position.x).toBeCloseTo(-exp.face, 9);
+    expect(right.position.x).toBeCloseTo(exp.face, 9);
+    expect(left.depth).toBeCloseTo(exp.leftDepth, 9);
+    expect(right.depth).toBeCloseTo(exp.rightDepth, 9);
+    // Торец лежит на границе габарита.
+    expect(right.position.x).toBeCloseTo(model.bounds.max.x, 6);
     expect([left.position.y, left.position.z, right.position.y, right.position.z]).toEqual([0, 0, 0, 0]);
     model.dispose();
   });
@@ -116,14 +123,15 @@ describe('муфта: параметры и ресурсы', () => {
   const codes = (params: SteelCouplingParams) => generator.validate(params).map(({ code, param }) => `${code}:${param}`);
 
   it('неизвестный номинал', () => {
-    expect(codes({ r1: '7/8', r2: '1/2', m1: 0.03 })).toEqual(['unknown_nominal:r1']);
-    expect(codes({ r1: '1/2', r2: '', m1: 0.03 })).toEqual(['unknown_nominal:r2']);
+    expect(codes({ r1: '7/8', r2: '1/2', m1: 0.03 })).toEqual(['unknown_option:r1']);
+    expect(codes({ r1: '1/2', r2: '', m1: 0.03 })).toEqual(['unknown_option:r2']);
   });
 
-  it('m1 ≤ 0 и не число', () => {
-    expect(codes({ r1: '1/2', r2: '1/2', m1: 0 })).toEqual(['not_positive:m1']);
-    expect(codes({ r1: '1/2', r2: '1/2', m1: -0.03 })).toEqual(['not_positive:m1']);
-    expect(codes({ r1: '1/2', r2: '1/2', m1: Number.NaN })).toEqual(['not_positive:m1']);
+  it('m1 вне диапазона схемы и не число', () => {
+    expect(codes({ r1: '1/2', r2: '1/2', m1: 0 })).toEqual(['out_of_range:m1']);
+    expect(codes({ r1: '1/2', r2: '1/2', m1: -0.03 })).toEqual(['out_of_range:m1']);
+    expect(codes({ r1: '1/2', r2: '1/2', m1: 0.25 })).toEqual(['out_of_range:m1']);
+    expect(codes({ r1: '1/2', r2: '1/2', m1: Number.NaN })).toEqual(['not_a_number:m1']);
   });
 
   it('m1 не больше суммы резьбовых участков', () => {
@@ -145,8 +153,10 @@ describe('муфта: параметры и ресурсы', () => {
   });
 
   it('название как в gl2', () => {
-    expect(generator.build({ r1: '1/2', r2: '1/2', m1: 0.03 }).root.name).toBe('Муфта 1/2(в)');
-    expect(generator.build({ r1: '1', r2: '1/2', m1: 0.034 }).root.name).toBe('Муфта 1(в)х1/2(в)');
+    const single = generator.build({ r1: '1/2', r2: '1/2', m1: 0.03 });
+    expect(single.title).toBe('Муфта 1/2(в)');
+    expect(single.root.name).toBe(single.title);
+    expect(generator.build({ r1: '1', r2: '1/2', m1: 0.034 }).title).toBe('Муфта 1(в)х1/2(в)');
   });
 
   it('повторный dispose безопасен и не трогает общие материалы', () => {

@@ -1,0 +1,97 @@
+import { Matrix4, Quaternion, Vector3 } from 'three';
+import { describe, expect, it } from 'vitest';
+import {
+  AluminiumRadiatorGenerator,
+  ConnectorMating,
+  MaterialLibrary,
+  RadiatorPlugGenerator,
+  SteelCouplingGenerator,
+  SteelNippleGenerator,
+} from '../src/lib/index';
+import type { Connector } from '../src/lib/index';
+
+const materials = new MaterialLibrary();
+const coupling = new SteelCouplingGenerator(materials);
+const nipple = new SteelNippleGenerator(materials);
+const radiator = new AluminiumRadiatorGenerator(materials);
+const plug = new RadiatorPlugGenerator(materials);
+
+const byId = (connectors: Connector[], id: string) => connectors.find((c) => c.id === id)!;
+
+/** Мировые торец и направление разъёма детали, стоящей в matrix. */
+function world(connector: Connector, matrix: Matrix4) {
+  return {
+    position: new Vector3().copy(connector.position).applyMatrix4(matrix),
+    direction: new Vector3().copy(connector.direction).transformDirection(matrix),
+  };
+}
+
+describe('ConnectorMating.check', () => {
+  const mufta = coupling.build({ r1: '1/2', r2: '1/2', m1: 0.03 }).connectors;
+  const nip = nipple.build({ r1: '1/2', r2: '1', m1: 0.034 }).connectors;
+  const rad = radiator.build({ count: 1, size: { x: 0.08, y: 0.5, z: 0.08 }, r1: '1' }).connectors;
+  const adapter = plug.build({ type: 'prh', r1: '1', r2: '1/2' }).connectors;
+
+  it('внутренняя и наружная резьба одного номинала совместимы', () => {
+    expect(ConnectorMating.check(byId(mufta, 'right'), byId(nip, 'left'))).toEqual({ compatible: true, engagement: 0.008 });
+    expect(ConnectorMating.check(byId(rad, 'top-right'), byId(adapter, 'radiator'))).toMatchObject({ compatible: true });
+    expect(ConnectorMating.check(byId(adapter, 'outlet'), byId(nip, 'left'))).toMatchObject({ compatible: true });
+  });
+
+  it('несовместимые пары и причина', () => {
+    // Обычная резьба 1 не подходит к порту радиатора, хотя номинал тот же.
+    expect(ConnectorMating.check(byId(rad, 'top-right'), byId(nip, 'right'))).toMatchObject({ compatible: false, reason: 'joint' });
+    expect(ConnectorMating.check(byId(mufta, 'right'), byId(nip, 'right'))).toMatchObject({ compatible: false, reason: 'nominal' });
+    expect(ConnectorMating.check(byId(mufta, 'left'), byId(mufta, 'right'))).toMatchObject({ compatible: false, reason: 'gender' });
+  });
+});
+
+describe('ConnectorMating.place', () => {
+  it('направления противоположны, наружная деталь входит на min(depth)', () => {
+    const fixed = coupling.build({ r1: '1/2', r2: '1/2', m1: 0.03 });
+    const moving = nipple.build({ r1: '1/2', r2: '1/2', m1: 0.022 });
+    const fixedConnector = byId(fixed.connectors, 'right');
+    const movingConnector = byId(moving.connectors, 'left');
+
+    const matrix = ConnectorMating.place(fixedConnector, new Matrix4(), movingConnector);
+    const a = world(fixedConnector, new Matrix4());
+    const b = world(movingConnector, matrix);
+    const engagement = Math.min(fixedConnector.depth, movingConnector.depth);
+
+    expect(b.direction.dot(a.direction)).toBeCloseTo(-1, 9);
+    expect(b.position.distanceTo(a.position.clone().addScaledVector(a.direction, -engagement))).toBeLessThan(1e-9);
+  });
+
+  it('учитывает поворот и сдвиг неподвижной детали', () => {
+    const fixed: Connector = { id: 'f', position: { x: 0.1, y: 0, z: 0 }, direction: { x: 1, y: 0, z: 0 }, depth: 0.01, nominal: '1', joint: 'thread', gender: 'internal' };
+    const moving: Connector = { id: 'm', position: { x: 0, y: 0.02, z: 0 }, direction: { x: 0, y: 1, z: 0 }, depth: 0.006, nominal: '1', joint: 'thread', gender: 'external' };
+    const fixedMatrix = new Matrix4().compose(
+      new Vector3(1, 2, 3),
+      new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), Math.PI / 2),
+      new Vector3(1, 1, 1),
+    );
+
+    const matrix = ConnectorMating.place(fixed, fixedMatrix, moving);
+    const a = world(fixed, fixedMatrix);
+    const b = world(moving, matrix);
+
+    // Неподвижный разъём после поворота смотрит в +Y из точки (1, 2.1, 3).
+    expect(a.position.distanceTo(new Vector3(1, 2.1, 3))).toBeLessThan(1e-9);
+    expect(b.direction.dot(a.direction)).toBeCloseTo(-1, 9);
+    expect(b.position.distanceTo(new Vector3(1, 2.1 - 0.006, 3))).toBeLessThan(1e-9);
+  });
+
+  it('встречные направления без поворота: переходник в правый порт радиатора', () => {
+    const rad = radiator.build({ count: 3, size: { x: 0.08, y: 0.5, z: 0.08 }, r1: '1' });
+    const adapter = plug.build({ type: 'zgl', r1: '1' });
+    const port = byId(rad.connectors, 'top-right');
+    const matrix = ConnectorMating.place(port, new Matrix4(), byId(adapter.connectors, 'radiator'));
+
+    const position = new Vector3();
+    const rotation = new Quaternion();
+    matrix.decompose(position, rotation, new Vector3());
+    expect(rotation.angleTo(new Quaternion())).toBeLessThan(1e-9);
+    // Резьба переходника (8 мм) короче резьбы порта (21 мм): входит на 8 мм.
+    expect(position.x + byId(adapter.connectors, 'radiator').position.x).toBeCloseTo(port.position.x - 0.008, 9);
+  });
+});

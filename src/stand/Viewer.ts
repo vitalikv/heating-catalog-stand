@@ -66,9 +66,9 @@ export class Viewer {
     });
   }
 
-  /** Наводит камеру на объект, сохраняя направление взгляда. */
-  frame(object: Object3D): void {
-    const box = new Box3().setFromObject(object);
+  /** Наводит камеру на объект или габарит, сохраняя направление взгляда. */
+  frame(target: Object3D | Box3): void {
+    const box = target instanceof Box3 ? target : new Box3().setFromObject(target);
     if (box.isEmpty()) return;
 
     const center = box.getCenter(new Vector3());

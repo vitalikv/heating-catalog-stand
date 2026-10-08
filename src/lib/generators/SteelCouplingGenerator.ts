@@ -1,9 +1,10 @@
 import { Box3, Group, Mesh } from 'three';
-import type { Connector, GeneratedModel, ModelGenerator, ValidationError } from '../contracts';
+import type { Connector, GeneratedModel, ModelGenerator, ParamSpec, ValidationError } from '../contracts';
 import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
 import type { MaterialLibrary } from '../materials/MaterialLibrary';
+import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import type { PartDiameters } from '../sizes/ThreadSizes';
 
@@ -43,23 +44,18 @@ interface CouplingLayout {
 export class SteelCouplingGenerator implements ModelGenerator<SteelCouplingParams> {
   readonly id = 'st_mufta_1';
   readonly title = 'Муфта стальная';
+  readonly paramSpecs: readonly ParamSpec[] = [
+    { kind: 'choice', key: 'r1', label: 'Резьба слева', options: ThreadSizes.nominals },
+    { kind: 'choice', key: 'r2', label: 'Резьба справа', options: ThreadSizes.nominals },
+    { kind: 'length', key: 'm1', label: 'Длина', min: 0.001, max: 0.2, step: 0.0005 },
+  ];
 
   private readonly sleeves = new SleeveGeometryBuilder();
 
   constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: SteelCouplingParams): ValidationError[] {
-    const errors: ValidationError[] = [];
-
-    for (const param of ['r1', 'r2'] as const) {
-      if (!ThreadSizes.has(params[param])) {
-        errors.push({ code: 'unknown_nominal', param, message: `Неизвестный номинал резьбы ${param}: '${params[param]}'` });
-      }
-    }
-
-    if (!Number.isFinite(params.m1) || params.m1 <= 0) {
-      errors.push({ code: 'not_positive', param: 'm1', message: `Длина m1 должна быть больше нуля: ${params.m1}` });
-    }
+    const errors = ParamSchema.validate(this.paramSpecs, params);
 
     if (errors.length === 0) {
       const { x1, x2, x3L, x3R } = this.layout(params);
@@ -103,18 +99,23 @@ export class SteelCouplingGenerator implements ModelGenerator<SteelCouplingParam
 
     const mesh = new Mesh(geometry, [this.materials.get('metal'), this.materials.get('thread')]);
     const root = new Group();
-    root.name = params.r1 === params.r2 ? `Муфта ${params.r1}(в)` : `Муфта ${params.r1}(в)х${params.r2}(в)`;
+    const title = params.r1 === params.r2 ? `Муфта ${params.r1}(в)` : `Муфта ${params.r1}(в)х${params.r2}(в)`;
+    root.name = title;
     root.add(mesh);
 
-    // Разъёмы в центре резьбовых участков, как cr_CenterPoint в gl2.
+    // Торец — наружная грань кольца (m1/2 + x_4/2); резьба идёт от него до гладкого участка.
+    // В gl2 точка разъёма стояла в центре резьбового участка.
+    const face = params.m1 / 2 + x4 / 2;
+    const common = { joint: 'thread', gender: 'internal' } as const;
     const connectors: Connector[] = [
-      { id: 'left', position: at(-(x3L + x1 / 2)), direction: { x: -1, y: 0, z: 0 }, nominal: params.r1, joint: 'thread', gender: 'internal' },
-      { id: 'right', position: at(x3R + x2 / 2), direction: { x: 1, y: 0, z: 0 }, nominal: params.r2, joint: 'thread', gender: 'internal' },
+      { id: 'left', position: at(-face), direction: { x: -1, y: 0, z: 0 }, depth: face - x3L, nominal: params.r1, ...common },
+      { id: 'right', position: at(face), direction: { x: 1, y: 0, z: 0 }, depth: face - x3R, nominal: params.r2, ...common },
     ];
 
     let disposed = false;
     return {
       root,
+      title,
       connectors,
       bounds,
       warnings: [],
