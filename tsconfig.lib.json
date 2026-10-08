@@ -1,0 +1,10 @@
+{
+  // Библиотека генераторов проверяется без DOM: обращение к window/document
+  // в src/lib даёт ошибку типов. Так генераторы остаются пригодными для воркера.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "types": []
+  },
+  "include": ["src/lib"]
+}
