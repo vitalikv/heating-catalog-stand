@@ -1,14 +1,10 @@
+import type { ThreadGender } from '../core/contracts';
+
 /** Диаметры детали в метрах: n — наружный, v — внутренний. */
 export interface PartDiameters {
   n: number;
   v: number;
 }
-
-/**
- * Сторона резьбы: 'external' — наружная (side: 'n' в gl2),
- * 'internal' — внутренняя, как у муфты (side: 'v').
- */
-export type ThreadSide = 'internal' | 'external';
 
 /** Наружный диаметр трубы d и толщина стенки t, мм. */
 interface PipeSize {
@@ -43,7 +39,7 @@ export class ThreadSizes {
   }
 
   /** null для неизвестного номинала; в gl2 в этом случае получались нули. */
-  static diameters(nominal: string, side: ThreadSide): PartDiameters | null {
+  static diameters(nominal: string, side: ThreadGender): PartDiameters | null {
     if (!ThreadSizes.has(nominal)) return null;
     const { d, t } = PIPE_SIZES[nominal];
 
@@ -55,7 +51,7 @@ export class ThreadSizes {
   }
 
   /** Как diameters(), но для неизвестного номинала — исключение: после проверки схемы это ошибка в коде. */
-  static require(nominal: string, side: ThreadSide): PartDiameters {
+  static require(nominal: string, side: ThreadGender): PartDiameters {
     const diameters = ThreadSizes.diameters(nominal, side);
     if (!diameters) throw new Error(`ThreadSizes: неизвестный номинал '${nominal}'`);
     return diameters;

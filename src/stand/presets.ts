@@ -381,8 +381,9 @@ const REGULATING_VALVES: [string, string, number, number][] = [
   ['3/4', '1', 0.059, 0.022],
 ];
 
-const valvePresets =(rows: [string, number, number][]) =>
-  rows.map(([r1, m1, t1]) => ({ label: `${r1}, ${mm(m1)} мм`, params: { r1, m1, t1 } }));
+/** ends — вид концов в подписи: у трёх функций gl2 теперь один генератор valve.ball. */
+const valvePresets = (rows: [string, number, number][], ends: string) =>
+  rows.map(([r1, m1, t1]) => ({ label: `${r1}${ends}, ${mm(m1)} мм`, params: { r1, m1, t1 } }));
 
 /** Наборы с резьбой в start.js идут сначала с наружной ('n'), потом с внутренней ('v'). */
 const SIDES = ['n', 'v'] as const;
@@ -592,9 +593,9 @@ export const GL2_PRESETS: GeneratorPresets[] = [
       { label: 'воздухоотводчик 1', params: { r1: '1', r2: 0, type: 'vsd' } },
     ],
   },
-  { generatorId: 'shar_kran_n_1', presets: valvePresets(BALL_VALVES_LONG) },
-  { generatorId: 'shar_kran_v_1', presets: valvePresets(BALL_VALVES_INTERNAL) },
-  { generatorId: 'shar_kran_v_n_1', presets: valvePresets(BALL_VALVES_LONG) },
+  { generatorId: 'shar_kran_n_1', presets: valvePresets(BALL_VALVES_LONG, '(н-н)') },
+  { generatorId: 'shar_kran_v_1', presets: valvePresets(BALL_VALVES_INTERNAL, '(в-в)') },
+  { generatorId: 'shar_kran_v_n_1', presets: valvePresets(BALL_VALVES_LONG, '(в-н)') },
   {
     generatorId: 'shar_kran_sgon_1',
     presets: BALL_VALVE_UNIONS.map(([r1, r2, m1, m2, t1]) => ({ label: `${r1} × ${r2}`, params: { r1, r2, m1, m2, t1 } })),

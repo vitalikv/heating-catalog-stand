@@ -9,14 +9,13 @@ import { sleeves } from '../../geometry/SleeveGeometryBuilder';
 import { specs } from '../../params/specs';
 import { ThreadSizes } from '../../sizes/ThreadSizes';
 
-/** vsd — воздухоотводчик, zgl — пробка без него (в gl2 — любой type, кроме 'vsd'). */
-export type RadiatorVentType = 'vsd' | 'zgl';
+/** vent — воздухоотводчик, plug — пробка без него. */
+export type RadiatorVentKind = 'vent' | 'plug';
 
-/** Параметры в формате cdm из gl2; r2 и m1 в gl2 не влияют на модель и не переносятся. */
 export interface RadiatorVentParams {
   /** Дюймовый номинал наружной резьбы, например '1/2'. */
-  r1: string;
-  type: RadiatorVentType;
+  nominal: string;
+  kind: RadiatorVentKind;
 }
 
 /** Длины, м: резьба (x_1) и гайка (x_2). */
@@ -32,15 +31,17 @@ const VENT = { disk: 0.001, diameter: 0.02, height: 0.016, width: 0.007, thickne
  * ставится в переходник радиатора. Резьба по −X, сплошная гайка, диск и бабочка по +X.
  */
 export class RadiatorVentGenerator extends BaseGenerator<RadiatorVentParams> {
-  readonly id = 'rad_vozduhotvod_1';
+  readonly id = 'radiator.vent';
+  readonly version = 1;
   readonly title = 'Воздухоотводчик радиаторный';
   readonly paramSpecs: readonly ParamSpec[] = [
-    { kind: 'choice', key: 'type', label: 'Тип', options: ['vsd', 'zgl'], optionLabels: { vsd: 'воздухоотводчик', zgl: 'заглушка' } },
-    specs.threadNominal('r1', 'Резьба (н)'),
+    { kind: 'choice', key: 'kind', label: 'Тип', options: ['vent', 'plug'], optionLabels: { vent: 'воздухоотводчик', plug: 'заглушка' } },
+    specs.threadNominal('nominal', 'Резьба (н)'),
   ];
+  readonly defaults: RadiatorVentParams = { nominal: '1/2', kind: 'vent' };
 
   protected create(params: RadiatorVentParams): GeneratedModel {
-    const d = ThreadSizes.require(params.r1, 'external');
+    const d = ThreadSizes.require(params.nominal, 'external');
     const at = (x: number) => ({ x, y: 0, z: 0 });
 
     const merger = new MaterialGroupMerger();
@@ -58,7 +59,7 @@ export class RadiatorVentGenerator extends BaseGenerator<RadiatorVentParams> {
       }),
     );
 
-    if (params.type === 'vsd') {
+    if (params.kind === 'vent') {
       const p = (x: number, y: number) => ({ x, y });
       merger.add(
         ...sleeves.build({
@@ -80,10 +81,10 @@ export class RadiatorVentGenerator extends BaseGenerator<RadiatorVentParams> {
 
     // Торец — конец резьбы, глубина — её длина. В gl2 точка стояла в центре резьбы.
     return createMeshModel({
-      title: params.type === 'vsd' ? `воздухоотв.радиаторный ${params.r1}` : `заглушка радиаторная ${params.r1}`,
+      title: params.kind === 'vent' ? `воздухоотв.радиаторный ${params.nominal}` : `заглушка радиаторная ${params.nominal}`,
       ...merger.merge(),
       connectors: [
-        connector('left', ConnectorFrame.left, THREAD_LENGTH, { depth: THREAD_LENGTH, nominal: params.r1, joint: 'thread', gender: 'external' }),
+        connector('left', ConnectorFrame.left, THREAD_LENGTH, { depth: THREAD_LENGTH, nominal: params.nominal, joint: 'thread', gender: 'external' }),
       ],
     });
   }

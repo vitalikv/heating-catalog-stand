@@ -340,7 +340,7 @@ registry.get(id: string): ModelGenerator<unknown> | undefined;   // для да�
 - Построители геометрии — общие экземпляры `sleeves`, `spheres`, `shapes`; `MpPressEnd`, `BallValveParts`,
   `SteelCollectorPipe` создаются без аргументов. `MeshModel.create` → `createMeshModel`.
 
-### Шаг 4. Новые ID, параметры, версия, умолчания
+### Шаг 4. Новые ID, параметры, версия, умолчания — сделано
 
 - ID и параметры по таблице п. 3, `version = 1`, `defaults` — первый набор из `start.js`.
 - Слияние `BallValveGenerator` в один ID с `ends`; разделение трубы на `pp.pipe` и `mp.pipe`;
@@ -349,6 +349,20 @@ registry.get(id: string): ModelGenerator<unknown> | undefined;   // для да�
   `name '6л'` → `volume 6` и т. д.).
 - Сборки в `stand/assemblies.ts` — на новые ID и параметры.
 - Типизированный реестр и тест `paramSpecs`/`defaults`.
+
+Как сделано:
+
+- `ThreadGender` (`'internal' | 'external'`) в контракте — один словарь для `Connector.gender`,
+  параметра `threadGender` и `ThreadSizes`; `ThreadSide` и `ThreadSideCode` удалены, `specs.threadGender()`.
+- Вариант выбора в `ParamSpec` может быть числом (`volume` бака: 6, 8…). `ParamSchema.tooShort` —
+  сообщение `length: нужно больше 15.0 мм` (имя параметра без падежа).
+- `GeneratorParamsMap` и `GeneratorId` выводятся из списка генераторов реестра (`id` и `defaults`
+  классов), вручную не ведутся. `registry.get('steel.coupling')` типизирован; `get(string)` — для данных проекта.
+- `defaults` — первый набор `start.js` каждого генератора после `fromGl2`.
+- Трубы — `PpPipeGenerator` и `MpPipeGenerator` с общей `createStraightPipe` (`generators/StraightPipe.ts`).
+- `fromGl2` переводит ключи и коды по таблице, неизвестный ключ `cdm` — исключение; ключи gl2 без
+  влияния на модель (`r2`, `m1` воздухоотводчика, `m1` гайки насоса) отбрасываются.
+- Подписи наборов шарового крана на стенде — с видом концов: три функции gl2 теперь один генератор.
 
 ### Шаг 5. `Assembly` и каталог в библиотеку
 

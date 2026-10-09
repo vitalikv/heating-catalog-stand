@@ -21,21 +21,23 @@ const TURN = -Math.PI / 4;
  * второе — левое плечо, повёрнутое на 45° вверх; внешний угол — сектор сферы.
  */
 export class PpElbow45Generator extends BaseGenerator<PpElbowParams> {
-  readonly id = 'pl_ugol_45_1';
+  readonly id = 'pp.elbow-45';
+  readonly version = 1;
   readonly title = 'Отвод ПП 45°';
   readonly paramSpecs: readonly ParamSpec[] = [
-    specs.ppNominal('r1'),
-    specs.length('m1', 'Длина плеча'),
+    specs.ppNominal('nominal'),
+    specs.length('armLength', 'Длина плеча'),
   ];
+  readonly defaults: PpElbowParams = { nominal: '20', armLength: 0.021 };
 
   protected override relations(params: PpElbowParams): ValidationError[] {
-    return params.m1 <= SOCKET_LENGTH ? [ParamSchema.tooShort('m1', SOCKET_LENGTH)] : [];
+    return params.armLength <= SOCKET_LENGTH ? [ParamSchema.tooShort('armLength', SOCKET_LENGTH)] : [];
   }
 
   protected create(params: PpElbowParams): GeneratedModel {
-    const d = PpPipeSizes.require(params.r1);
+    const d = PpPipeSizes.require(params.nominal);
     const x1 = SOCKET_LENGTH;
-    const x2 = params.m1 - x1;
+    const x2 = params.armLength - x1;
     const pipe = { outerDiameter: d.n, innerDiameter: d.v };
     const turned = (x: number) => ({ offset: { x, y: 0, z: 0 }, rotation: { x: 0, y: 0, z: TURN } });
     const sector = { phiLength: Math.PI / 4, rotation: { x: Math.PI / 2, y: 0, z: Math.PI / 4 } };
@@ -51,15 +53,15 @@ export class PpElbow45Generator extends BaseGenerator<PpElbowParams> {
       spheres.build({ material: 'plastic', ...sector, radius: d.v / 2 }),
     );
 
-    // Торец раструба — конец плеча m1, глубина — длина раструба. В gl2 точки — в центрах раструбов.
+    // Торец раструба — конец плеча armLength, глубина — длина раструба. В gl2 точки — в центрах раструбов.
     const angled = ConnectorFrame.leftTurned(TURN);
-    const common = { depth: x1, nominal: params.r1, joint: 'pp-socket', gender: 'internal' } as const;
+    const common = { depth: x1, nominal: params.nominal, joint: 'pp-socket', gender: 'internal' } as const;
     return createMeshModel({
-      title: `Отвод_45 ${params.r1}`,
+      title: `Отвод_45 ${params.nominal}`,
       ...merger.merge(),
       connectors: [
-        connector('right', ConnectorFrame.right, params.m1, common),
-        connector('left', angled, params.m1, common),
+        connector('right', ConnectorFrame.right, params.armLength, common),
+        connector('left', angled, params.armLength, common),
       ],
     });
   }

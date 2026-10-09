@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AluminiumRadiatorGenerator,
   ConnectorMating,
-  RadiatorPlugGenerator,
+  RadiatorPortFittingGenerator,
   SteelCouplingGenerator,
   SteelNippleGenerator,
 } from '../src/lib/index';
@@ -12,7 +12,7 @@ import type { Connector } from '../src/lib/index';
 const coupling = new SteelCouplingGenerator();
 const nipple = new SteelNippleGenerator();
 const radiator = new AluminiumRadiatorGenerator();
-const plug = new RadiatorPlugGenerator();
+const plug = new RadiatorPortFittingGenerator();
 
 const byId = (connectors: Connector[], id: string) => connectors.find((c) => c.id === id)!;
 
@@ -26,10 +26,10 @@ function world(connector: Connector, matrix: Matrix4) {
 }
 
 describe('ConnectorMating.check', () => {
-  const mufta = coupling.build({ r1: '1/2', r2: '1/2', m1: 0.03 }).connectors;
-  const nip = nipple.build({ r1: '1/2', r2: '1', m1: 0.034 }).connectors;
-  const rad = radiator.build({ count: 1, size: { x: 0.08, y: 0.5, z: 0.08 }, r1: '1' }).connectors;
-  const adapter = plug.build({ type: 'prh', r1: '1', r2: '1/2' }).connectors;
+  const mufta = coupling.build({ nominalLeft: '1/2', nominalRight: '1/2', length: 0.03 }).connectors;
+  const nip = nipple.build({ nominalLeft: '1/2', nominalRight: '1', length: 0.034 }).connectors;
+  const rad = radiator.build({ sections: 1, dimensions: { x: 0.08, y: 0.5, z: 0.08 }, nominal: '1' }).connectors;
+  const adapter = plug.build({ kind: 'adapter', portNominal: '1', outletNominal: '1/2' }).connectors;
 
   it('внутренняя и наружная резьба одного номинала совместимы', () => {
     expect(ConnectorMating.check(byId(mufta, 'right'), byId(nip, 'left'))).toEqual({ compatible: true, engagement: 0.008 });
@@ -47,8 +47,8 @@ describe('ConnectorMating.check', () => {
 
 describe('ConnectorMating.place', () => {
   it('направления противоположны, наружная деталь входит на min(depth)', () => {
-    const fixed = coupling.build({ r1: '1/2', r2: '1/2', m1: 0.03 });
-    const moving = nipple.build({ r1: '1/2', r2: '1/2', m1: 0.022 });
+    const fixed = coupling.build({ nominalLeft: '1/2', nominalRight: '1/2', length: 0.03 });
+    const moving = nipple.build({ nominalLeft: '1/2', nominalRight: '1/2', length: 0.022 });
     const fixedConnector = byId(fixed.connectors, 'right');
     const movingConnector = byId(moving.connectors, 'left');
 
@@ -81,8 +81,8 @@ describe('ConnectorMating.place', () => {
   });
 
   it('встречные направления без поворота: переходник в правый порт радиатора', () => {
-    const rad = radiator.build({ count: 3, size: { x: 0.08, y: 0.5, z: 0.08 }, r1: '1' });
-    const adapter = plug.build({ type: 'zgl', r1: '1' });
+    const rad = radiator.build({ sections: 3, dimensions: { x: 0.08, y: 0.5, z: 0.08 }, nominal: '1' });
+    const adapter = plug.build({ kind: 'plug', portNominal: '1' });
     const port = byId(rad.connectors, 'top-right');
     const matrix = ConnectorMating.place(port, new Matrix4(), byId(adapter.connectors, 'radiator'));
 
@@ -105,16 +105,16 @@ describe('ConnectorMating.place', () => {
 
   it('одинаковые направления: разворот на 180° не переворачивает up', () => {
     // setFromUnitVectors для противоположных векторов выбирает ось произвольно — доворот это исправляет.
-    const right = byId(coupling.build({ r1: '1/2', r2: '1/2', m1: 0.03 }).connectors, 'right');
-    const nippleRight = byId(nipple.build({ r1: '1/2', r2: '1/2', m1: 0.022 }).connectors, 'right');
+    const right = byId(coupling.build({ nominalLeft: '1/2', nominalRight: '1/2', length: 0.03 }).connectors, 'right');
+    const nippleRight = byId(nipple.build({ nominalLeft: '1/2', nominalRight: '1/2', length: 0.022 }).connectors, 'right');
     const b = world(nippleRight, ConnectorMating.place(right, new Matrix4(), nippleRight));
     expect(b.direction.x).toBeCloseTo(-1, 9);
     expect(b.up.y).toBeCloseTo(1, 9);
   });
 
   it('угол стыка поворачивает деталь вокруг оси разъёма', () => {
-    const fixed = byId(coupling.build({ r1: '1/2', r2: '1/2', m1: 0.03 }).connectors, 'right');
-    const moving = byId(nipple.build({ r1: '1/2', r2: '1/2', m1: 0.022 }).connectors, 'left');
+    const fixed = byId(coupling.build({ nominalLeft: '1/2', nominalRight: '1/2', length: 0.03 }).connectors, 'right');
+    const moving = byId(nipple.build({ nominalLeft: '1/2', nominalRight: '1/2', length: 0.022 }).connectors, 'left');
     const plain = ConnectorMating.place(fixed, new Matrix4(), moving);
     const turned = ConnectorMating.place(fixed, new Matrix4(), moving, Math.PI / 2);
     const b = world(moving, turned);

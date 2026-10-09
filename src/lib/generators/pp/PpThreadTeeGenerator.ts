@@ -16,29 +16,31 @@ const SOCKET_LENGTH = 0.015;
 
 /**
  * Полипропиленовый тройник с резьбой на отводе (перенос pl_troinik_rezba_1): проход
- * длиной m1 под пайку, отвод высотой m1/2 с металлической резьбовой вставкой.
+ * длиной length под пайку, отвод высотой length/2 с металлической резьбовой вставкой.
  */
 export class PpThreadTeeGenerator extends BaseGenerator<PpThreadAdapterParams> {
-  readonly id = 'pl_troinik_rezba_1';
+  readonly id = 'pp.tee-thread';
+  readonly version = 1;
   readonly title = 'Тройник ПП с резьбой';
   readonly paramSpecs: readonly ParamSpec[] = [
-    specs.threadSide(),
-    specs.ppNominal('r1'),
-    specs.threadNominal('r2', 'Резьба отвода'),
-    specs.length('m1', 'Длина прохода', { max: 0.3 }),
+    specs.threadGender(),
+    specs.ppNominal('pipeNominal'),
+    specs.threadNominal('threadNominal', 'Резьба отвода'),
+    specs.length('length', 'Длина прохода', { max: 0.3 }),
   ];
+  readonly defaults: PpThreadAdapterParams = { threadGender: 'external', pipeNominal: '20', threadNominal: '1/2', length: 0.07 };
 
   protected override relations(params: PpThreadAdapterParams): ValidationError[] {
     // Средняя часть прохода (x_2 в gl2) была бы нулевой или отрицательной длины.
-    return params.m1 <= 2 * SOCKET_LENGTH ? [ParamSchema.tooShort('m1', 2 * SOCKET_LENGTH)] : [];
+    return params.length <= 2 * SOCKET_LENGTH ? [ParamSchema.tooShort('length', 2 * SOCKET_LENGTH)] : [];
   }
 
   protected create(params: PpThreadAdapterParams): GeneratedModel {
-    const d1 = PpPipeSizes.require(params.r1);
-    const insert = new PpThreadInsert(params.side, params.r2, d1);
+    const d1 = PpPipeSizes.require(params.pipeNominal);
+    const insert = new PpThreadInsert(params.threadGender, params.threadNominal, d1);
     const x1 = SOCKET_LENGTH;
-    const x2 = params.m1 - 2 * x1;
-    const m2 = params.m1 / 2;
+    const x2 = params.length - 2 * x1;
+    const m2 = params.length / 2;
     const x3 = m2 - x1;
     const pipe = { outerDiameter: d1.n, innerDiameter: d1.v };
     const up = { x: 0, y: Math.PI, z: Math.PI / 2 };
@@ -73,16 +75,16 @@ export class PpThreadTeeGenerator extends BaseGenerator<PpThreadAdapterParams> {
       }),
     );
 
-    // Раструбы: торцы ±m1/2, глубина — длина раструба. Резьба: торец — край втулки, глубина — её длина.
+    // Раструбы: торцы ±length/2, глубина — длина раструба. Резьба: торец — край втулки, глубина — её длина.
     // В gl2 точки стояли в центрах раструбов и втулки.
-    const socket = { depth: x1, nominal: params.r1, joint: 'pp-socket', gender: 'internal' } as const;
+    const socket = { depth: x1, nominal: params.pipeNominal, joint: 'pp-socket', gender: 'internal' } as const;
     const { left, top, right } = ConnectorFrame;
     return createMeshModel({
-      title: `Тройник ${params.r1}x${params.r2}${insert.suffix}x${params.r1}`,
+      title: `Тройник ${params.pipeNominal}x${params.threadNominal}${insert.suffix}x${params.pipeNominal}`,
       ...merger.merge(),
       connectors: [
         connector('left', left, m2, socket),
-        connector('top', top, insert.face(m2, x1), { depth: x1, nominal: params.r2, joint: 'thread', gender: insert.gender }),
+        connector('top', top, insert.face(m2, x1), { depth: x1, nominal: params.threadNominal, joint: 'thread', gender: insert.gender }),
         connector('right', right, m2, socket),
       ],
     });

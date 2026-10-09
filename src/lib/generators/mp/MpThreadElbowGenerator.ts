@@ -1,31 +1,29 @@
 import { BaseGenerator } from '../../core/BaseGenerator';
 import { connector } from '../../core/connector';
 import { ConnectorFrame } from '../../core/ConnectorFrame';
-import type { GeneratedModel, ParamSpec, ValidationError } from '../../core/contracts';
+import type { GeneratedModel, ParamSpec, ThreadGender, ValidationError } from '../../core/contracts';
 import { createMeshModel } from '../../core/MeshModel';
 import { MaterialGroupMerger } from '../../geometry/MaterialGroupMerger';
 import { sleeves } from '../../geometry/SleeveGeometryBuilder';
 import { spheres } from '../../geometry/SphereGeometryBuilder';
 import { ParamSchema } from '../../params/ParamSchema';
 import { specs } from '../../params/specs';
-import type { ThreadSideCode } from '../../params/specs';
 import { MpPipeSizes } from '../../sizes/MpPipeSizes';
 import { ThreadSizes } from '../../sizes/ThreadSizes';
 import type { PartDiameters } from '../../sizes/ThreadSizes';
 import { MpPressEnd } from './MpPressEnd';
 
-/** Параметры в формате cdm из gl2. */
 export interface MpThreadElbowParams {
   /** Сторона резьбы справа. */
-  side: ThreadSideCode;
+  threadGender: ThreadGender;
   /** Наружный диаметр металлопластиковой трубы, мм, строкой. */
-  r1: string;
+  pipeNominal: string;
   /** Дюймовый номинал резьбы. */
-  r2: string;
+  threadNominal: string;
   /** Длина плеча с пресс-концом (вверх), м. */
-  m1: number;
+  armLength: number;
   /** Длина плеча с резьбой (вправо) до гайки, м. */
-  m2: number;
+  threadArmLength: number;
 }
 
 /** Длина резьбы (w2 в gl2), м. */
@@ -45,37 +43,45 @@ interface ThreadElbowLayout {
  * вправо — шестигранная гайка и резьба.
  */
 export class MpThreadElbowGenerator extends BaseGenerator<MpThreadElbowParams, ThreadElbowLayout> {
-  readonly id = 'mpl_ugol_rezba_1';
+  readonly id = 'mp.elbow-thread';
+  readonly version = 1;
   readonly title = 'Угол металлопластиковый с резьбой';
   readonly paramSpecs: readonly ParamSpec[] = [
-    specs.threadSide(),
-    specs.mpNominal('r1'),
-    specs.threadNominal('r2', 'Номинал резьбы'),
-    specs.length('m1', 'Плечо под пресс'),
-    specs.length('m2', 'Плечо с резьбой'),
+    specs.threadGender(),
+    specs.mpNominal('pipeNominal'),
+    specs.threadNominal('threadNominal', 'Номинал резьбы'),
+    specs.length('armLength', 'Плечо под пресс'),
+    specs.length('threadArmLength', 'Плечо с резьбой'),
   ];
+  readonly defaults: MpThreadElbowParams = {
+    threadGender: 'external',
+    pipeNominal: '16',
+    threadNominal: '1/2',
+    armLength: 0.042,
+    threadArmLength: 0.028,
+  };
 
   private readonly ends = new MpPressEnd();
 
   protected override layout(params: MpThreadElbowParams): ThreadElbowLayout {
-    const d1 = MpPipeSizes.require(params.r1);
-    const d2 = ThreadSizes.require(params.r2, params.side === 'v' ? 'internal' : 'external');
+    const d1 = MpPipeSizes.require(params.pipeNominal);
+    const d2 = ThreadSizes.require(params.threadNominal, params.threadGender);
     return { d1, d2, w1: MpPressEnd.pressLength(d1) };
   }
 
   protected override relations(params: MpThreadElbowParams, { w1 }: ThreadElbowLayout): ValidationError[] {
     // Плечи до гильзы и до гайки (s1, s2 в gl2) были бы нулевой или отрицательной длины.
     const errors: ValidationError[] = [];
-    if (params.m1 <= w1) errors.push(ParamSchema.tooShort('m1', w1));
-    if (params.m2 <= THREAD_LENGTH) errors.push(ParamSchema.tooShort('m2', THREAD_LENGTH));
+    if (params.armLength <= w1) errors.push(ParamSchema.tooShort('armLength', w1));
+    if (params.threadArmLength <= THREAD_LENGTH) errors.push(ParamSchema.tooShort('threadArmLength', THREAD_LENGTH));
     return errors;
   }
 
   protected create(params: MpThreadElbowParams, { d1, d2, w1 }: ThreadElbowLayout): GeneratedModel {
-    const internal = params.side === 'v';
+    const internal = params.threadGender === 'internal';
     const w2 = THREAD_LENGTH;
-    const s1 = params.m1 - w1;
-    const s2 = params.m2 - w2;
+    const s1 = params.armLength - w1;
+    const s2 = params.threadArmLength - w2;
     const pipe = { outerDiameter: d1.n, innerDiameter: d1.v };
     const quarter = { phiLength: Math.PI / 2, rotation: { x: Math.PI / 2, y: 0, z: 0 } };
 
@@ -108,14 +114,14 @@ export class MpThreadElbowGenerator extends BaseGenerator<MpThreadElbowParams, T
 
     // Резьба: торец — конец резьбы за гайкой, глубина — длина резьбы. Пресс: торец — конец гильзы.
     // В gl2 точки стояли в центрах резьбы и гильзы.
-    const face = params.m2 + NUT_LENGTH;
+    const face = params.threadArmLength + NUT_LENGTH;
     const suffix = internal ? '(в)' : '(н)';
     return createMeshModel({
-      title: `Угол ${params.r1}x${params.r2}${suffix}`,
+      title: `Угол ${params.pipeNominal}x${params.threadNominal}${suffix}`,
       ...merger.merge(),
       connectors: [
-        connector('right', ConnectorFrame.right, face, { depth: w2, nominal: params.r2, joint: 'thread', gender: internal ? 'internal' : 'external' }),
-        connector('top', ConnectorFrame.top, params.m1, { depth: w1, nominal: params.r1, joint: 'mp-press', gender: 'internal' }),
+        connector('right', ConnectorFrame.right, face, { depth: w2, nominal: params.threadNominal, joint: 'thread', gender: internal ? 'internal' : 'external' }),
+        connector('top', ConnectorFrame.top, params.armLength, { depth: w1, nominal: params.pipeNominal, joint: 'mp-press', gender: 'internal' }),
       ],
     });
   }

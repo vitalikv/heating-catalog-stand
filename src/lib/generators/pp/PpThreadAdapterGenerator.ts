@@ -1,27 +1,25 @@
 import { BaseGenerator } from '../../core/BaseGenerator';
 import { connector } from '../../core/connector';
 import { ConnectorFrame } from '../../core/ConnectorFrame';
-import type { GeneratedModel, ParamSpec, ValidationError } from '../../core/contracts';
+import type { GeneratedModel, ParamSpec, ThreadGender, ValidationError } from '../../core/contracts';
 import { createMeshModel } from '../../core/MeshModel';
 import { MaterialGroupMerger } from '../../geometry/MaterialGroupMerger';
 import { sleeves } from '../../geometry/SleeveGeometryBuilder';
 import { ParamSchema } from '../../params/ParamSchema';
 import { specs } from '../../params/specs';
-import type { ThreadSideCode } from '../../params/specs';
 import { PpPipeSizes } from '../../sizes/PpPipeSizes';
 import type { PartDiameters } from '../../sizes/ThreadSizes';
 import { PpThreadInsert } from './PpThreadInsert';
 
-/** Параметры в формате cdm из gl2. */
 export interface PpThreadAdapterParams {
   /** Сторона резьбы справа. */
-  side: ThreadSideCode;
+  threadGender: ThreadGender;
   /** Наружный диаметр ПП-трубы слева, мм, строкой. */
-  r1: string;
+  pipeNominal: string;
   /** Дюймовый номинал резьбы справа. */
-  r2: string;
+  threadNominal: string;
   /** Длина, м. */
-  m1: number;
+  length: number;
 }
 
 /** Длины раструба и резьбы — 0,3 наружного диаметра, не меньше 12 мм. */
@@ -41,18 +39,20 @@ interface AdapterLayout {
  * под пайку, справа металлическая резьбовая вставка в 12-гранном корпусе.
  */
 export class PpThreadAdapterGenerator extends BaseGenerator<PpThreadAdapterParams, AdapterLayout> {
-  readonly id = 'pl_perehod_rezba_1';
+  readonly id = 'pp.thread-adapter';
+  readonly version = 1;
   readonly title = 'Соединитель ПП с резьбой';
   readonly paramSpecs: readonly ParamSpec[] = [
-    specs.threadSide(),
-    specs.ppNominal('r1'),
-    specs.threadNominal('r2', 'Номинал резьбы'),
-    specs.length('m1', 'Длина'),
+    specs.threadGender(),
+    specs.ppNominal('pipeNominal'),
+    specs.threadNominal('threadNominal', 'Номинал резьбы'),
+    specs.length('length', 'Длина'),
   ];
+  readonly defaults: PpThreadAdapterParams = { threadGender: 'external', pipeNominal: '20', threadNominal: '1/2', length: 0.036 };
 
   protected override layout(params: PpThreadAdapterParams): AdapterLayout {
-    const d1 = PpPipeSizes.require(params.r1);
-    const insert = new PpThreadInsert(params.side, params.r2, d1);
+    const d1 = PpPipeSizes.require(params.pipeNominal);
+    const insert = new PpThreadInsert(params.threadGender, params.threadNominal, d1);
     return {
       d1,
       insert,
@@ -63,12 +63,12 @@ export class PpThreadAdapterGenerator extends BaseGenerator<PpThreadAdapterParam
 
   protected override relations(params: PpThreadAdapterParams, { x1, x2 }: AdapterLayout): ValidationError[] {
     const longest = Math.max(x1, x2);
-    return params.m1 / 2 <= longest ? [ParamSchema.tooShort('m1', 2 * longest)] : [];
+    return params.length / 2 <= longest ? [ParamSchema.tooShort('length', 2 * longest)] : [];
   }
 
   protected create(params: PpThreadAdapterParams, { d1, insert, x1, x2 }: AdapterLayout): GeneratedModel {
-    const x3L = params.m1 / 2 - x1;
-    const x3R = params.m1 / 2 - x2;
+    const x3L = params.length / 2 - x1;
+    const x3R = params.length / 2 - x2;
     const pipe = { outerDiameter: d1.n, innerDiameter: d1.v };
     const body = { outerDiameter: insert.body.n, innerDiameter: insert.body.v };
     const at = (x: number) => ({ x, y: 0, z: 0 });
@@ -94,14 +94,14 @@ export class PpThreadAdapterGenerator extends BaseGenerator<PpThreadAdapterParam
       }),
     );
 
-    // Раструб: торец −m1/2, глубина — длина раструба. Резьба: торец — край втулки, глубина — её длина.
+    // Раструб: торец −length/2, глубина — длина раструба. Резьба: торец — край втулки, глубина — её длина.
     // В gl2 точки стояли в центрах раструба и втулки.
     return createMeshModel({
-      title: `Соединитель ${params.r1}х${params.r2}${insert.suffix}`,
+      title: `Соединитель ${params.pipeNominal}х${params.threadNominal}${insert.suffix}`,
       ...merger.merge(),
       connectors: [
-        connector('left', ConnectorFrame.left, params.m1 / 2, { depth: x1, nominal: params.r1, joint: 'pp-socket', gender: 'internal' }),
-        connector('right', ConnectorFrame.right, insert.face(params.m1 / 2, x2), { depth: x2, nominal: params.r2, joint: 'thread', gender: insert.gender }),
+        connector('left', ConnectorFrame.left, params.length / 2, { depth: x1, nominal: params.pipeNominal, joint: 'pp-socket', gender: 'internal' }),
+        connector('right', ConnectorFrame.right, insert.face(params.length / 2, x2), { depth: x2, nominal: params.threadNominal, joint: 'thread', gender: insert.gender }),
       ],
     });
   }

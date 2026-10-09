@@ -11,22 +11,18 @@ import { ThreadSizes } from '../../sizes/ThreadSizes';
 import { BallValveParts, VALVE_NUT_SCALE } from './BallValveParts';
 import type { UnionValveLayout } from './BallValveParts';
 
-/** Головка крана: cap — колпачок (кран регулировочный), termo — терморегулятор (клапан). */
-export type RegulatingValveHead = 'cap' | 'termo';
+/** Головка крана: cap — колпачок (кран регулировочный), thermostatic — терморегулятор (клапан). */
+export type RegulatingValveHead = 'cap' | 'thermostatic';
 
-/**
- * Параметры в формате cdm из gl2, кроме головки: в gl2 это `termoreg: true` или его отсутствие,
- * здесь — выбор head, чтобы обойтись видами параметров контракта.
- */
 export interface RegulatingValveParams {
   /** Номинал внутренней резьбы слева и наружной резьбы сгона, например '1/2'. */
-  r1: string;
+  nominal: string;
   /** Номинал наружной резьбы справа на кране и накидной гайки сгона, например '3/4'. */
-  r2: string;
+  unionNominal: string;
   /** Длина крана без сгона, м. */
-  m1: number;
+  length: number;
   /** Длина сгона, м. */
-  m2: number;
+  unionLength: number;
   head: RegulatingValveHead;
 }
 
@@ -34,44 +30,46 @@ export interface RegulatingValveParams {
 const STEP = 0.002;
 /**
  * Кран регулировочный и клапан с терморегулятором (перенос reg_kran_primoy_1): слева внутренняя
- * резьба r1 под гайкой, справа наружная r2 со сгоном на r1, сверху шток с колпачком или терморегулятором.
+ * резьба nominal под гайкой, справа наружная unionNominal со сгоном на nominal, сверху шток с колпачком или терморегулятором.
  */
 export class RegulatingValveGenerator extends BaseGenerator<RegulatingValveParams, UnionValveLayout> {
-  readonly id = 'reg_kran_primoy_1';
+  readonly id = 'valve.regulating';
+  readonly version = 1;
   readonly title = 'Кран регулировочный / с терморегулятором';
   readonly paramSpecs: readonly ParamSpec[] = [
-    { kind: 'choice', key: 'head', label: 'Головка', options: ['cap', 'termo'], optionLabels: { cap: 'колпачок', termo: 'терморегулятор' } },
-    specs.threadNominal('r1', 'Резьба'),
-    specs.threadNominal('r2', 'Резьба гайки сгона'),
-    specs.length('m1', 'Длина крана', { max: 0.3 }),
-    specs.length('m2', 'Длина сгона'),
+    { kind: 'choice', key: 'head', label: 'Головка', options: ['cap', 'thermostatic'], optionLabels: { cap: 'колпачок', thermostatic: 'терморегулятор' } },
+    specs.threadNominal('nominal', 'Резьба'),
+    specs.threadNominal('unionNominal', 'Резьба гайки сгона'),
+    specs.length('length', 'Длина крана', { max: 0.3 }),
+    specs.length('unionLength', 'Длина сгона'),
   ];
+  readonly defaults: RegulatingValveParams = { nominal: '1/2', unionNominal: '3/4', length: 0.055, unionLength: 0.02, head: 'cap' };
 
   private readonly parts = new BallValveParts();
 
   protected override layout(params: RegulatingValveParams): UnionValveLayout {
-    const d1 = ThreadSizes.require(params.r1, 'internal');
-    return { d1, d2: ThreadSizes.require(params.r2, 'external'), x1: BallValveParts.threadLength(d1) };
+    const d1 = ThreadSizes.require(params.nominal, 'internal');
+    return { d1, d2: ThreadSizes.require(params.unionNominal, 'external'), x1: BallValveParts.threadLength(d1) };
   }
 
   protected override relations(params: RegulatingValveParams, { x1 }: UnionValveLayout): ValidationError[] {
     const errors: ValidationError[] = [];
     // Средняя часть корпуса (x_2 в gl2) и гладкий участок сгона были бы нулевой или отрицательной длины.
     const minimum = 4 * STEP + 2 * x1;
-    if (params.m1 <= minimum) errors.push(ParamSchema.tooShort('m1', minimum));
-    const union = BallValveParts.unionPipeLength(params.r1, params.m2);
-    if (union <= 0) errors.push(ParamSchema.tooShort('m2', params.m2 - union));
+    if (params.length <= minimum) errors.push(ParamSchema.tooShort('length', minimum));
+    const union = BallValveParts.unionPipeLength(params.nominal, params.unionLength);
+    if (union <= 0) errors.push(ParamSchema.tooShort('unionLength', params.unionLength - union));
     return errors;
   }
 
   protected create(params: RegulatingValveParams, { d1, d2, x1 }: UnionValveLayout): GeneratedModel {
-    const x2 = params.m1 - (4 * STEP + 2 * x1);
+    const x2 = params.length - (4 * STEP + 2 * x1);
     const half = x2 / 2;
     const bore = d1.v + 0.001;
     const at = (x: number) => ({ x, y: 0, z: 0 });
     const flipped = { x: 0, y: Math.PI, z: 0 };
-    // Сгон: гайка r2 на резьбе крана, со сдвигом на 0,1 её длины.
-    const union = this.parts.union(params.r2, params.r1, params.m2, half + 1.5 * STEP + x1 * 0.1);
+    // Сгон: гайка unionNominal на резьбе крана, со сдвигом на 0,1 её длины.
+    const union = this.parts.union(params.unionNominal, params.nominal, params.unionLength, half + 1.5 * STEP + x1 * 0.1);
 
     const merger = new MaterialGroupMerger();
     merger.add(
@@ -117,12 +115,12 @@ export class RegulatingValveGenerator extends BaseGenerator<RegulatingValveParam
 
     // Слева — торец крана, глубина — резьба. Справа — конец резьбы сгона, глубина — вся его резьба.
     // В gl2 точки стояли в центрах резьбы крана и концевой резьбы сгона.
-    const common = { nominal: params.r1, joint: 'thread' } as const;
+    const common = { nominal: params.nominal, joint: 'thread' } as const;
     return createMeshModel({
-      title: `${params.head === 'termo' ? 'Клапан с терморегулятором' : 'Кран регулировочный'} ${params.r1}`,
+      title: `${params.head === 'thermostatic' ? 'Клапан с терморегулятором' : 'Кран регулировочный'} ${params.nominal}`,
       ...merger.merge(),
       connectors: [
-        connector('left', ConnectorFrame.left, params.m1 / 2, { depth: x1, gender: 'internal', ...common }),
+        connector('left', ConnectorFrame.left, params.length / 2, { depth: x1, gender: 'internal', ...common }),
         connector('right', ConnectorFrame.right, union.end, { depth: union.threadLength, gender: 'external', ...common }),
       ],
     });
@@ -136,7 +134,7 @@ export class RegulatingValveGenerator extends BaseGenerator<RegulatingValveParam
     const solid = { innerDiameter: 0, rotation: up };
 
     const stem = sleeves.build({ material: 'metal', ...solid, length: h1, outerDiameter: 0.015, center: at(h1 / 2) });
-    if (head === 'termo') {
+    if (head === 'thermostatic') {
       const cap = 0.01;
       return [
         ...stem,

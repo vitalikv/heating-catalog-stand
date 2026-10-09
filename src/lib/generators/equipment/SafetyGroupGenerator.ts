@@ -11,12 +11,11 @@ import type { SleeveShape } from '../../geometry/SleeveGeometryBuilder';
 import { specs } from '../../params/specs';
 import { ThreadSizes } from '../../sizes/ThreadSizes';
 
-/** Параметры в формате cdm из gl2. */
 export interface SafetyGroupParams {
   /** Габарит корпуса-коллектора, м. */
-  size: Vector3Data;
+  dimensions: Vector3Data;
   /** Номинал внутренней резьбы гайки снизу, например '1'. */
-  r1: string;
+  nominal: string;
 }
 
 /** Описанный диаметр гайки — n × 1.236. */
@@ -39,19 +38,21 @@ const VALVE = { gap: 0.003, step: 0.01, body: 0.03, outlet1: 0.012, outlet2: 0.0
  * Резьбы приборов — часть корпуса, не разъёмы.
  */
 export class SafetyGroupGenerator extends BaseGenerator<SafetyGroupParams> {
-  readonly id = 'gr_bez_1';
+  readonly id = 'equipment.safety-group';
+  readonly version = 1;
   readonly title = 'Группа безопасности';
   readonly paramSpecs: readonly ParamSpec[] = [
-    specs.length('size.x', 'Длина корпуса', { min: 0.1, max: 0.5, step: 0.001 }),
-    specs.length('size.y', 'Высота корпуса', { min: 0.02, step: 0.001 }),
-    specs.length('size.z', 'Глубина корпуса', { min: 0.02, step: 0.001 }),
-    specs.threadNominal('r1', 'Резьба снизу (в)'),
+    specs.length('dimensions.x', 'Длина корпуса', { min: 0.1, max: 0.5, step: 0.001 }),
+    specs.length('dimensions.y', 'Высота корпуса', { min: 0.02, step: 0.001 }),
+    specs.length('dimensions.z', 'Глубина корпуса', { min: 0.02, step: 0.001 }),
+    specs.threadNominal('nominal', 'Резьба снизу (в)'),
   ];
+  readonly defaults: SafetyGroupParams = { dimensions: { x: 0.18, y: 0.05, z: 0.05 }, nominal: '1' };
 
   protected create(params: SafetyGroupParams): GeneratedModel {
-    const d1 = ThreadSizes.require(params.r1, 'internal');
+    const d1 = ThreadSizes.require(params.nominal, 'internal');
     const x1 = 0.02 * d1.n * 20;
-    const { x, y, z } = params.size;
+    const { x, y, z } = params.dimensions;
 
     const indexed = new BoxGeometry(x, y, z);
     const box = indexed.toNonIndexed();
@@ -82,7 +83,7 @@ export class SafetyGroupGenerator extends BaseGenerator<SafetyGroupParams> {
       title: 'Группа безопасности',
       ...merger.merge(),
       connectors: [
-        connector('bottom', ConnectorFrame.bottom, { x: 0, y: -(y / 2 + x1), z: 0 }, { depth: x1, nominal: params.r1, joint: 'thread', gender: 'internal' }),
+        connector('bottom', ConnectorFrame.bottom, { x: 0, y: -(y / 2 + x1), z: 0 }, { depth: x1, nominal: params.nominal, joint: 'thread', gender: 'internal' }),
       ],
     });
   }

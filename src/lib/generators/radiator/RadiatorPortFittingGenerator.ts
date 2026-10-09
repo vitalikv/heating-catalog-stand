@@ -9,16 +9,15 @@ import { sleeves } from '../../geometry/SleeveGeometryBuilder';
 import { specs } from '../../params/specs';
 import { ThreadSizes } from '../../sizes/ThreadSizes';
 
-/** prh — переходник на трубную резьбу, zgl — заглушка, vsd — воздухоотводчик. */
-export type RadiatorPlugType = 'prh' | 'zgl' | 'vsd';
+/** adapter — переходник на трубную резьбу, plug — заглушка, vent — воздухоотводчик. */
+export type RadiatorPortFittingKind = 'adapter' | 'plug' | 'vent';
 
-/** Параметры в формате cdm из gl2. */
-export interface RadiatorPlugParams {
-  type: RadiatorPlugType;
+export interface RadiatorPortFittingParams {
+  kind: RadiatorPortFittingKind;
   /** Номинал резьбы порта радиатора, например '1'. */
-  r1: string;
-  /** Номинал внутренней трубной резьбы выхода; только для prh. В gl2 у zgl и vsd — 0. */
-  r2?: string | 0;
+  portNominal: string;
+  /** Номинал внутренней трубной резьбы выхода; только у переходника. */
+  outletNominal?: string;
 }
 
 /** Длины, м: резьба в радиатор (x_1), гайка (x_2), буртик (x_3). */
@@ -29,35 +28,37 @@ const HEX_SEGMENTS = 6;
 /** Воздухоотводчик: диск и «бабочка», м. */
 const VENT = { disk: 0.001, diameter: 0.02, height: 0.016, width: 0.007, thickness: 0.004 };
 
-const TITLES: Record<RadiatorPlugType, string> = {
-  prh: 'перех.радиаторный',
-  zgl: 'заглушка радиаторная',
-  vsd: 'воздухоотв.радиаторный',
+const TITLES: Record<RadiatorPortFittingKind, string> = {
+  adapter: 'перех.радиаторный',
+  plug: 'заглушка радиаторная',
+  vent: 'воздухоотв.радиаторный',
 };
 
 /**
  * Радиаторные переходник, заглушка и воздухоотводчик (перенос al_zagl_radiator_1).
  * Сторона в радиатор — резьба radiator-thread, к портам радиатора подходит только она.
  */
-export class RadiatorPlugGenerator extends BaseGenerator<RadiatorPlugParams> {
-  readonly id = 'al_zagl_radiator_1';
+export class RadiatorPortFittingGenerator extends BaseGenerator<RadiatorPortFittingParams> {
+  readonly id = 'radiator.port-fitting';
+  readonly version = 1;
   readonly title = 'Радиаторный переходник / заглушка';
   readonly paramSpecs: readonly ParamSpec[] = [
     {
       kind: 'choice',
-      key: 'type',
+      key: 'kind',
       label: 'Тип',
-      options: ['prh', 'zgl', 'vsd'],
-      optionLabels: { prh: 'переходник', zgl: 'заглушка', vsd: 'воздухоотводчик' },
+      options: ['adapter', 'plug', 'vent'],
+      optionLabels: { adapter: 'переходник', plug: 'заглушка', vent: 'воздухоотводчик' },
     },
-    specs.threadNominal('r1', 'Резьба в радиатор'),
-    { kind: 'choice', key: 'r2', label: 'Резьба выхода', options: ThreadSizes.nominals, when: { key: 'type', values: ['prh'] } },
+    specs.threadNominal('portNominal', 'Резьба в радиатор'),
+    { kind: 'choice', key: 'outletNominal', label: 'Резьба выхода', options: ThreadSizes.nominals, when: { key: 'kind', values: ['adapter'] } },
   ];
+  readonly defaults: RadiatorPortFittingParams = { portNominal: '1', outletNominal: '1/2', kind: 'adapter' };
 
-  protected create(params: RadiatorPlugParams): GeneratedModel {
-    const outlet = params.type === 'prh' ? String(params.r2) : null;
+  protected create(params: RadiatorPortFittingParams): GeneratedModel {
+    const outlet = params.kind === 'adapter' ? params.outletNominal ?? null : null;
     // В gl2 сторона в радиатор считается как внутренняя резьба (side: 'v'): n = d, v = d − t.
-    const d1 = ThreadSizes.require(params.r1, 'internal');
+    const d1 = ThreadSizes.require(params.portNominal, 'internal');
     const d2 = outlet ? ThreadSizes.require(outlet, 'external') : { n: 0, v: 0 };
     const at = (x: number) => ({ x, y: 0, z: 0 });
     const nutX = COLLAR / 2 + NUT / 2;
@@ -94,7 +95,7 @@ export class RadiatorPlugGenerator extends BaseGenerator<RadiatorPlugParams> {
       );
     }
 
-    if (params.type === 'vsd') {
+    if (params.kind === 'vent') {
       const p = (x: number, y: number) => ({ x, y });
       merger.add(
         ...sleeves.build({
@@ -114,14 +115,14 @@ export class RadiatorPlugGenerator extends BaseGenerator<RadiatorPlugParams> {
       );
     }
 
-    const title = outlet ? `${TITLES.prh} ${outlet}` : TITLES[params.type];
+    const title = outlet ? `${TITLES.adapter} ${outlet}` : TITLES[params.kind];
 
     // Торцы — конец резьбы в радиатор и торец гайки выхода; глубина — длина резьбы.
     // В gl2 точки стояли в центрах резьбовых участков.
     const connectors = [
       connector('radiator', ConnectorFrame.left, COLLAR / 2 + RADIATOR_THREAD, {
         depth: RADIATOR_THREAD,
-        nominal: params.r1,
+        nominal: params.portNominal,
         joint: 'radiator-thread',
         gender: 'external',
       }),

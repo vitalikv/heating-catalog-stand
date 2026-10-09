@@ -82,8 +82,8 @@ export class StandPanel {
     for (const spec of this.entry.generator.paramSpecs) {
       const value = ParamSchema.get(preset.params, spec.key);
       if (spec.kind === 'length') this.ui[spec.key] = toMm(Number(value));
-      // Неактивный в наборе выбор (r2: 0 у заглушки) — первый вариант, чтобы его можно было включить.
-      else if (spec.kind === 'choice') this.ui[spec.key] = spec.options.includes(String(value)) ? String(value) : spec.options[0];
+      // Неактивный в наборе выбор (выход у заглушки) — первый вариант, чтобы его можно было включить.
+      else if (spec.kind === 'choice') this.ui[spec.key] = spec.options.find((option) => option === value) ?? spec.options[0];
       else this.ui[spec.key] = value as number;
     }
     this.rebuildParamsFolder();
@@ -103,7 +103,7 @@ export class StandPanel {
   private addControl(spec: ParamSpec): Controller {
     switch (spec.kind) {
       case 'choice': {
-        const options = Object.fromEntries(spec.options.map((option) => [spec.optionLabels?.[option] ?? option, option]));
+        const options = Object.fromEntries(spec.options.map((option) => [spec.optionLabels?.[option] ?? String(option), option]));
         return this.paramsFolder.add(this.ui, spec.key, options).name(spec.label);
       }
       case 'integer':

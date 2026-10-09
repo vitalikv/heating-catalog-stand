@@ -11,14 +11,13 @@ import { specs } from '../../params/specs';
 import { ThreadSizes } from '../../sizes/ThreadSizes';
 import type { PartDiameters } from '../../sizes/ThreadSizes';
 
-/** Параметры в формате cdm из gl2. */
 export interface SteelNippleParams {
   /** Дюймовый номинал наружной резьбы слева, например '1/2'. */
-  r1: string;
+  nominalLeft: string;
   /** Номинал справа. */
-  r2: string;
+  nominalRight: string;
   /** Длина ниппеля, м. */
-  m1: number;
+  length: number;
 }
 
 /** Длина резьбового участка — 0,3 наружного диаметра в пределах 8…12 мм. */
@@ -36,17 +35,19 @@ interface NippleLayout {
 
 /** Стальной ниппель с наружной резьбой с двух сторон (перенос st_nippel_1). */
 export class SteelNippleGenerator extends BaseGenerator<SteelNippleParams, NippleLayout> {
-  readonly id = 'st_nippel_1';
+  readonly id = 'steel.nipple';
+  readonly version = 1;
   readonly title = 'Ниппель стальной';
   readonly paramSpecs: readonly ParamSpec[] = [
-    specs.threadNominal('r1', 'Резьба слева'),
-    specs.threadNominal('r2', 'Резьба справа'),
-    specs.length('m1', 'Длина'),
+    specs.threadNominal('nominalLeft', 'Резьба слева'),
+    specs.threadNominal('nominalRight', 'Резьба справа'),
+    specs.length('length', 'Длина'),
   ];
+  readonly defaults: SteelNippleParams = { nominalLeft: '1/2', nominalRight: '1/2', length: 0.022 };
 
   protected override layout(params: SteelNippleParams): NippleLayout {
-    const d1 = ThreadSizes.require(params.r1, 'external');
-    const d2 = ThreadSizes.require(params.r2, 'external');
+    const d1 = ThreadSizes.require(params.nominalLeft, 'external');
+    const d2 = ThreadSizes.require(params.nominalRight, 'external');
     const threadLength = (d: PartDiameters) => Math.min(Math.max(0.015 * d.n * 20, MIN_THREAD_LENGTH), MAX_THREAD_LENGTH);
     return { d1, d2, x1: threadLength(d1), x2: threadLength(d2) };
   }
@@ -54,12 +55,12 @@ export class SteelNippleGenerator extends BaseGenerator<SteelNippleParams, Nippl
   protected override relations(params: SteelNippleParams, { x1, x2 }: NippleLayout): ValidationError[] {
     // Гладкий участок нулевой длины считается ошибкой, как у муфты.
     const thread = Math.max(x1, x2);
-    return params.m1 / 2 <= thread ? [ParamSchema.tooShort('m1', 2 * thread)] : [];
+    return params.length / 2 <= thread ? [ParamSchema.tooShort('length', 2 * thread)] : [];
   }
 
   protected create(params: SteelNippleParams, { d1, d2, x1, x2 }: NippleLayout): GeneratedModel {
-    const x3L = params.m1 / 2 - x1;
-    const x3R = params.m1 / 2 - x2;
+    const x3L = params.length / 2 - x1;
+    const x3R = params.length / 2 - x2;
     const maxN = Math.max(d1.n, d2.n);
     const at = (x: number) => ({ x, y: 0, z: 0 });
     const thread: Partial<SleeveShape> = { materials: { outer: 'thread' } };
@@ -82,15 +83,15 @@ export class SteelNippleGenerator extends BaseGenerator<SteelNippleParams, Nippl
       ...sleeves.build({ material: 'metal', ...thread, length: x2, outerDiameter: d2.n, innerDiameter: d2.v, center: at(x3R + x2 / 2) }),
     );
 
-    // Торцы — концы резьбы (±m1/2), глубина — длина резьбового участка.
+    // Торцы — концы резьбы (±length/2), глубина — длина резьбового участка.
     // В gl2 точка разъёма стояла в центре резьбового участка.
     const common = { joint: 'thread', gender: 'external' } as const;
     return createMeshModel({
-      title: params.r1 === params.r2 ? `Ниппель ${params.r1}(н)` : `Ниппель ${params.r1}(н)х${params.r2}(н)`,
+      title: params.nominalLeft === params.nominalRight ? `Ниппель ${params.nominalLeft}(н)` : `Ниппель ${params.nominalLeft}(н)х${params.nominalRight}(н)`,
       ...merger.merge(),
       connectors: [
-        connector('left', ConnectorFrame.left, params.m1 / 2, { depth: x1, nominal: params.r1, ...common }),
-        connector('right', ConnectorFrame.right, params.m1 / 2, { depth: x2, nominal: params.r2, ...common }),
+        connector('left', ConnectorFrame.left, params.length / 2, { depth: x1, nominal: params.nominalLeft, ...common }),
+        connector('right', ConnectorFrame.right, params.length / 2, { depth: x2, nominal: params.nominalRight, ...common }),
       ],
     });
   }

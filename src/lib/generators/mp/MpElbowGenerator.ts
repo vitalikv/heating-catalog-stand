@@ -12,12 +12,11 @@ import { MpPipeSizes } from '../../sizes/MpPipeSizes';
 import type { PartDiameters } from '../../sizes/ThreadSizes';
 import { MpPressEnd } from './MpPressEnd';
 
-/** Параметры в формате cdm из gl2. */
 export interface MpElbowParams {
   /** Наружный диаметр металлопластиковой трубы, мм, строкой: '16', '20'… */
-  r1: string;
+  nominal: string;
   /** Длина плеча от оси до конца пресс-гильзы, м. */
-  m1: number;
+  armLength: number;
 }
 
 /**
@@ -25,28 +24,30 @@ export interface MpElbowParams {
  * с пресс-концами, внешний угол — четверть сферы.
  */
 export class MpElbowGenerator extends BaseGenerator<MpElbowParams, PartDiameters> {
-  readonly id = 'mpl_ugol_1';
+  readonly id = 'mp.elbow';
+  readonly version = 1;
   readonly title = 'Угол металлопластиковый';
   readonly paramSpecs: readonly ParamSpec[] = [
-    specs.mpNominal('r1'),
-    specs.length('m1', 'Длина плеча'),
+    specs.mpNominal('nominal'),
+    specs.length('armLength', 'Длина плеча'),
   ];
+  readonly defaults: MpElbowParams = { nominal: '16', armLength: 0.042 };
 
   private readonly ends = new MpPressEnd();
 
   protected override layout(params: MpElbowParams): PartDiameters {
-    return MpPipeSizes.require(params.r1);
+    return MpPipeSizes.require(params.nominal);
   }
 
   protected override relations(params: MpElbowParams, d: PartDiameters): ValidationError[] {
     // Плечо до гильзы (s1 в gl2) было бы нулевой или отрицательной длины.
     const w1 = MpPressEnd.pressLength(d);
-    return params.m1 <= w1 ? [ParamSchema.tooShort('m1', w1)] : [];
+    return params.armLength <= w1 ? [ParamSchema.tooShort('armLength', w1)] : [];
   }
 
   protected create(params: MpElbowParams, d: PartDiameters): GeneratedModel {
     const w1 = MpPressEnd.pressLength(d);
-    const s1 = params.m1 - w1;
+    const s1 = params.armLength - w1;
     const pipe = { outerDiameter: d.n, innerDiameter: d.v, length: s1 };
     const quarter = { phiLength: Math.PI / 2, rotation: { x: Math.PI / 2, y: 0, z: 0 } };
 
@@ -61,13 +62,13 @@ export class MpElbowGenerator extends BaseGenerator<MpElbowParams, PartDiameters
     );
 
     // Торец — конец пресс-гильзы, глубина — её длина. В gl2 точки стояли в центрах гильз.
-    const common = { depth: w1, nominal: params.r1, joint: 'mp-press', gender: 'internal' } as const;
+    const common = { depth: w1, nominal: params.nominal, joint: 'mp-press', gender: 'internal' } as const;
     return createMeshModel({
-      title: `Угол ${params.r1}`,
+      title: `Угол ${params.nominal}`,
       ...merger.merge(),
       connectors: [
-        connector('right', ConnectorFrame.right, params.m1, common),
-        connector('top', ConnectorFrame.top, params.m1, common),
+        connector('right', ConnectorFrame.right, params.armLength, common),
+        connector('top', ConnectorFrame.top, params.armLength, common),
       ],
     });
   }

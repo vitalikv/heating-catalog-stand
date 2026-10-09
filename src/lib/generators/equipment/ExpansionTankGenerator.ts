@@ -11,19 +11,18 @@ import { ParamSchema } from '../../params/ParamSchema';
 import { specs } from '../../params/specs';
 import { ThreadSizes } from '../../sizes/ThreadSizes';
 
-/** Объёмы из наборов start.js: в gl2 — строка name, только для названия. */
-export const EXPANSION_TANK_VOLUMES = ['6л', '8л', '10л', '12л', '18л', '24л'] as const;
+/** Объёмы из наборов start.js, л; только для названия. */
+export const EXPANSION_TANK_VOLUMES: readonly number[] = [6, 8, 10, 12, 18, 24];
 
-/** Параметры в формате cdm из gl2. */
 export interface ExpansionTankParams {
   /** Диаметр бака, м. */
-  d: number;
+  diameter: number;
   /** Высота бака с днищами, м. */
-  h1: number;
+  height: number;
   /** Номинал наружной резьбы штуцера, например '3/4'. */
-  r1: string;
-  /** Объём для названия: '6л'. */
-  name: string;
+  nominal: string;
+  /** Объём для названия, л. */
+  volume: number;
 }
 
 const SEGMENTS = 32;
@@ -37,24 +36,26 @@ const COLLAR_INSET = 0.005;
 
 /** Расширительный бак: цилиндр с днищами, штуцер с наружной резьбой вниз (перенос cr_rash_bak_1). */
 export class ExpansionTankGenerator extends BaseGenerator<ExpansionTankParams> {
-  readonly id = 'cr_rash_bak_1';
+  readonly id = 'equipment.expansion-tank';
+  readonly version = 1;
   readonly title = 'Бак расширительный';
   readonly paramSpecs: readonly ParamSpec[] = [
-    specs.length('d', 'Диаметр', { min: 0.05, max: 1, step: 0.001 }),
-    specs.length('h1', 'Высота', { min: 0.05, max: 2, step: 0.001 }),
-    specs.threadNominal('r1', 'Резьба штуцера (н)'),
-    { kind: 'choice', key: 'name', label: 'Объём', options: EXPANSION_TANK_VOLUMES },
+    specs.length('diameter', 'Диаметр', { min: 0.05, max: 1, step: 0.001 }),
+    specs.length('height', 'Высота', { min: 0.05, max: 2, step: 0.001 }),
+    specs.threadNominal('nominal', 'Резьба штуцера (н)'),
+    { kind: 'choice', key: 'volume', label: 'Объём, л', options: EXPANSION_TANK_VOLUMES },
   ];
+  readonly defaults: ExpansionTankParams = { diameter: 0.245, height: 0.25, nominal: '3/4', volume: 6 };
 
   protected override relations(params: ExpansionTankParams): ValidationError[] {
     // Цилиндрическая часть h2 = h1 − d/2 нулевой высоты считается ошибкой.
-    return params.h1 <= params.d / 2 ? [ParamSchema.tooShort('h1', params.d / 2)] : [];
+    return params.height <= params.diameter / 2 ? [ParamSchema.tooShort('height', params.diameter / 2)] : [];
   }
 
   protected create(params: ExpansionTankParams): GeneratedModel {
-    const d2 = ThreadSizes.require(params.r1, 'external');
-    const radius = params.d / 2;
-    const h2 = params.h1 - radius;
+    const d2 = ThreadSizes.require(params.nominal, 'external');
+    const radius = params.diameter / 2;
+    const h2 = params.height - radius;
     // Низ нижнего днища; от него вниз — втулка и штуцер.
     const bottom = -h2 / 2 - radius * DOME_SCALE;
     const collarTop = bottom + COLLAR_INSET;
@@ -73,10 +74,10 @@ export class ExpansionTankGenerator extends BaseGenerator<ExpansionTankParams> {
 
     // Торец — конец штуцера, глубина — его резьба. В gl2 точка — в центре штуцера.
     return createMeshModel({
-      title: `Расш.бак ${params.name}`,
+      title: `Расш.бак ${params.volume}л`,
       ...merger.merge(),
       connectors: [
-        connector('bottom', ConnectorFrame.bottom, { x: 0, y: collarTop - COLLAR - FITTING, z: 0 }, { depth: FITTING, nominal: params.r1, joint: 'thread', gender: 'external' }),
+        connector('bottom', ConnectorFrame.bottom, { x: 0, y: collarTop - COLLAR - FITTING, z: 0 }, { depth: FITTING, nominal: params.nominal, joint: 'thread', gender: 'external' }),
       ],
     });
   }

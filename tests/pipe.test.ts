@@ -1,16 +1,17 @@
 import { Matrix4, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
-import { ConnectorMating, MpCouplingGenerator, PipeGenerator, PpCouplingGenerator } from '../src/lib/index';
-import type { Connector, GeneratedModel } from '../src/lib/index';
+import { ConnectorMating, MpCouplingGenerator, MpPipeGenerator, PpCouplingGenerator, PpPipeGenerator } from '../src/lib/index';
+import type { Connector, GeneratedModel, ModelGenerator } from '../src/lib/index';
 
 // В gl2 труба — объект редактора TubeN, эталона gl2Reference нет: габарит, разъёмы и название — здесь.
-const generator = new PipeGenerator();
+const pp = new PpPipeGenerator();
+const mp = new MpPipeGenerator();
 const byId = (model: GeneratedModel, id: string): Connector => model.connectors.find((c) => c.id === id)!;
-const codes = (params: Parameters<PipeGenerator['validate']>[0]) => generator.validate(params).map(({ code, param }) => `${code}:${param}`);
+const codes = <T>(generator: ModelGenerator<T>, params: T) => generator.validate(params).map(({ code, param }) => `${code}:${param}`);
 
-describe('труба createTubeWF_1', () => {
+describe('трубы pp.pipe и mp.pipe', () => {
   it('ПП: открытый цилиндр по наружному диаметру, раструбные разъёмы на концах', () => {
-    const model = generator.build({ type: 'pp', ppSize: '25', length: 1.5 });
+    const model = pp.build({ nominal: '25', length: 1.5 });
     expect(model.bounds.min.x).toBeCloseTo(-0.75, 9);
     expect(model.bounds.max.x).toBeCloseTo(0.75, 9);
     expect(model.bounds.max.y).toBeCloseTo(0.0125, 9);
@@ -23,7 +24,7 @@ describe('труба createTubeWF_1', () => {
   });
 
   it('МП: та же геометрия, пресс-разъёмы, номинал по sizeTubeMP', () => {
-    const model = generator.build({ type: 'mp', mpSize: '16', length: 0.25 });
+    const model = mp.build({ nominal: '16', length: 0.25 });
     expect(model.bounds.max.y).toBeCloseTo(0.008, 9);
     expect(model.connectors.map((c) => [c.id, c.joint, c.gender, c.nominal])).toEqual([
       ['start', 'mp-press', 'external', '16'],
@@ -34,20 +35,20 @@ describe('труба createTubeWF_1', () => {
   });
 
   it('название: длина до 0,01 м, как в gl2', () => {
-    expect(generator.build({ type: 'pp', ppSize: '20', length: 1.234 }).title).toBe('Труба ПП 20 (1.23м)');
+    expect(pp.build({ nominal: '20', length: 1.234 }).title).toBe('Труба ПП 20 (1.23м)');
   });
 
-  it('номинал — из таблицы своего типа; второй номинал не проверяется', () => {
-    expect(codes({ type: 'pp', ppSize: '16', length: 1 })).toEqual(['unknown_option:ppSize']);
-    expect(codes({ type: 'mp', mpSize: '25', length: 1 })).toEqual(['unknown_option:mpSize']);
-    expect(codes({ type: 'mp', mpSize: '26', ppSize: 'что угодно', length: 1 })).toEqual([]);
-    expect(codes({ type: 'pp', ppSize: '20', length: 0 })).toEqual(['out_of_range:length']);
+  it('номинал — из таблицы своего типа', () => {
+    expect(codes(pp, { nominal: '16', length: 1 })).toEqual(['unknown_option:nominal']);
+    expect(codes(mp, { nominal: '25', length: 1 })).toEqual(['unknown_option:nominal']);
+    expect(codes(mp, { nominal: '26', length: 1 })).toEqual([]);
+    expect(codes(pp, { nominal: '20', length: 0 })).toEqual(['out_of_range:length']);
   });
 
   it('входит в муфту ПП и МП на глубину раструба или гильзы', () => {
     const cases = [
-      { fitting: new PpCouplingGenerator().build({ r1: '20', r2: '20', m1: 0.04 }), pipe: generator.build({ type: 'pp', ppSize: '20', length: 1 }) },
-      { fitting: new MpCouplingGenerator().build({ r1: '16', r3: '16', m1: 0.06 }), pipe: generator.build({ type: 'mp', mpSize: '16', length: 1 }) },
+      { fitting: new PpCouplingGenerator().build({ nominalLeft: '20', nominalRight: '20', length: 0.04 }), pipe: pp.build({ nominal: '20', length: 1 }) },
+      { fitting: new MpCouplingGenerator().build({ nominalLeft: '16', nominalRight: '16', length: 0.06 }), pipe: mp.build({ nominal: '16', length: 1 }) },
     ];
     for (const { fitting, pipe } of cases) {
       const socket = byId(fitting, 'right');

@@ -11,12 +11,11 @@ import { specs } from '../../params/specs';
 import { ThreadSizes } from '../../sizes/ThreadSizes';
 import type { PartDiameters } from '../../sizes/ThreadSizes';
 
-/** Параметры в формате cdm из gl2. */
 export interface StrainerParams {
   /** Номинал внутренней резьбы концов, например '3/4'. */
-  r1: string;
+  nominal: string;
   /** Длина фильтра, м. */
-  m1: number;
+  length: number;
 }
 
 /** Длина резьбы — 0,4 наружного диаметра, не меньше 12 мм. */
@@ -35,27 +34,29 @@ interface StrainerLayout {
 
 /** Косой фильтр: прямой корпус с резьбой на концах и отстойник под 45° с крышкой (перенос filtr_kosoy_1). */
 export class StrainerGenerator extends BaseGenerator<StrainerParams, StrainerLayout> {
-  readonly id = 'filtr_kosoy_1';
+  readonly id = 'equipment.strainer';
+  readonly version = 1;
   readonly title = 'Фильтр косой';
   readonly paramSpecs: readonly ParamSpec[] = [
-    specs.threadNominal('r1', 'Резьба (в)'),
-    specs.length('m1', 'Длина', { max: 0.3 }),
+    specs.threadNominal('nominal', 'Резьба (в)'),
+    specs.length('length', 'Длина', { max: 0.3 }),
   ];
+  readonly defaults: StrainerParams = { nominal: '1/2', length: 0.053 };
 
   protected override layout(params: StrainerParams): StrainerLayout {
-    const d1 = ThreadSizes.require(params.r1, 'internal');
+    const d1 = ThreadSizes.require(params.nominal, 'internal');
     return { d1, x1: Math.max(0.02 * d1.n * 20, MIN_THREAD_LENGTH) };
   }
 
   protected override relations(params: StrainerParams, { x1 }: StrainerLayout): ValidationError[] {
     // Корпус между резьбами нулевой длины считается ошибкой.
-    return params.m1 <= 2 * x1 ? [ParamSchema.tooShort('m1', 2 * x1)] : [];
+    return params.length <= 2 * x1 ? [ParamSchema.tooShort('length', 2 * x1)] : [];
   }
 
   protected create(params: StrainerParams, { d1, x1 }: StrainerLayout): GeneratedModel {
-    const s1 = params.m1 - x1 * 2;
+    const s1 = params.length - x1 * 2;
     // Отстойник: длина трубы, толщина крышки и её гайки
-    const s2 = (params.m1 / 2) * 1.3;
+    const s2 = (params.length / 2) * 1.3;
     const s3 = 0.005 * d1.n * 20;
     const s4 = 0.009 * d1.n * 20;
     const at = (x: number) => ({ x, y: 0, z: 0 });
@@ -79,9 +80,9 @@ export class StrainerGenerator extends BaseGenerator<StrainerParams, StrainerLay
     );
 
     // Торцы — концы резьбы, глубина — длина резьбы. В gl2 точки — в центрах резьбы.
-    const common = { depth: x1, nominal: params.r1, joint: 'thread', gender: 'internal' } as const;
+    const common = { depth: x1, nominal: params.nominal, joint: 'thread', gender: 'internal' } as const;
     return createMeshModel({
-      title: `Фильтр косой ${params.r1}(в-в)`,
+      title: `Фильтр косой ${params.nominal}(в-в)`,
       ...merger.merge(),
       connectors: [
         connector('left', ConnectorFrame.left, s1 / 2 + x1, common),

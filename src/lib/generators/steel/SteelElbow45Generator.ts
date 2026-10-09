@@ -12,12 +12,11 @@ import { specs } from '../../params/specs';
 import { ThreadSizes } from '../../sizes/ThreadSizes';
 import type { PartDiameters } from '../../sizes/ThreadSizes';
 
-/** Параметры в формате cdm из gl2. */
 export interface SteelElbow45Params {
   /** Дюймовый номинал внутренней резьбы, например '1/2'. */
-  r1: string;
+  nominal: string;
   /** Длина плеча от оси до конца резьбы, м. */
-  m1: number;
+  armLength: number;
 }
 
 /** Длина резьбы (x_1 в gl2), м. */
@@ -30,21 +29,23 @@ const TURN = -Math.PI / 4;
  * второе — левое плечо, повёрнутое на 45° вверх; внешний угол — сектор сферы.
  */
 export class SteelElbow45Generator extends BaseGenerator<SteelElbow45Params, PartDiameters> {
-  readonly id = 'st_ugol_45_1';
+  readonly id = 'steel.elbow-45';
+  readonly version = 1;
   readonly title = 'Угол стальной 45°';
-  readonly paramSpecs: readonly ParamSpec[] = [specs.threadNominal('r1', 'Резьба (в)'), specs.length('m1', 'Длина плеча')];
+  readonly paramSpecs: readonly ParamSpec[] = [specs.threadNominal('nominal', 'Резьба (в)'), specs.length('armLength', 'Длина плеча')];
+  readonly defaults: SteelElbow45Params = { nominal: '1/2', armLength: 0.018 };
 
   protected override layout(params: SteelElbow45Params): PartDiameters {
-    return ThreadSizes.require(params.r1, 'internal');
+    return ThreadSizes.require(params.nominal, 'internal');
   }
 
   protected override relations(params: SteelElbow45Params): ValidationError[] {
-    return params.m1 <= THREAD_LENGTH ? [ParamSchema.tooShort('m1', THREAD_LENGTH)] : [];
+    return params.armLength <= THREAD_LENGTH ? [ParamSchema.tooShort('armLength', THREAD_LENGTH)] : [];
   }
 
   protected create(params: SteelElbow45Params, d: PartDiameters): GeneratedModel {
     const x1 = THREAD_LENGTH;
-    const x2 = params.m1 - x1;
+    const x2 = params.armLength - x1;
     const ring = d.n / 10;
     const pipe = { outerDiameter: d.n, innerDiameter: d.v };
     const ringSize = { outerDiameter: d.n + ring, innerDiameter: d.v };
@@ -69,11 +70,11 @@ export class SteelElbow45Generator extends BaseGenerator<SteelElbow45Params, Par
 
     // Торец — наружная грань кольца за резьбой, глубина — резьба и кольцо.
     // В gl2 точки стояли в центрах резьбы. ID — по стороне выхода.
-    const face = params.m1 + ring;
+    const face = params.armLength + ring;
     const angled = ConnectorFrame.leftTurned(TURN);
-    const end = { depth: x1 + ring, nominal: params.r1, joint: 'thread', gender: 'internal' } as const;
+    const end = { depth: x1 + ring, nominal: params.nominal, joint: 'thread', gender: 'internal' } as const;
     return createMeshModel({
-      title: `Угол_45 ${params.r1}(в)`,
+      title: `Угол_45 ${params.nominal}(в)`,
       ...merger.merge(),
       connectors: [connector('right', ConnectorFrame.right, face, end), connector('left', angled, face, end)],
     });

@@ -55,15 +55,15 @@ export class MpPressEnd {
   }
 
   /**
-   * Проход длиной m1 (mpl_perehod_1, mpl_troinik_1, mpl_troinik_rezba_1): пресс-концы d1 слева
+   * Проход длиной length (mpl_perehod_1, mpl_troinik_1, mpl_troinik_rezba_1): пресс-концы d1 слева
    * и d3 справа, между ними трубы и конусы к наибольшему диаметру dc. Половина прохода без гильзы
    * делится пополам: труба s и конус s.
    */
-  buildRun(m1: number, d1: PartDiameters, d3: PartDiameters, dc: PartDiameters): GeometryPart[] {
+  buildRun(length: number, d1: PartDiameters, d3: PartDiameters, dc: PartDiameters): GeometryPart[] {
     const w1 = MpPressEnd.pressLength(d1);
     const w3 = MpPressEnd.pressLength(d3);
-    const s1 = (m1 / 2 - w1) / 2;
-    const s3 = (m1 / 2 - w3) / 2;
+    const s1 = (length / 2 - w1) / 2;
+    const s3 = (length / 2 - w3) / 2;
     const cone = { outerDiameter: dc.n, innerDiameter: dc.v };
     const at = (x: number) => ({ x, y: 0, z: 0 });
 

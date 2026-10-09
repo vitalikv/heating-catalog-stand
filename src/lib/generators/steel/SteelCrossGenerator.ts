@@ -9,12 +9,11 @@ import { ParamSchema } from '../../params/ParamSchema';
 import { specs } from '../../params/specs';
 import { ThreadSizes } from '../../sizes/ThreadSizes';
 
-/** Параметры в формате cdm из gl2. */
 export interface SteelCrossParams {
   /** Дюймовый номинал внутренней резьбы всех выходов, например '1/2'. */
-  r1: string;
+  nominal: string;
   /** Размер между торцами, м. */
-  m1: number;
+  size: number;
 }
 
 /** Длина резьбы (x_1 в gl2), м. */
@@ -24,22 +23,24 @@ const RING_GAP = 0.0001;
 
 /** Стальная крестовина с внутренней резьбой (перенос st_krestovina_1): выходы по ±X и ±Y. */
 export class SteelCrossGenerator extends BaseGenerator<SteelCrossParams> {
-  readonly id = 'st_krestovina_1';
+  readonly id = 'steel.cross';
+  readonly version = 1;
   readonly title = 'Крестовина стальная';
   readonly paramSpecs: readonly ParamSpec[] = [
-    specs.threadNominal('r1', 'Резьба (в)'),
-    specs.length('m1', 'Размер', { max: 0.3 }),
+    specs.threadNominal('nominal', 'Резьба (в)'),
+    specs.length('size', 'Размер', { max: 0.3 }),
   ];
+  readonly defaults: SteelCrossParams = { nominal: '1/2', size: 0.046 };
 
   protected override relations(params: SteelCrossParams): ValidationError[] {
     // Средняя часть (x_2 в gl2) была бы нулевой или отрицательной длины.
-    return params.m1 <= 2 * THREAD_LENGTH ? [ParamSchema.tooShort('m1', 2 * THREAD_LENGTH)] : [];
+    return params.size <= 2 * THREAD_LENGTH ? [ParamSchema.tooShort('size', 2 * THREAD_LENGTH)] : [];
   }
 
   protected create(params: SteelCrossParams): GeneratedModel {
-    const d = ThreadSizes.require(params.r1, 'internal');
+    const d = ThreadSizes.require(params.nominal, 'internal');
     const x1 = THREAD_LENGTH;
-    const x2 = params.m1 - 2 * x1;
+    const x2 = params.size - 2 * x1;
     const ring = d.n / 10;
     const pipe = { outerDiameter: d.n, innerDiameter: d.v };
     const ringSize = { length: ring, outerDiameter: d.n + ring, innerDiameter: d.v + RING_GAP };
@@ -64,12 +65,12 @@ export class SteelCrossGenerator extends BaseGenerator<SteelCrossParams> {
       }
     }
 
-    // Торцы — концы резьбы (±m1/2), глубина — резьба. В gl2 точки — в центрах резьбы.
-    const common = { depth: x1, nominal: params.r1, joint: 'thread', gender: 'internal' } as const;
-    const half = params.m1 / 2;
+    // Торцы — концы резьбы (±size/2), глубина — резьба. В gl2 точки — в центрах резьбы.
+    const common = { depth: x1, nominal: params.nominal, joint: 'thread', gender: 'internal' } as const;
+    const half = params.size / 2;
     const { left, right, bottom, top } = ConnectorFrame;
     return createMeshModel({
-      title: `Крестовина ${params.r1}`,
+      title: `Крестовина ${params.nominal}`,
       ...merger.merge(),
       connectors: [
         connector('left', left, half, common),

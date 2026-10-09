@@ -1,22 +1,28 @@
 import { BaseGenerator } from '../../core/BaseGenerator';
 import { connector } from '../../core/connector';
 import { ConnectorFrame } from '../../core/ConnectorFrame';
-import type { GeneratedModel, ParamSpec, ValidationError } from '../../core/contracts';
+import type { GeneratedModel, ParamSpec, ThreadGender, ValidationError } from '../../core/contracts';
 import { createMeshModel } from '../../core/MeshModel';
 import { MaterialGroupMerger } from '../../geometry/MaterialGroupMerger';
 import { sleeves } from '../../geometry/SleeveGeometryBuilder';
 import { ParamSchema } from '../../params/ParamSchema';
 import { specs } from '../../params/specs';
-import type { ThreadSideCode } from '../../params/specs';
 import { MpPipeSizes } from '../../sizes/MpPipeSizes';
 import { ThreadSizes } from '../../sizes/ThreadSizes';
 import { MpPressEnd } from './MpPressEnd';
 import type { TeeLayout } from './MpPressEnd';
-import type { MpTeeParams } from './MpTeeGenerator';
 
-/** Параметры в формате cdm из gl2: r2 — дюймовый номинал резьбы отвода. */
-export interface MpThreadTeeParams extends MpTeeParams {
-  side: ThreadSideCode;
+export interface MpThreadTeeParams {
+  threadGender: ThreadGender;
+  /** Наружные диаметры металлопластиковых труб прохода, мм, строкой. */
+  nominalLeft: string;
+  nominalRight: string;
+  /** Дюймовый номинал резьбы отвода, например '1/2'. */
+  threadNominal: string;
+  /** Длина прохода, м. */
+  length: number;
+  /** Высота отвода от оси прохода до конца резьбы, м. */
+  branchLength: number;
 }
 
 /** Длина резьбы отвода (w2 в gl2), м. */
@@ -29,46 +35,55 @@ const NUT_LENGTH = 0.007;
  * проход под пресс, отвод — конус, труба, шестигранник и резьба.
  */
 export class MpThreadTeeGenerator extends BaseGenerator<MpThreadTeeParams, TeeLayout> {
-  readonly id = 'mpl_troinik_rezba_1';
+  readonly id = 'mp.tee-thread';
+  readonly version = 1;
   readonly title = 'Тройник металлопластиковый с резьбой';
   readonly paramSpecs: readonly ParamSpec[] = [
-    specs.threadSide(),
-    specs.mpNominal('r1', 'Слева, мм'),
-    specs.threadNominal('r2', 'Резьба отвода'),
-    specs.mpNominal('r3', 'Справа, мм'),
-    specs.length('m1', 'Длина прохода', { max: 0.3 }),
-    specs.length('m2', 'Высота отвода'),
+    specs.threadGender(),
+    specs.mpNominal('nominalLeft', 'Слева, мм'),
+    specs.threadNominal('threadNominal', 'Резьба отвода'),
+    specs.mpNominal('nominalRight', 'Справа, мм'),
+    specs.length('length', 'Длина прохода', { max: 0.3 }),
+    specs.length('branchLength', 'Высота отвода'),
   ];
+  readonly defaults: MpThreadTeeParams = {
+    threadGender: 'external',
+    nominalLeft: '16',
+    threadNominal: '1/2',
+    nominalRight: '16',
+    length: 0.083,
+    branchLength: 0.028,
+  };
 
   private readonly ends = new MpPressEnd();
 
   /** Отвод d2 — резьба, проход — пресс-концы. */
   protected override layout(params: MpThreadTeeParams): TeeLayout {
-    const d1 = MpPipeSizes.require(params.r1);
-    const d2 = ThreadSizes.require(params.r2, params.side === 'v' ? 'internal' : 'external');
-    const d3 = MpPipeSizes.require(params.r3);
+    const d1 = MpPipeSizes.require(params.nominalLeft);
+    const d2 = ThreadSizes.require(params.threadNominal, params.threadGender);
+    const d3 = MpPipeSizes.require(params.nominalRight);
     return { d1, d2, d3, dc: [d1, d2, d3].reduce((max, d) => (d.n > max.n ? d : max)) };
   }
 
   protected override relations(params: MpThreadTeeParams, { d1, d3 }: TeeLayout): ValidationError[] {
     const errors: ValidationError[] = [];
     const run = Math.max(MpPressEnd.pressLength(d1), MpPressEnd.pressLength(d3));
-    if (params.m1 / 2 <= run) errors.push(ParamSchema.tooShort('m1', 2 * run));
+    if (params.length / 2 <= run) errors.push(ParamSchema.tooShort('length', 2 * run));
     // Участки отвода до резьбы (s2 в gl2) были бы нулевой или отрицательной длины.
-    if (params.m2 <= THREAD_LENGTH) errors.push(ParamSchema.tooShort('m2', THREAD_LENGTH));
+    if (params.branchLength <= THREAD_LENGTH) errors.push(ParamSchema.tooShort('branchLength', THREAD_LENGTH));
     return errors;
   }
 
   protected create(params: MpThreadTeeParams, { d1, d2, d3, dc }: TeeLayout): GeneratedModel {
-    const internal = params.side === 'v';
+    const internal = params.threadGender === 'internal';
     const w2 = THREAD_LENGTH;
-    const s2 = (params.m2 - w2) / 2;
+    const s2 = (params.branchLength - w2) / 2;
     const up = { x: 0, y: Math.PI, z: Math.PI / 2 };
     const at = (y: number) => ({ x: 0, y, z: 0 });
 
     const merger = new MaterialGroupMerger();
     merger.add(
-      ...this.ends.buildRun(params.m1, d1, d3, dc),
+      ...this.ends.buildRun(params.length, d1, d3, dc),
       ...sleeves.build({
         material: 'bronze',
         length: s2,
@@ -102,18 +117,18 @@ export class MpThreadTeeGenerator extends BaseGenerator<MpThreadTeeParams, TeeLa
       }),
     );
 
-    // Пресс: торцы — концы гильз. Резьба: торец — конец резьбы (m2), глубина — её длина.
+    // Пресс: торцы — концы гильз. Резьба: торец — конец резьбы (branchLength), глубина — её длина.
     // В gl2 точки стояли в центрах гильз и резьбы.
     const press = { joint: 'mp-press', gender: 'internal' } as const;
     const suffix = internal ? '(в)' : '(н)';
     const { left, top, right } = ConnectorFrame;
     return createMeshModel({
-      title: `Тройник ${params.r1}x${params.r2}${suffix}x${params.r3}`,
+      title: `Тройник ${params.nominalLeft}x${params.threadNominal}${suffix}x${params.nominalRight}`,
       ...merger.merge(),
       connectors: [
-        connector('left', left, params.m1 / 2, { depth: MpPressEnd.pressLength(d1), nominal: params.r1, ...press }),
-        connector('top', top, params.m2, { depth: w2, nominal: params.r2, joint: 'thread', gender: internal ? 'internal' : 'external' }),
-        connector('right', right, params.m1 / 2, { depth: MpPressEnd.pressLength(d3), nominal: params.r3, ...press }),
+        connector('left', left, params.length / 2, { depth: MpPressEnd.pressLength(d1), nominal: params.nominalLeft, ...press }),
+        connector('top', top, params.branchLength, { depth: w2, nominal: params.threadNominal, joint: 'thread', gender: internal ? 'internal' : 'external' }),
+        connector('right', right, params.length / 2, { depth: MpPressEnd.pressLength(d3), nominal: params.nominalRight, ...press }),
       ],
     });
   }

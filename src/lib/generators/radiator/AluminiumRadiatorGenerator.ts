@@ -13,14 +13,13 @@ import type { SleeveShape } from '../../geometry/SleeveGeometryBuilder';
 import { specs } from '../../params/specs';
 import { ThreadSizes } from '../../sizes/ThreadSizes';
 
-/** Параметры в формате cdm из gl2. */
 export interface AluminiumRadiatorParams {
   /** Число секций. */
-  count: number;
+  sections: number;
   /** Габарит секции, м: x — ширина, y — межосевое расстояние; z в gl2 не используется. */
-  size: Vector3Data;
+  dimensions: Vector3Data;
   /** Дюймовый номинал внутренней резьбы коллекторов, например '1'. */
-  r1: string;
+  nominal: string;
 }
 
 /** Ширина центральной части коллектора, м (x_1 в gl2). */
@@ -32,29 +31,31 @@ const COLLECTOR_SCALE = 1.2;
 
 /** Алюминиевый секционный радиатор (перенос al_radiator_1). */
 export class AluminiumRadiatorGenerator extends BaseGenerator<AluminiumRadiatorParams> {
-  readonly id = 'al_radiator_1';
+  readonly id = 'radiator.aluminium';
+  readonly version = 1;
   readonly title = 'Радиатор алюминиевый';
   // count 1…10 — как в каталоге start.js. Ширина больше x_1, иначе нет резьбовых участков;
   // высота от 100 мм — ниже рёбра у коллекторов перекрываются.
   readonly paramSpecs: readonly ParamSpec[] = [
-    { kind: 'integer', key: 'count', label: 'Секций', min: 1, max: 10 },
-    specs.length('size.y', 'Высота', { min: 0.1, max: 1, step: 0.005 }),
-    specs.length('size.x', 'Ширина секции', { min: COLLECTOR_CENTER + 0.001, max: 0.12, step: 0.001 }),
-    specs.threadNominal('r1', 'Резьба'),
+    { kind: 'integer', key: 'sections', label: 'Секций', min: 1, max: 10 },
+    specs.length('dimensions.y', 'Высота', { min: 0.1, max: 1, step: 0.005 }),
+    specs.length('dimensions.x', 'Ширина секции', { min: COLLECTOR_CENTER + 0.001, max: 0.12, step: 0.001 }),
+    specs.threadNominal('nominal', 'Резьба'),
   ];
+  readonly defaults: AluminiumRadiatorParams = { sections: 1, dimensions: { x: 0.08, y: 0.2, z: 0.08 }, nominal: '1' };
 
   protected create(params: AluminiumRadiatorParams): GeneratedModel {
-    const thread = ThreadSizes.require(params.r1, 'internal');
+    const thread = ThreadSizes.require(params.nominal, 'internal');
     const n = thread.n * COLLECTOR_SCALE;
     const v = thread.v;
-    const h = params.size.y;
+    const h = params.dimensions.y;
     const x1 = COLLECTOR_CENTER;
-    const x2 = (params.size.x - x1) / 2 + 0.001;
+    const x2 = (params.dimensions.x - x1) / 2 + 0.001;
     // Торец резьбового участка коллектора — край секции.
     const threadEnd = x1 / 2 + x2;
 
     // Секции — одинаковые куски со сдвигом на шаг; шаг — ширина габарита секции, как в gl2.
-    const sections = Array.from({ length: params.count }, () => this.buildSection(params.size.x, h, n, v));
+    const sections = Array.from({ length: params.sections }, () => this.buildSection(params.dimensions.x, h, n, v));
     const sectionBox = new Box3();
     for (const part of sections[0]) {
       part.geometry.computeBoundingBox();
@@ -66,14 +67,14 @@ export class AluminiumRadiatorGenerator extends BaseGenerator<AluminiumRadiatorP
       for (const part of parts) part.geometry.translate(step * i, 0, 0);
       merger.add(...parts);
     });
-    const title = `Ал.радиатор h${Math.round(h * 1000)} (${params.count}шт.)`;
+    const title = `Ал.радиатор h${Math.round(h * 1000)} (${params.sections}шт.)`;
 
     // Разъёмы на торцах коллекторов, глубина — резьбовой участок x_2.
     // В gl2 точка стояла в центре резьбового участка со сдвигом наружу на 7 мм.
     const leftX = -threadEnd;
-    const rightX = threadEnd + step * (params.count - 1);
+    const rightX = threadEnd + step * (params.sections - 1);
     // Порты радиатора — своя резьба: подходят только радиаторные переходники и пробки.
-    const end = { depth: x2, nominal: params.r1, joint: 'radiator-thread', gender: 'internal' } as const;
+    const end = { depth: x2, nominal: params.nominal, joint: 'radiator-thread', gender: 'internal' } as const;
     const { left, right } = ConnectorFrame;
     const connectors = [
       connector('bottom-left', left, { x: leftX, y: -h / 2, z: 0 }, end),

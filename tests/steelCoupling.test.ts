@@ -7,23 +7,23 @@ import { boundsBox } from './modelHelpers';
 
 // Наборы из gl2/createObj/start.js, блок st_mufta.
 const PRESETS: SteelCouplingParams[] = [
-  { r1: '1/2', r2: '1/2', m1: 0.03 },
-  { r1: '3/4', r2: '3/4', m1: 0.033 },
-  { r1: '1', r2: '1', m1: 0.035 },
-  { r1: '1 1/4', r2: '1 1/4', m1: 0.047 },
-  { r1: '1 1/2', r2: '1 1/2', m1: 0.052 },
-  { r1: '2', r2: '2', m1: 0.06 },
-  { r1: '1/2', r2: '3/8', m1: 0.028 },
-  { r1: '3/4', r2: '1/2', m1: 0.032 },
-  { r1: '1', r2: '1/2', m1: 0.034 },
-  { r1: '1', r2: '3/4', m1: 0.039 },
-  { r1: '1 1/4', r2: '1/2', m1: 0.041 },
-  { r1: '1 1/4', r2: '3/4', m1: 0.041 },
-  { r1: '1 1/4', r2: '1', m1: 0.042 },
-  { r1: '1 1/2', r2: '1 1/4', m1: 0.043 },
-  { r1: '2', r2: '1', m1: 0.048 },
-  { r1: '2', r2: '1 1/4', m1: 0.048 },
-  { r1: '2', r2: '1 1/2', m1: 0.048 },
+  { nominalLeft: '1/2', nominalRight: '1/2', length: 0.03 },
+  { nominalLeft: '3/4', nominalRight: '3/4', length: 0.033 },
+  { nominalLeft: '1', nominalRight: '1', length: 0.035 },
+  { nominalLeft: '1 1/4', nominalRight: '1 1/4', length: 0.047 },
+  { nominalLeft: '1 1/2', nominalRight: '1 1/2', length: 0.052 },
+  { nominalLeft: '2', nominalRight: '2', length: 0.06 },
+  { nominalLeft: '1/2', nominalRight: '3/8', length: 0.028 },
+  { nominalLeft: '3/4', nominalRight: '1/2', length: 0.032 },
+  { nominalLeft: '1', nominalRight: '1/2', length: 0.034 },
+  { nominalLeft: '1', nominalRight: '3/4', length: 0.039 },
+  { nominalLeft: '1 1/4', nominalRight: '1/2', length: 0.041 },
+  { nominalLeft: '1 1/4', nominalRight: '3/4', length: 0.041 },
+  { nominalLeft: '1 1/4', nominalRight: '1', length: 0.042 },
+  { nominalLeft: '1 1/2', nominalRight: '1 1/4', length: 0.043 },
+  { nominalLeft: '2', nominalRight: '1', length: 0.048 },
+  { nominalLeft: '2', nominalRight: '1 1/4', length: 0.048 },
+  { nominalLeft: '2', nominalRight: '1 1/2', length: 0.048 },
 ];
 
 // Наружный диаметр d трубы по таблице sizeRezba, мм. Для внутренней резьбы n = d.
@@ -38,7 +38,7 @@ const OUTER_MM: Record<string, number> = {
 };
 
 /** Ожидаемые размеры по формулам st_mufta_1, независимо от генератора. */
-function expected({ r1, r2, m1 }: SteelCouplingParams) {
+function expected({ nominalLeft: r1, nominalRight: r2, length: m1 }: SteelCouplingParams) {
   const n1 = OUTER_MM[r1] / 1000;
   const n2 = OUTER_MM[r2] / 1000;
   const x1 = Math.max(0.3 * n1, 0.012);
@@ -56,7 +56,7 @@ function expected({ r1, r2, m1 }: SteelCouplingParams) {
 
 const generator = new SteelCouplingGenerator();
 
-describe.each(PRESETS)('муфта $r1 × $r2, m1 = $m1', (params) => {
+describe.each(PRESETS)('муфта $nominalLeft × $nominalRight, m1 = $length', (params) => {
   const exp = expected(params);
 
   it('строится без ошибок параметров', () => {
@@ -102,8 +102,8 @@ describe.each(PRESETS)('муфта $r1 × $r2, m1 = $m1', (params) => {
     const model = generator.build(params);
     const [left, right] = model.connectors;
 
-    expect(left).toMatchObject({ id: 'left', nominal: params.r1, joint: 'thread', gender: 'internal', direction: { x: -1, y: 0, z: 0 } });
-    expect(right).toMatchObject({ id: 'right', nominal: params.r2, joint: 'thread', gender: 'internal', direction: { x: 1, y: 0, z: 0 } });
+    expect(left).toMatchObject({ id: 'left', nominal: params.nominalLeft, joint: 'thread', gender: 'internal', direction: { x: -1, y: 0, z: 0 } });
+    expect(right).toMatchObject({ id: 'right', nominal: params.nominalRight, joint: 'thread', gender: 'internal', direction: { x: 1, y: 0, z: 0 } });
     expect(left.position.x).toBeCloseTo(-exp.face, 9);
     expect(right.position.x).toBeCloseTo(exp.face, 9);
     expect(left.depth).toBeCloseTo(exp.leftDepth, 9);
@@ -119,39 +119,39 @@ describe('муфта: параметры и ресурсы', () => {
   const codes = (params: SteelCouplingParams) => generator.validate(params).map(({ code, param }) => `${code}:${param}`);
 
   it('неизвестный номинал', () => {
-    expect(codes({ r1: '7/8', r2: '1/2', m1: 0.03 })).toEqual(['unknown_option:r1']);
-    expect(codes({ r1: '1/2', r2: '', m1: 0.03 })).toEqual(['unknown_option:r2']);
+    expect(codes({ nominalLeft: '7/8', nominalRight: '1/2', length: 0.03 })).toEqual(['unknown_option:nominalLeft']);
+    expect(codes({ nominalLeft: '1/2', nominalRight: '', length: 0.03 })).toEqual(['unknown_option:nominalRight']);
   });
 
   it('m1 вне диапазона схемы и не число', () => {
-    expect(codes({ r1: '1/2', r2: '1/2', m1: 0 })).toEqual(['out_of_range:m1']);
-    expect(codes({ r1: '1/2', r2: '1/2', m1: -0.03 })).toEqual(['out_of_range:m1']);
-    expect(codes({ r1: '1/2', r2: '1/2', m1: 0.25 })).toEqual(['out_of_range:m1']);
-    expect(codes({ r1: '1/2', r2: '1/2', m1: Number.NaN })).toEqual(['not_a_number:m1']);
+    expect(codes({ nominalLeft: '1/2', nominalRight: '1/2', length: 0 })).toEqual(['out_of_range:length']);
+    expect(codes({ nominalLeft: '1/2', nominalRight: '1/2', length: -0.03 })).toEqual(['out_of_range:length']);
+    expect(codes({ nominalLeft: '1/2', nominalRight: '1/2', length: 0.25 })).toEqual(['out_of_range:length']);
+    expect(codes({ nominalLeft: '1/2', nominalRight: '1/2', length: Number.NaN })).toEqual(['not_a_number:length']);
   });
 
   it('m1 не больше суммы резьбовых участков', () => {
     // 2": x_1 = 0,3 × 0,06 = 0,018 м, нужно m1 > 0,036 м.
-    expect(codes({ r1: '2', r2: '2', m1: 0.036 })).toEqual(['too_short:m1']);
-    expect(codes({ r1: '2', r2: '2', m1: 0.0361 })).toEqual([]);
+    expect(codes({ nominalLeft: '2', nominalRight: '2', length: 0.036 })).toEqual(['too_short:length']);
+    expect(codes({ nominalLeft: '2', nominalRight: '2', length: 0.0361 })).toEqual([]);
     // Переходная: решает бо́льшая сторона.
-    expect(codes({ r1: '1/2', r2: '2', m1: 0.03 })).toEqual(['too_short:m1']);
+    expect(codes({ nominalLeft: '1/2', nominalRight: '2', length: 0.03 })).toEqual(['too_short:length']);
   });
 
   it('build с ошибкой бросает GeneratorParamsError', () => {
-    expect(() => generator.build({ r1: '7/8', r2: '1/2', m1: 0 })).toThrow(GeneratorParamsError);
+    expect(() => generator.build({ nominalLeft: '7/8', nominalRight: '1/2', length: 0 })).toThrow(GeneratorParamsError);
   });
 
   it('не меняет параметры', () => {
-    const params = Object.freeze({ r1: '1', r2: '1/2', m1: 0.034 });
+    const params = Object.freeze({ nominalLeft: '1', nominalRight: '1/2', length: 0.034 });
     generator.build(params).dispose();
-    expect(params).toEqual({ r1: '1', r2: '1/2', m1: 0.034 });
+    expect(params).toEqual({ nominalLeft: '1', nominalRight: '1/2', length: 0.034 });
   });
 
   it('название как в gl2', () => {
-    const single = generator.build({ r1: '1/2', r2: '1/2', m1: 0.03 });
+    const single = generator.build({ nominalLeft: '1/2', nominalRight: '1/2', length: 0.03 });
     expect(single.title).toBe('Муфта 1/2(в)');
-    expect(generator.build({ r1: '1', r2: '1/2', m1: 0.034 }).title).toBe('Муфта 1(в)х1/2(в)');
+    expect(generator.build({ nominalLeft: '1', nominalRight: '1/2', length: 0.034 }).title).toBe('Муфта 1(в)х1/2(в)');
   });
 
   it('dispose освобождает геометрию, повторный вызов безопасен', () => {

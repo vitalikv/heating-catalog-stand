@@ -1,28 +1,26 @@
 import { BaseGenerator } from '../../core/BaseGenerator';
 import { connector } from '../../core/connector';
 import { ConnectorFrame } from '../../core/ConnectorFrame';
-import type { GeneratedModel, ParamSpec, ValidationError } from '../../core/contracts';
+import type { GeneratedModel, ParamSpec, ThreadGender, ValidationError } from '../../core/contracts';
 import { createMeshModel } from '../../core/MeshModel';
 import { MaterialGroupMerger } from '../../geometry/MaterialGroupMerger';
 import { sleeves } from '../../geometry/SleeveGeometryBuilder';
 import type { SleeveMaterials } from '../../geometry/SleeveGeometryBuilder';
 import { ParamSchema } from '../../params/ParamSchema';
 import { specs } from '../../params/specs';
-import type { ThreadSideCode } from '../../params/specs';
 import { MpPipeSizes } from '../../sizes/MpPipeSizes';
 import { ThreadSizes } from '../../sizes/ThreadSizes';
 import { MP_CAP, MpPressEnd } from './MpPressEnd';
 
-/** Параметры в формате cdm из gl2. */
 export interface MpThreadAdapterParams {
   /** Сторона резьбы справа. */
-  side: ThreadSideCode;
+  threadGender: ThreadGender;
   /** Наружный диаметр металлопластиковой трубы слева, мм, строкой. */
-  r1: string;
+  pipeNominal: string;
   /** Дюймовый номинал резьбы справа. */
-  r2: string;
+  threadNominal: string;
   /** Длина, м. */
-  m1: number;
+  length: number;
 }
 
 /** Длина резьбы (w2 в gl2), м. */
@@ -36,28 +34,30 @@ const MIN_PIPE_LENGTH = 0.001;
  * справа шестигранная гайка и резьба.
  */
 export class MpThreadAdapterGenerator extends BaseGenerator<MpThreadAdapterParams> {
-  readonly id = 'mpl_perehod_rezba_1';
+  readonly id = 'mp.thread-adapter';
+  readonly version = 1;
   readonly title = 'Соединитель металлопластиковый с резьбой';
   readonly paramSpecs: readonly ParamSpec[] = [
-    specs.threadSide(),
-    specs.mpNominal('r1'),
-    specs.threadNominal('r2', 'Номинал резьбы'),
-    specs.length('m1', 'Длина'),
+    specs.threadGender(),
+    specs.mpNominal('pipeNominal'),
+    specs.threadNominal('threadNominal', 'Номинал резьбы'),
+    specs.length('length', 'Длина'),
   ];
+  readonly defaults: MpThreadAdapterParams = { threadGender: 'external', pipeNominal: '16', threadNominal: '1/2', length: 0.048 };
 
   private readonly ends = new MpPressEnd();
 
   protected override relations(params: MpThreadAdapterParams): ValidationError[] {
     // Шестигранник между заглушкой и резьбой (s3 в gl2) был бы нулевой или отрицательной длины.
     const minimum = 2 * (THREAD_LENGTH + MP_CAP);
-    return params.m1 <= minimum ? [ParamSchema.tooShort('m1', minimum)] : [];
+    return params.length <= minimum ? [ParamSchema.tooShort('length', minimum)] : [];
   }
 
   protected create(params: MpThreadAdapterParams): GeneratedModel {
-    const internal = params.side === 'v';
-    const d1 = MpPipeSizes.require(params.r1);
-    const d2 = ThreadSizes.require(params.r2, internal ? 'internal' : 'external');
-    const half = params.m1 / 2;
+    const internal = params.threadGender === 'internal';
+    const d1 = MpPipeSizes.require(params.pipeNominal);
+    const d2 = ThreadSizes.require(params.threadNominal, internal ? 'internal' : 'external');
+    const half = params.length / 2;
     // Гильза 0,9 n (не меньше 20 мм); если труба до неё короче 1 мм, гильза укорачивается.
     const s1 = Math.max(half - MpPressEnd.pressLength(d1, MIN_PRESS_LENGTH), MIN_PIPE_LENGTH);
     const w1 = half - s1;
@@ -86,15 +86,15 @@ export class MpThreadAdapterGenerator extends BaseGenerator<MpThreadAdapterParam
       }),
     );
 
-    // Торцы — концы гильзы и резьбы (±m1/2). В gl2 точки стояли в центрах гильзы и резьбы.
+    // Торцы — концы гильзы и резьбы (±length/2). В gl2 точки стояли в центрах гильзы и резьбы.
     const suffix = internal ? '(в)' : '(н)';
     const { left, right } = ConnectorFrame;
     return createMeshModel({
-      title: `Соединитель ${params.r1}x${params.r2}${suffix}`,
+      title: `Соединитель ${params.pipeNominal}x${params.threadNominal}${suffix}`,
       ...merger.merge(),
       connectors: [
-        connector('left', left, half, { depth: w1, nominal: params.r1, joint: 'mp-press', gender: 'internal' }),
-        connector('right', right, half, { depth: w2, nominal: params.r2, joint: 'thread', gender: internal ? 'internal' : 'external' }),
+        connector('left', left, half, { depth: w1, nominal: params.pipeNominal, joint: 'mp-press', gender: 'internal' }),
+        connector('right', right, half, { depth: w2, nominal: params.threadNominal, joint: 'thread', gender: internal ? 'internal' : 'external' }),
       ],
     });
   }

@@ -55,7 +55,8 @@ const TRIANGLES_DIFFER: Record<string, string> = {
  * createTubeWF_1 создаёт объект редактора TubeN по точкам пути, без типа трубы и разъёмов.
  */
 const NOT_IN_GL2: Record<string, string> = {
-  createTubeWF_1: 'объект редактора TubeN',
+  'pp.pipe': 'объект редактора TubeN (createTubeWF_1)',
+  'mp.pipe': 'объект редактора TubeN (createTubeWF_1)',
 };
 
 /** Названия, которые сознательно отличаются от gl2 (журнал, п. 12). */

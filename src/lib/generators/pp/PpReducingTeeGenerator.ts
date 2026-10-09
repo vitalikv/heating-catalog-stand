@@ -10,16 +10,15 @@ import { specs } from '../../params/specs';
 import { PpPipeSizes } from '../../sizes/PpPipeSizes';
 import type { PartDiameters } from '../../sizes/ThreadSizes';
 
-/** Параметры в формате cdm из gl2. */
 export interface PpReducingTeeParams {
   /** Наружные диаметры ПП-труб: слева, отвод, справа; мм, строкой. */
-  r1: string;
-  r2: string;
-  r3: string;
+  nominalLeft: string;
+  nominalBranch: string;
+  nominalRight: string;
   /** Длина прохода, м. */
-  m1: number;
-  /** Высота отвода над наружной стенкой прохода (до торца — m2 + dc/2), м. */
-  m2: number;
+  length: number;
+  /** Высота отвода над наружной стенкой прохода (до торца — branchLength + dc/2), м. */
+  branchLength: number;
 }
 
 /** Длина раструба (x_1 в gl2), м. */
@@ -38,33 +37,41 @@ interface ReducingTeeLayout {
  * между ними конусы от наибольшего диаметра.
  */
 export class PpReducingTeeGenerator extends BaseGenerator<PpReducingTeeParams, ReducingTeeLayout> {
-  readonly id = 'pl_troinik_2';
+  readonly id = 'pp.tee-reducing';
+  readonly version = 1;
   readonly title = 'Тройник ПП переходной';
   readonly paramSpecs: readonly ParamSpec[] = [
-    specs.ppNominal('r1', 'Слева, мм'),
-    specs.ppNominal('r2', 'Отвод, мм'),
-    specs.ppNominal('r3', 'Справа, мм'),
-    specs.length('m1', 'Длина прохода', { max: 0.3 }),
-    specs.length('m2', 'Высота отвода'),
+    specs.ppNominal('nominalLeft', 'Слева, мм'),
+    specs.ppNominal('nominalBranch', 'Отвод, мм'),
+    specs.ppNominal('nominalRight', 'Справа, мм'),
+    specs.length('length', 'Длина прохода', { max: 0.3 }),
+    specs.length('branchLength', 'Высота отвода'),
   ];
+  readonly defaults: PpReducingTeeParams = {
+    nominalLeft: '25',
+    nominalBranch: '20',
+    nominalRight: '20',
+    length: 0.055,
+    branchLength: 0.015,
+  };
 
   protected override layout(params: PpReducingTeeParams): ReducingTeeLayout {
-    const [d1, d2, d3] = [params.r1, params.r2, params.r3].map((r) => PpPipeSizes.require(r));
+    const [d1, d2, d3] = [params.nominalLeft, params.nominalBranch, params.nominalRight].map((r) => PpPipeSizes.require(r));
     return { d1, d2, d3, dc: [d1, d2, d3].reduce((max, d) => (d.n > max.n ? d : max)) };
   }
 
   protected override relations(params: PpReducingTeeParams, { dc }: ReducingTeeLayout): ValidationError[] {
     const errors: ValidationError[] = [];
     // Конусы между раструбами (x_2, x_3 в gl2) были бы нулевой или отрицательной длины.
-    if (params.m1 <= 2 * SOCKET_LENGTH) errors.push(ParamSchema.tooShort('m1', 2 * SOCKET_LENGTH));
-    if (params.m2 + dc.n / 2 <= SOCKET_LENGTH) errors.push(ParamSchema.tooShort('m2', SOCKET_LENGTH - dc.n / 2));
+    if (params.length <= 2 * SOCKET_LENGTH) errors.push(ParamSchema.tooShort('length', 2 * SOCKET_LENGTH));
+    if (params.branchLength + dc.n / 2 <= SOCKET_LENGTH) errors.push(ParamSchema.tooShort('branchLength', SOCKET_LENGTH - dc.n / 2));
     return errors;
   }
 
   protected create(params: PpReducingTeeParams, { d1, d2, d3, dc }: ReducingTeeLayout): GeneratedModel {
     const x1 = SOCKET_LENGTH;
-    const x2 = params.m1 - 2 * x1;
-    const height = params.m2 + dc.n / 2;
+    const x2 = params.length - 2 * x1;
+    const height = params.branchLength + dc.n / 2;
     const x3 = height - x1;
     const size = (d: PartDiameters) => ({ outerDiameter: d.n, innerDiameter: d.v });
     const cone = (d: PartDiameters) => ({ outerDiameter: dc.n, innerDiameter: dc.v, outerDiameterStart: d.n, innerDiameterStart: d.v });
@@ -84,12 +91,12 @@ export class PpReducingTeeGenerator extends BaseGenerator<PpReducingTeeParams, R
     const common = { depth: x1, joint: 'pp-socket', gender: 'internal' } as const;
     const { left, top, right } = ConnectorFrame;
     return createMeshModel({
-      title: `Тройник ${params.r1}x${params.r2}x${params.r3}`,
+      title: `Тройник ${params.nominalLeft}x${params.nominalBranch}x${params.nominalRight}`,
       ...merger.merge(),
       connectors: [
-        connector('left', left, params.m1 / 2, { nominal: params.r1, ...common }),
-        connector('top', top, height, { nominal: params.r2, ...common }),
-        connector('right', right, params.m1 / 2, { nominal: params.r3, ...common }),
+        connector('left', left, params.length / 2, { nominal: params.nominalLeft, ...common }),
+        connector('top', top, height, { nominal: params.nominalBranch, ...common }),
+        connector('right', right, params.length / 2, { nominal: params.nominalRight, ...common }),
       ],
     });
   }

@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   GeneratorParamsError,
-  SteelCollectorGenerator,
+  SteelManifoldGenerator,
   SteelCrossGenerator,
   SteelElbow45Generator,
   SteelElbowGenerator,
   SteelHalfUnionGenerator,
   SteelPlugGenerator,
   SteelTeeGenerator,
-  SteelValveCollectorGenerator,
+  SteelValveManifoldGenerator,
 } from '../src/lib/index';
 import type { Connector, GeneratedModel, ModelGenerator } from '../src/lib/index';
 
@@ -27,12 +27,12 @@ const X = { x: 1, y: 0, z: 0 };
 const Y = { x: 0, y: 1, z: 0 };
 const minusX = { x: -1, y: 0, z: 0 };
 
-describe('заглушка st_zagl_nr', () => {
+describe('заглушка steel.plug', () => {
   const generator = new SteelPlugGenerator();
 
   it('разъём на конце резьбы, глубина — резьба 8…12 мм', () => {
     for (const [r1, m1] of [['1/2', 0.022], ['2', 0.039]] as const) {
-      const model = generator.build({ r1, m1 });
+      const model = generator.build({ nominal: r1, length: m1 });
       const thread = Math.min(Math.max(0.3 * n(r1, 'n'), 0.008), 0.012);
       expect(model.connectors).toHaveLength(1);
       expect(byId(model, 'left')).toMatchObject({ direction: minusX, up: Y, nominal: r1, joint: 'thread', gender: 'external' });
@@ -46,17 +46,17 @@ describe('заглушка st_zagl_nr', () => {
 
   it('m1 не больше двух длин резьбы — ошибка', () => {
     // 2": резьба 12 мм.
-    expect(codes(generator, { r1: '2', m1: 0.024 })).toEqual(['too_short:m1']);
-    expect(codes(generator, { r1: '2', m1: 0.0245 })).toEqual([]);
-    expect(() => generator.build({ r1: '7/8', m1: 0.02 })).toThrow(GeneratorParamsError);
+    expect(codes(generator, { nominal: '2', length: 0.024 })).toEqual(['too_short:length']);
+    expect(codes(generator, { nominal: '2', length: 0.0245 })).toEqual([]);
+    expect(() => generator.build({ nominal: '7/8', length: 0.02 })).toThrow(GeneratorParamsError);
   });
 });
 
-describe('полусгон st_pol_sgon_1', () => {
+describe('полусгон steel.half-union', () => {
   const generator = new SteelHalfUnionGenerator();
 
   it('гайка слева с внутренней резьбой r1, патрубок справа с наружной r2', () => {
-    const params = { r1: '3/4', r2: '1/2', m1: 0.04 };
+    const params = { nutNominal: '3/4', pipeNominal: '1/2', length: 0.04 };
     const model = generator.build(params);
     const x1 = 0.4 * n('3/4', 'v');
     const x2 = 0.4 * n('1/2', 'n');
@@ -72,16 +72,16 @@ describe('полусгон st_pol_sgon_1', () => {
 
   it('гладкий участок патрубка нулевой длины — ошибка', () => {
     const x2 = 0.4 * n('1/2', 'n');
-    expect(codes(generator, { r1: '3/4', r2: '1/2', m1: 2.3 * x2 + 0.002 })).toEqual(['too_short:m1']);
-    expect(codes(generator, { r1: '3/4', r2: '1/2', m1: 2.3 * x2 + 0.0025 })).toEqual([]);
+    expect(codes(generator, { nutNominal: '3/4', pipeNominal: '1/2', length: 2.3 * x2 + 0.002 })).toEqual(['too_short:length']);
+    expect(codes(generator, { nutNominal: '3/4', pipeNominal: '1/2', length: 2.3 * x2 + 0.0025 })).toEqual([]);
   });
 });
 
-describe('угол стальной 90° st_ugol_90_1', () => {
+describe('угол стальной 90° steel.elbow-90', () => {
   const generator = new SteelElbowGenerator();
 
   it('внутренняя резьба: торец за кольцом, глубина — резьба и кольцо', () => {
-    const model = generator.build({ side: 'v', r1: '1/2', m1: 0.023 });
+    const model = generator.build({ threadGender: 'internal', nominal: '1/2', armLength: 0.023 });
     const ring = n('1/2', 'v') / 10;
     const right = byId(model, 'right');
     const top = byId(model, 'top');
@@ -94,7 +94,7 @@ describe('угол стальной 90° st_ugol_90_1', () => {
   });
 
   it('наружная резьба: торец — конец резьбы, глубина — без кольца у начала', () => {
-    const model = generator.build({ side: 'n', r1: '1', m1: 0.041 });
+    const model = generator.build({ threadGender: 'external', nominal: '1', armLength: 0.041 });
     expect(byId(model, 'right')).toMatchObject({ gender: 'external' });
     expect(byId(model, 'right').position.x).toBeCloseTo(0.041, 9);
     expect(byId(model, 'right').depth).toBeCloseTo(0.015 - n('1', 'n') / 10, 9);
@@ -102,14 +102,14 @@ describe('угол стальной 90° st_ugol_90_1', () => {
   });
 
   it('плечо короче резьбы — ошибка', () => {
-    expect(codes(generator, { side: 'v', r1: '1/2', m1: 0.015 })).toEqual(['too_short:m1']);
-    expect(codes(generator, { side: 'x' as 'v', r1: '1/2', m1: 0.02 })).toEqual(['unknown_option:side']);
+    expect(codes(generator, { threadGender: 'internal', nominal: '1/2', armLength: 0.015 })).toEqual(['too_short:armLength']);
+    expect(codes(generator, { threadGender: 'x' as 'internal', nominal: '1/2', armLength: 0.02 })).toEqual(['unknown_option:threadGender']);
   });
 });
 
-describe('угол стальной 45° st_ugol_45_1', () => {
+describe('угол стальной 45° steel.elbow-45', () => {
   it('второй выход — левый, повёрнутый на 45° вверх', () => {
-    const model = new SteelElbow45Generator().build({ r1: '3/4', m1: 0.022 });
+    const model = new SteelElbow45Generator().build({ nominal: '3/4', armLength: 0.022 });
     const face = 0.022 + n('3/4', 'v') / 10;
     const left = byId(model, 'left');
     expect(left.direction.x).toBeCloseTo(-Math.SQRT1_2, 12);
@@ -123,45 +123,45 @@ describe('угол стальной 45° st_ugol_45_1', () => {
   });
 });
 
-describe('тройник st_troinik_1', () => {
+describe('тройник steel.tee', () => {
   const generator = new SteelTeeGenerator();
 
   it('выходы слева, вверх и справа со своими номиналами', () => {
-    const model = generator.build({ side: 'v', r1: '1', r2: '1/2', r3: '1', m1: 0.056, m2: 0.03 });
+    const model = generator.build({ threadGender: 'internal', nominalLeft: '1', nominalBranch: '1/2', nominalRight: '1', length: 0.056, branchLength: 0.03 });
     expect(model.connectors.map((c) => [c.id, c.nominal])).toEqual([['left', '1'], ['top', '1/2'], ['right', '1']]);
     expect(byId(model, 'left').position.x).toBeCloseTo(-0.028, 9);
     expect(byId(model, 'top').position.y).toBeCloseTo(0.03, 9);
     expect(byId(model, 'top')).toMatchObject({ direction: Y, up: X });
     expect(byId(model, 'right').depth).toBeCloseTo(0.015, 9);
     expect(model.title).toBe('Тройник 1(в)x1/2(в)x1(в)');
-    expect(generator.build({ side: 'n', r1: '1/2', r2: '1/2', r3: '1/2', m1: 0.06, m2: 0.03 }).title).toBe('Тройник 1/2(н)');
+    expect(generator.build({ threadGender: 'external', nominalLeft: '1/2', nominalBranch: '1/2', nominalRight: '1/2', length: 0.06, branchLength: 0.03 }).title).toBe('Тройник 1/2(н)');
   });
 
   it('проход и отвод короче резьбы — ошибки', () => {
-    expect(codes(generator, { side: 'v', r1: '1', r2: '1', r3: '1', m1: 0.03, m2: 0.015 })).toEqual(['too_short:m1', 'too_short:m2']);
+    expect(codes(generator, { threadGender: 'internal', nominalLeft: '1', nominalBranch: '1', nominalRight: '1', length: 0.03, branchLength: 0.015 })).toEqual(['too_short:length', 'too_short:branchLength']);
   });
 });
 
-describe('крестовина st_krestovina_1', () => {
+describe('крестовина steel.cross', () => {
   it('четыре выхода на ±m1/2', () => {
-    const model = new SteelCrossGenerator().build({ r1: '1/2', m1: 0.046 });
+    const model = new SteelCrossGenerator().build({ nominal: '1/2', size: 0.046 });
     const expected = { left: [-0.023, 0], right: [0.023, 0], bottom: [0, -0.023], top: [0, 0.023] };
     for (const [id, [x, y]] of Object.entries(expected)) {
       expect(byId(model, id).position.x, id).toBeCloseTo(x, 9);
       expect(byId(model, id).position.y, id).toBeCloseTo(y, 9);
     }
     expect(byId(model, 'bottom').up).toEqual({ x: -1, y: 0, z: 0 });
-    expect(codes(new SteelCrossGenerator(), { r1: '1/2', m1: 0.03 })).toEqual(['too_short:m1']);
+    expect(codes(new SteelCrossGenerator(), { nominal: '1/2', size: 0.03 })).toEqual(['too_short:size']);
   });
 });
 
-describe('коллекторы st_collector_1 и st_collector_2', () => {
-  const plain = new SteelCollectorGenerator();
-  const valves = new SteelValveCollectorGenerator();
-  const params = { r1: '1', r2: '1/2', count: 3, m1: 0.132, m2: 0.036 };
+describe('коллекторы steel.manifold и steel.manifold-valves', () => {
+  const plain = new SteelManifoldGenerator();
+  const valves = new SteelValveManifoldGenerator();
+  const params = { nominal: '1', outletNominal: '1/2', outlets: 3, length: 0.132, branchLength: 0.036 };
 
   it('выходы с шагом 36 мм по центру трубы, концы — в и н резьба r1', () => {
-    const model = plain.build({ ...params, side: 'n' });
+    const model = plain.build({ ...params, threadGender: 'external' });
     expect(model.connectors.map((c) => c.id)).toEqual(['left', 'outlet-1', 'outlet-2', 'outlet-3', 'right']);
     expect([1, 2, 3].map((i) => byId(model, `outlet-${i}`).position.x)).toEqual([-0.036, 0, 0.036]);
     expect(byId(model, 'outlet-2')).toMatchObject({ direction: Y, up: X, gender: 'external', nominal: '1/2' });
@@ -170,21 +170,21 @@ describe('коллекторы st_collector_1 и st_collector_2', () => {
     expect(byId(model, 'right')).toMatchObject({ gender: 'external', nominal: '1' });
     expect(byId(model, 'right').depth).toBeCloseTo(0.015 - 0.0033, 9);
     expect(model.title).toBe('коллектор 1x1/2(н) [3 вых.]');
-    expect(plain.build({ ...params, side: 'v' }).title).toBe('коллектор 1x1/2(в) [3 вых.]');
+    expect(plain.build({ ...params, threadGender: 'internal' }).title).toBe('коллектор 1x1/2(в) [3 вых.]');
   });
 
   it('с кранами: выход выше на 10 мм, ручки нужного цвета', () => {
-    const model = valves.build({ ...params, color: 'blue' });
+    const model = valves.build({ ...params, handleColor: 'blue' });
     expect(byId(model, 'outlet-1').position.y).toBeCloseTo(0.046, 9);
     expect(model.materials).toContain('blue');
     expect(model.materials).not.toContain('red');
     expect(model.title).toBe('коллектор с кранами 1x1/2(н) [3 вых.]');
-    expect(codes(valves, { ...params, color: 'green' as 'red' })).toEqual(['unknown_option:color']);
+    expect(codes(valves, { ...params, handleColor: 'green' as 'red' })).toEqual(['unknown_option:handleColor']);
   });
 
   it('число выходов — целое 1…10', () => {
-    expect(codes(plain, { ...params, side: 'n', count: 0 })).toEqual(['out_of_range:count']);
-    expect(codes(plain, { ...params, side: 'n', count: 2.5 })).toEqual(['not_integer:count']);
-    expect(codes(plain, { ...params, side: 'n', m2: 0.015 })).toEqual(['too_short:m2']);
+    expect(codes(plain, { ...params, threadGender: 'external', outlets: 0 })).toEqual(['out_of_range:outlets']);
+    expect(codes(plain, { ...params, threadGender: 'external', outlets: 2.5 })).toEqual(['not_integer:outlets']);
+    expect(codes(plain, { ...params, threadGender: 'external', branchLength: 0.015 })).toEqual(['too_short:branchLength']);
   });
 });

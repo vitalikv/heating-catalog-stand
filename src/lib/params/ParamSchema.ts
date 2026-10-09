@@ -37,7 +37,7 @@ export class ParamSchema {
 
   /** Ошибка связи параметров: длина param должна быть больше minimum, м. */
   static tooShort(param: string, minimum: number): ValidationError {
-    return { code: 'too_short', param, message: `Длина ${param} должна быть больше ${(minimum * 1000).toFixed(1)} мм` };
+    return { code: 'too_short', param, message: `${param}: нужно больше ${(minimum * 1000).toFixed(1)} мм` };
   }
 
   /** Нужен ли параметр при текущих значениях (условие ParamSpec.when). */
@@ -50,7 +50,7 @@ export class ParamSchema {
     const param = spec.key;
 
     if (spec.kind === 'choice') {
-      if (typeof value === 'string' && spec.options.includes(value)) return null;
+      if ((typeof value === 'string' || typeof value === 'number') && spec.options.includes(value)) return null;
       return { code: 'unknown_option', param, message: `${spec.label}: недопустимое значение '${String(value)}'` };
     }
 

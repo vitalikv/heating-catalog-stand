@@ -1,20 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { RadiatorPlugGenerator } from '../src/lib/index';
-import type { RadiatorPlugParams } from '../src/lib/index';
+import { RadiatorPortFittingGenerator } from '../src/lib/index';
+import type { RadiatorPortFittingParams } from '../src/lib/index';
 import { boundsBox } from './modelHelpers';
 
-const generator = new RadiatorPlugGenerator();
+const generator = new RadiatorPortFittingGenerator();
 
 /**
  * Габариты по формулам al_zagl_radiator_1 для r1 = '1' (d = 33.5 мм): буртик Ø d + 3 мм,
  * от −(3/2 + 8) мм до 3/2 + 5 мм (у воздухоотводчика ещё диск 1 мм и «бабочка» 7 мм).
  * Все четыре набора сверены с моделью из gl2 (9 октября 2026).
  */
-const CASES: [RadiatorPlugParams, number, string][] = [
-  [{ type: 'prh', r1: '1', r2: '1/2' }, 0.0065, 'перех.радиаторный 1/2'],
-  [{ type: 'prh', r1: '1', r2: '3/4' }, 0.0065, 'перех.радиаторный 3/4'],
-  [{ type: 'zgl', r1: '1', r2: 0 }, 0.0065, 'заглушка радиаторная'],
-  [{ type: 'vsd', r1: '1', r2: 0 }, 0.0145, 'воздухоотв.радиаторный'],
+const CASES: [RadiatorPortFittingParams, number, string][] = [
+  [{ kind: 'adapter', portNominal: '1', outletNominal: '1/2' }, 0.0065, 'перех.радиаторный 1/2'],
+  [{ kind: 'adapter', portNominal: '1', outletNominal: '3/4' }, 0.0065, 'перех.радиаторный 3/4'],
+  [{ kind: 'plug', portNominal: '1' }, 0.0065, 'заглушка радиаторная'],
+  [{ kind: 'vent', portNominal: '1' }, 0.0145, 'воздухоотв.радиаторный'],
 ];
 
 describe.each(CASES)('радиаторный %o', (params, maxX, title) => {
@@ -48,7 +48,7 @@ describe.each(CASES)('радиаторный %o', (params, maxX, title) => {
 
 describe('радиаторный переходник', () => {
   it('у переходника выход — трубная внутренняя резьба, у заглушки выхода нет', () => {
-    const adapter = generator.build({ type: 'prh', r1: '1', r2: '1/2' });
+    const adapter = generator.build({ kind: 'adapter', portNominal: '1', outletNominal: '1/2' });
     expect(adapter.connectors[1].position.x).toBeCloseTo(0.0065, 9);
     expect(adapter.connectors[1]).toMatchObject({
       id: 'outlet',
@@ -60,13 +60,13 @@ describe('радиаторный переходник', () => {
     });
     // В gl2 у переходника 920 треугольников.
     expect(adapter.geometry.getAttribute('position').count / 3).toBe(920);
-    expect(generator.build({ type: 'zgl', r1: '1' }).connectors).toHaveLength(1);
+    expect(generator.build({ kind: 'plug', portNominal: '1' }).connectors).toHaveLength(1);
   });
 
-  it('r2 проверяется только у переходника', () => {
-    const codes = (params: RadiatorPlugParams) => generator.validate(params).map(({ code, param }) => `${code}:${param}`);
-    expect(codes({ type: 'prh', r1: '1', r2: 0 })).toEqual(['unknown_option:r2']);
-    expect(codes({ type: 'zgl', r1: '1', r2: 0 })).toEqual([]);
-    expect(codes({ type: 'xxx' as never, r1: '1' })).toEqual(['unknown_option:type']);
+  it('выход проверяется только у переходника', () => {
+    const codes = (params: RadiatorPortFittingParams) => generator.validate(params).map(({ code, param }) => `${code}:${param}`);
+    expect(codes({ kind: 'adapter', portNominal: '1' })).toEqual(['unknown_option:outletNominal']);
+    expect(codes({ kind: 'plug', portNominal: '1' })).toEqual([]);
+    expect(codes({ kind: 'xxx' as never, portNominal: '1' })).toEqual(['unknown_option:kind']);
   });
 });

@@ -1,28 +1,26 @@
 import { BaseGenerator } from '../../core/BaseGenerator';
 import { connector } from '../../core/connector';
 import { ConnectorFrame } from '../../core/ConnectorFrame';
-import type { GeneratedModel, ParamSpec, ValidationError } from '../../core/contracts';
+import type { GeneratedModel, ParamSpec, ThreadGender, ValidationError } from '../../core/contracts';
 import { createMeshModel } from '../../core/MeshModel';
 import { MaterialGroupMerger } from '../../geometry/MaterialGroupMerger';
 import { sleeves } from '../../geometry/SleeveGeometryBuilder';
 import type { SleeveMaterials, SleeveShape } from '../../geometry/SleeveGeometryBuilder';
 import { ParamSchema } from '../../params/ParamSchema';
 import { specs } from '../../params/specs';
-import type { ThreadSideCode } from '../../params/specs';
 import { ThreadSizes } from '../../sizes/ThreadSizes';
 import type { PartDiameters } from '../../sizes/ThreadSizes';
 
-/** Параметры в формате cdm из gl2. */
 export interface SteelTeeParams {
-  side: ThreadSideCode;
+  threadGender: ThreadGender;
   /** Номиналы резьбы: слева, вверху (отвод), справа. */
-  r1: string;
-  r2: string;
-  r3: string;
+  nominalLeft: string;
+  nominalBranch: string;
+  nominalRight: string;
   /** Длина прохода (слева направо), м. */
-  m1: number;
+  length: number;
   /** Высота отвода от оси прохода до конца резьбы, м. */
-  m2: number;
+  branchLength: number;
 }
 
 /** Длина резьбы на каждом выходе (w1, w2, w3 в gl2), м. */
@@ -43,33 +41,42 @@ interface TeeLayout {
  * участки от центра к выходам — конусы от наибольшего номинала к номиналу выхода.
  */
 export class SteelTeeGenerator extends BaseGenerator<SteelTeeParams, TeeLayout> {
-  readonly id = 'st_troinik_1';
+  readonly id = 'steel.tee';
+  readonly version = 1;
   readonly title = 'Тройник стальной';
   readonly paramSpecs: readonly ParamSpec[] = [
-    specs.threadSide(),
-    specs.threadNominal('r1', 'Слева'),
-    specs.threadNominal('r2', 'Отвод'),
-    specs.threadNominal('r3', 'Справа'),
-    specs.length('m1', 'Длина прохода', { max: 0.3 }),
-    specs.length('m2', 'Высота отвода'),
+    specs.threadGender(),
+    specs.threadNominal('nominalLeft', 'Слева'),
+    specs.threadNominal('nominalBranch', 'Отвод'),
+    specs.threadNominal('nominalRight', 'Справа'),
+    specs.length('length', 'Длина прохода', { max: 0.3 }),
+    specs.length('branchLength', 'Высота отвода'),
   ];
+  readonly defaults: SteelTeeParams = {
+    threadGender: 'internal',
+    nominalLeft: '1/2',
+    nominalBranch: '1/2',
+    nominalRight: '1/2',
+    length: 0.046,
+    branchLength: 0.023,
+  };
 
   protected override layout(params: SteelTeeParams): TeeLayout {
-    const side = params.side === 'v' ? 'internal' : 'external';
-    const [d1, d2, d3] = [params.r1, params.r2, params.r3].map((r) => ThreadSizes.require(r, side));
+    const side = params.threadGender;
+    const [d1, d2, d3] = [params.nominalLeft, params.nominalBranch, params.nominalRight].map((r) => ThreadSizes.require(r, side));
     return { d1, d2, d3, dc: [d1, d2, d3].reduce((max, d) => (d.n > max.n ? d : max)) };
   }
 
   protected override relations(params: SteelTeeParams): ValidationError[] {
     // Участки от центра до резьбы (s1, s2 в gl2) были бы нулевой или отрицательной длины.
     const errors: ValidationError[] = [];
-    if (params.m1 / 2 <= THREAD_LENGTH) errors.push(ParamSchema.tooShort('m1', 2 * THREAD_LENGTH));
-    if (params.m2 <= THREAD_LENGTH) errors.push(ParamSchema.tooShort('m2', THREAD_LENGTH));
+    if (params.length / 2 <= THREAD_LENGTH) errors.push(ParamSchema.tooShort('length', 2 * THREAD_LENGTH));
+    if (params.branchLength <= THREAD_LENGTH) errors.push(ParamSchema.tooShort('branchLength', THREAD_LENGTH));
     return errors;
   }
 
   protected create(params: SteelTeeParams, { d1, d2, d3, dc }: TeeLayout): GeneratedModel {
-    const internal = params.side === 'v';
+    const internal = params.threadGender === 'internal';
     const w = THREAD_LENGTH;
     // В gl2 ширина всех трёх колец считается по левому выходу.
     const ring = d1.n / 10;
@@ -84,9 +91,9 @@ export class SteelTeeGenerator extends BaseGenerator<SteelTeeParams, TeeLayout> 
       { ...place(s + w / 2), length: w, outerDiameter: d.n, innerDiameter: d.v, materials: thread },
     ];
 
-    const s1 = params.m1 / 2 - w;
-    const s2 = params.m2 - w;
-    const s3 = params.m1 / 2 - w;
+    const s1 = params.length / 2 - w;
+    const s2 = params.branchLength - w;
+    const s3 = params.length / 2 - w;
     const up = { rotation: { x: 0, y: Math.PI, z: Math.PI / 2 } };
     const pieces = [
       ...outlet(d1, s1, (x) => ({ center: { x: -x, y: 0, z: 0 } }), { center: { x: -s1 / 2, y: 0, z: 0 } }),
@@ -101,15 +108,15 @@ export class SteelTeeGenerator extends BaseGenerator<SteelTeeParams, TeeLayout> 
     // В gl2 точки стояли в центрах резьбы. ID — по стороне выхода.
     const end = { depth: internal ? w : w - ring, joint: 'thread', gender: internal ? 'internal' : 'external' } as const;
     const suffix = internal ? '(в)' : '(н)';
-    const [n1, n2, n3] = [params.r1, params.r2, params.r3].map((r) => r + suffix);
+    const [n1, n2, n3] = [params.nominalLeft, params.nominalBranch, params.nominalRight].map((r) => r + suffix);
     const { left, top, right } = ConnectorFrame;
     return createMeshModel({
       title: n1 === n2 && n1 === n3 ? `Тройник ${n1}` : `Тройник ${n1}x${n2}x${n3}`,
       ...merger.merge(),
       connectors: [
-        connector('left', left, params.m1 / 2, { nominal: params.r1, ...end }),
-        connector('top', top, params.m2, { nominal: params.r2, ...end }),
-        connector('right', right, params.m1 / 2, { nominal: params.r3, ...end }),
+        connector('left', left, params.length / 2, { nominal: params.nominalLeft, ...end }),
+        connector('top', top, params.branchLength, { nominal: params.nominalBranch, ...end }),
+        connector('right', right, params.length / 2, { nominal: params.nominalRight, ...end }),
       ],
     });
   }

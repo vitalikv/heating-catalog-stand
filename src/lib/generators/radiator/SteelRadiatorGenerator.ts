@@ -9,12 +9,11 @@ import { sleeves } from '../../geometry/SleeveGeometryBuilder';
 import { specs } from '../../params/specs';
 import { ThreadSizes } from '../../sizes/ThreadSizes';
 
-/** Параметры в формате cdm из gl2. */
 export interface SteelRadiatorParams {
   /** Габарит, м: x — длина, y — межосевое расстояние портов, z — глубина. */
-  size: Vector3Data;
+  dimensions: Vector3Data;
   /** Дюймовый номинал внутренней резьбы портов, например '1/2'. */
-  r1: string;
+  nominal: string;
 }
 
 /** Длина резьбы портов (x_1 в gl2), м. */
@@ -41,20 +40,22 @@ interface PlaneOptions {
  * Порты — обычная трубная резьба (решение 9 октября 2026). Всё слито в один меш.
  */
 export class SteelRadiatorGenerator extends BaseGenerator<SteelRadiatorParams> {
-  readonly id = 'st_radiator_1';
+  readonly id = 'radiator.steel';
+  readonly version = 1;
   readonly title = 'Радиатор стальной';
   readonly paramSpecs: readonly ParamSpec[] = [
-    specs.length('size.x', 'Длина', { min: 0.1, max: 3, step: 0.01 }),
-    specs.length('size.y', 'Межосевое', { min: 0.1, max: 1.5, step: 0.005 }),
-    specs.length('size.z', 'Глубина', { min: 0.03, step: 0.001 }),
-    specs.threadNominal('r1', 'Резьба портов (в)'),
+    specs.length('dimensions.x', 'Длина', { min: 0.1, max: 3, step: 0.01 }),
+    specs.length('dimensions.y', 'Межосевое', { min: 0.1, max: 1.5, step: 0.005 }),
+    specs.length('dimensions.z', 'Глубина', { min: 0.03, step: 0.001 }),
+    specs.threadNominal('nominal', 'Резьба портов (в)'),
   ];
+  readonly defaults: SteelRadiatorParams = { dimensions: { x: 0.4, y: 0.3, z: 0.07 }, nominal: '1/2' };
 
   protected create(params: SteelRadiatorParams): GeneratedModel {
-    const d = ThreadSizes.require(params.r1, 'internal');
-    const { x: length, z: depth } = params.size;
+    const d = ThreadSizes.require(params.nominal, 'internal');
+    const { x: length, z: depth } = params.dimensions;
     // Высота корпуса: межосевое + окантовки сверху и снизу + диаметр порта.
-    const height = params.size.y + 2 * FRAME + d.n;
+    const height = params.dimensions.y + 2 * FRAME + d.n;
     const ribHeight = height - 2 * FRAME;
     const opening = length - 2 * FRAME;
     // Рёбра заполняют проём целиком: ширина подгоняется под целое число рёбер.
@@ -70,7 +71,7 @@ export class SteelRadiatorGenerator extends BaseGenerator<SteelRadiatorParams> {
 
     // Порты: торцы — внешние концы резьбы, глубина — её длина. В gl2 точки — в центрах портов.
     const portX = length / 2 + PORT_LENGTH / 2;
-    const portY = params.size.y / 2;
+    const portY = params.dimensions.y / 2;
     const ports: [string, number, number][] = [
       ['bottom-left', -1, -1],
       ['top-left', -1, 1],
@@ -94,14 +95,14 @@ export class SteelRadiatorGenerator extends BaseGenerator<SteelRadiatorParams> {
         position: { x: side * (length / 2 + PORT_LENGTH), y: level * portY, z: 0 },
         ...(side < 0 ? ConnectorFrame.left : ConnectorFrame.right),
         depth: PORT_LENGTH,
-        nominal: params.r1,
+        nominal: params.nominal,
         joint: 'thread',
         gender: 'internal',
       });
     }
 
     return createMeshModel({
-      title: `Ст.радиатор h${Math.round(params.size.y * 1000)} (${params.size.x}м)`,
+      title: `Ст.радиатор h${Math.round(params.dimensions.y * 1000)} (${params.dimensions.x}м)`,
       ...merger.merge(),
       connectors,
     });

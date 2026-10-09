@@ -39,8 +39,11 @@ export interface Connector {
    * ('20' у ПП-раструба — не то же, что дюймовая резьба).
    */
   joint: ConnectorJoint;
-  gender: 'internal' | 'external';
+  gender: ThreadGender;
 }
+
+/** Сторона соединения: 'internal' — внутренняя (муфта, раструб), 'external' — наружная (ниппель, труба). */
+export type ThreadGender = 'internal' | 'external';
 
 /**
  * 'thread' — дюймовая трубная резьба; 'radiator-thread' — резьба портов
@@ -71,19 +74,19 @@ export type MaterialKey =
 
 export interface ValidationError {
   code: string;
-  /** Путь параметра, как ParamSpec.key: 'm1', 'size.y'. */
+  /** Путь параметра, как ParamSpec.key: 'length', 'dimensions.y'. */
   param: string;
   message: string;
 }
 
 /**
  * Описание параметра генератора. По нему проверяются параметры и строится
- * интерфейс (стенд, редактор). key — путь в параметрах: 'r1', 'size.y'.
+ * интерфейс (стенд, редактор). key — путь в параметрах: 'nominal', 'dimensions.y'.
  */
 export type ParamSpec = ParamSpecBase &
   (
     /** optionLabels — подписи вариантов для интерфейса; значение остаётся кодом. */
-    | { kind: 'choice'; options: readonly string[]; optionLabels?: Readonly<Record<string, string>> }
+    | { kind: 'choice'; options: readonly (string | number)[]; optionLabels?: Readonly<Record<string, string>> }
     /** Длина в метрах; интерфейс показывает её в миллиметрах. Границы включительно. */
     | { kind: 'length'; min: number; max: number; step: number }
     | { kind: 'integer'; min: number; max: number }
@@ -120,10 +123,15 @@ export interface GeneratedModel {
 }
 
 export interface ModelGenerator<TParams> {
+  /** Семейство и деталь: 'steel.coupling'. Хранится в данных проекта. */
   readonly id: string;
+  /** Версия определения: растёт при изменении параметров или геометрии (миграции проектов). */
+  readonly version: number;
   readonly title: string;
   /** Все параметры генератора; validate() проверяет их по этой схеме. */
   readonly paramSpecs: readonly ParamSpec[];
+  /** Параметры для вставки детали в редактор. */
+  readonly defaults: TParams;
   validate(params: TParams): ValidationError[];
   build(params: TParams): GeneratedModel;
 }

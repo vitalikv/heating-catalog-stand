@@ -4,7 +4,7 @@ import { createModelObject, GeneratorRegistry, MaterialLibrary } from '../src/li
 
 describe('createModelObject', () => {
   const library = new MaterialLibrary();
-  const model = new GeneratorRegistry().get('st_mufta_1')!.build({ r1: '1', r2: '1/2', m1: 0.034 });
+  const model = new GeneratorRegistry().get('steel.coupling').build({ nominalLeft: '1', nominalRight: '1/2', length: 0.034 });
 
   it('корень с названием модели и один меш с её геометрией и материалами по ключам', () => {
     const root = createModelObject(model, library);

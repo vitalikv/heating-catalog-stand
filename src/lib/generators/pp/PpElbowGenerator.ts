@@ -10,12 +10,11 @@ import { ParamSchema } from '../../params/ParamSchema';
 import { specs } from '../../params/specs';
 import { PpPipeSizes } from '../../sizes/PpPipeSizes';
 
-/** Параметры в формате cdm из gl2. */
 export interface PpElbowParams {
   /** Наружный диаметр ПП-трубы, мм, строкой: '20', '25'… */
-  r1: string;
+  nominal: string;
   /** Длина плеча от оси до торца, м. */
-  m1: number;
+  armLength: number;
 }
 
 /** Длина раструба у торца, м (x_1 в gl2). */
@@ -26,22 +25,24 @@ const SOCKET_LENGTH = 0.015;
  * Плечи идут по +X и +Y из начала координат, внешний угол скруглён четвертью сферы.
  */
 export class PpElbowGenerator extends BaseGenerator<PpElbowParams> {
-  readonly id = 'pl_ugol_90_1';
+  readonly id = 'pp.elbow-90';
+  readonly version = 1;
   readonly title = 'Угол ПП 90°';
   readonly paramSpecs: readonly ParamSpec[] = [
-    specs.ppNominal('r1'),
-    specs.length('m1', 'Длина плеча'),
+    specs.ppNominal('nominal'),
+    specs.length('armLength', 'Длина плеча'),
   ];
+  readonly defaults: PpElbowParams = { nominal: '20', armLength: 0.026 };
 
   protected override relations(params: PpElbowParams): ValidationError[] {
     // Плечо до раструба (x_2 в gl2) было бы нулевой или отрицательной длины.
-    return params.m1 <= SOCKET_LENGTH ? [ParamSchema.tooShort('m1', SOCKET_LENGTH)] : [];
+    return params.armLength <= SOCKET_LENGTH ? [ParamSchema.tooShort('armLength', SOCKET_LENGTH)] : [];
   }
 
   protected create(params: PpElbowParams): GeneratedModel {
-    const d = PpPipeSizes.require(params.r1);
+    const d = PpPipeSizes.require(params.nominal);
     const x1 = SOCKET_LENGTH;
-    const x2 = params.m1 - x1;
+    const x2 = params.armLength - x1;
     const pipe = { outerDiameter: d.n, innerDiameter: d.v };
     const vertical = { x: 0, y: 0, z: -Math.PI / 2 };
     const quarter = { phiLength: Math.PI / 2, rotation: { x: Math.PI / 2, y: 0, z: 0 } };
@@ -57,12 +58,12 @@ export class PpElbowGenerator extends BaseGenerator<PpElbowParams> {
       spheres.build({ material: 'plastic', ...quarter, radius: d.v / 2 }),
     );
 
-    const title = `Угол ${params.r1}`;
+    const title = `Угол ${params.nominal}`;
 
-    // Торец раструба — конец плеча m1, глубина — длина раструба x_1.
+    // Торец раструба — конец плеча armLength, глубина — длина раструба x_1.
     // В gl2 точка разъёма стояла в центре раструба. ID — по стороне выхода.
-    const end = { depth: x1, nominal: params.r1, joint: 'pp-socket', gender: 'internal' } as const;
-    const connectors = [connector('right', ConnectorFrame.right, params.m1, end), connector('top', ConnectorFrame.top, params.m1, end)];
+    const end = { depth: x1, nominal: params.nominal, joint: 'pp-socket', gender: 'internal' } as const;
+    const connectors = [connector('right', ConnectorFrame.right, params.armLength, end), connector('top', ConnectorFrame.top, params.armLength, end)];
 
     return createMeshModel({ title, ...merger.merge(), connectors });
   }

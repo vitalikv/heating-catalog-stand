@@ -5,7 +5,7 @@ import type { SteelNippleParams } from '../src/lib/index';
 import { STAND_PRESETS } from '../src/stand/presets';
 import { boundsBox } from './modelHelpers';
 
-const PRESETS = STAND_PRESETS.find((entry) => entry.generatorId === 'st_nippel_1')!.presets.map(
+const PRESETS = STAND_PRESETS.find((entry) => entry.generatorId === 'steel.nipple')!.presets.map(
   (preset) => preset.params as unknown as SteelNippleParams,
 );
 
@@ -19,7 +19,7 @@ const PIPE: Record<string, [number, number]> = {
  * Ожидаемые размеры по формулам st_nippel_1. Габариты 1/2×1/2, 2×1 и 3/8×1/4
  * сверены с моделью из gl2 (9 октября 2026).
  */
-function expected({ r1, r2, m1 }: SteelNippleParams) {
+function expected({ nominalLeft: r1, nominalRight: r2, length: m1 }: SteelNippleParams) {
   const n = (nominal: string) => Math.round((PIPE[nominal][0] - PIPE[nominal][1]) * 10) / 10000;
   const thread = (nominal: string) => Math.min(Math.max(0.3 * n(nominal), 0.008), 0.012);
   // Шестигранник: описанный радиус (n + n/4)/2; по Y — апофема r·√3/2.
@@ -29,7 +29,7 @@ function expected({ r1, r2, m1 }: SteelNippleParams) {
 
 const generator = new SteelNippleGenerator();
 
-describe.each(PRESETS)('ниппель $r1 × $r2, m1 = $m1', (params) => {
+describe.each(PRESETS)('ниппель $nominalLeft × $nominalRight, m1 = $length', (params) => {
   const exp = expected(params);
 
   it('строится, буферы согласованы, есть резьба', () => {
@@ -60,10 +60,10 @@ describe.each(PRESETS)('ниппель $r1 × $r2, m1 = $m1', (params) => {
     const model = generator.build(params);
     const [left, right] = model.connectors;
     const common = { joint: 'thread', gender: 'external' };
-    expect(left).toMatchObject({ id: 'left', nominal: params.r1, direction: { x: -1, y: 0, z: 0 }, ...common });
-    expect(right).toMatchObject({ id: 'right', nominal: params.r2, direction: { x: 1, y: 0, z: 0 }, ...common });
-    expect(left.position.x).toBeCloseTo(-params.m1 / 2, 9);
-    expect(right.position.x).toBeCloseTo(params.m1 / 2, 9);
+    expect(left).toMatchObject({ id: 'left', nominal: params.nominalLeft, direction: { x: -1, y: 0, z: 0 }, ...common });
+    expect(right).toMatchObject({ id: 'right', nominal: params.nominalRight, direction: { x: 1, y: 0, z: 0 }, ...common });
+    expect(left.position.x).toBeCloseTo(-params.length / 2, 9);
+    expect(right.position.x).toBeCloseTo(params.length / 2, 9);
     expect(left.depth).toBeCloseTo(exp.x1, 9);
     expect(right.depth).toBeCloseTo(exp.x2, 9);
     model.dispose();
@@ -74,10 +74,10 @@ describe('ниппель: параметры', () => {
   const codes = (params: SteelNippleParams) => generator.validate(params).map(({ code, param }) => `${code}:${param}`);
 
   it('ошибки и название', () => {
-    expect(codes({ r1: '7/8', r2: '1/2', m1: 0.022 })).toEqual(['unknown_option:r1']);
+    expect(codes({ nominalLeft: '7/8', nominalRight: '1/2', length: 0.022 })).toEqual(['unknown_option:nominalLeft']);
     // 2": резьба 12 мм — нужно m1 > 24 мм.
-    expect(codes({ r1: '2', r2: '2', m1: 0.024 })).toEqual(['too_short:m1']);
-    expect(generator.build({ r1: '1', r2: '1/2', m1: 0.034 }).title).toBe('Ниппель 1(н)х1/2(н)');
-    expect(generator.build({ r1: '1/2', r2: '1/2', m1: 0.022 }).title).toBe('Ниппель 1/2(н)');
+    expect(codes({ nominalLeft: '2', nominalRight: '2', length: 0.024 })).toEqual(['too_short:length']);
+    expect(generator.build({ nominalLeft: '1', nominalRight: '1/2', length: 0.034 }).title).toBe('Ниппель 1(н)х1/2(н)');
+    expect(generator.build({ nominalLeft: '1/2', nominalRight: '1/2', length: 0.022 }).title).toBe('Ниппель 1/2(н)');
   });
 });

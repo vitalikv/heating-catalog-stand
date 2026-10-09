@@ -8,8 +8,10 @@ import { GeneratorParamsError } from './GeneratorParamsError';
  */
 export abstract class BaseGenerator<P, L = void> implements ModelGenerator<P> {
   abstract readonly id: string;
+  abstract readonly version: number;
   abstract readonly title: string;
   abstract readonly paramSpecs: readonly ParamSpec[];
+  abstract readonly defaults: P;
 
   /**
    * Размеры по параметрам — единственное место, где читаются таблицы размеров, если размеры

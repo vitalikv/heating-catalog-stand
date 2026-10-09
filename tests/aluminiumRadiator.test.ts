@@ -5,7 +5,7 @@ import { boundsBox } from './modelHelpers';
 
 // Наборы al_radiator_1 из gl2/createObj/start.js: 6 высот × 1…10 секций.
 const PRESETS: AluminiumRadiatorParams[] = [0.2, 0.35, 0.5, 0.6, 0.7, 0.8].flatMap((y) =>
-  Array.from({ length: 10 }, (_, i) => ({ count: i + 1, size: { x: 0.08, y, z: 0.08 }, r1: '1' })),
+  Array.from({ length: 10 }, (_, i) => ({ sections: i + 1, dimensions: { x: 0.08, y, z: 0.08 }, nominal: '1' })),
 );
 
 /**
@@ -13,7 +13,7 @@ const PRESETS: AluminiumRadiatorParams[] = [0.2, 0.35, 0.5, 0.6, 0.7, 0.8].flatM
  * Для '1': d = 33.5 мм, коллектор n = 1.2 × d. Значения для 1×200, 3×500 и 10×800
  * дополнительно сверены с моделью, построенной в gl2 (9 октября 2026).
  */
-function expected({ count, size }: AluminiumRadiatorParams) {
+function expected({ sections: count, dimensions: size }: AluminiumRadiatorParams) {
   const n = 0.0335 * 1.2;
   const step = size.x + 0.002; // ширина секции: резьбовые участки выступают на 1 мм с каждой стороны
   const x2 = (size.x - 0.04) / 2 + 0.001;
@@ -30,7 +30,7 @@ function expected({ count, size }: AluminiumRadiatorParams) {
 
 const generator = new AluminiumRadiatorGenerator();
 
-describe.each(PRESETS)('радиатор $count шт., h = $size.y', (params) => {
+describe.each(PRESETS)('радиатор $sections шт., h = $dimensions.y', (params) => {
   const exp = expected(params);
 
   it('секции слиты в одну геометрию, буферы согласованы', () => {
@@ -40,7 +40,7 @@ describe.each(PRESETS)('радиатор $count шт., h = $size.y', (params) =>
     const position = geometry.getAttribute('position');
     expect(geometry.index).toBeNull();
     // В gl2 у секции 2036 треугольников; секции — копии со сдвигом на шаг.
-    expect(position.count / 3).toBe(2036 * params.count);
+    expect(position.count / 3).toBe(2036 * params.sections);
     for (const name of ['position', 'normal', 'uv']) {
       const attribute = geometry.getAttribute(name);
       expect(attribute.count).toBe(position.count);
@@ -59,7 +59,7 @@ describe.each(PRESETS)('радиатор $count шт., h = $size.y', (params) =>
 
   it('четыре разъёма по углам на торцах коллекторов', () => {
     const model = generator.build(params);
-    const h = params.size.y / 2;
+    const h = params.dimensions.y / 2;
     const common = { nominal: '1', joint: 'radiator-thread', gender: 'internal' };
     const byId = Object.fromEntries(model.connectors.map((c) => [c.id, c]));
 
@@ -81,18 +81,18 @@ describe.each(PRESETS)('радиатор $count шт., h = $size.y', (params) =>
 });
 
 describe('радиатор: параметры и ресурсы', () => {
-  const base: AluminiumRadiatorParams = { count: 3, size: { x: 0.08, y: 0.5, z: 0.08 }, r1: '1' };
+  const base: AluminiumRadiatorParams = { sections: 3, dimensions: { x: 0.08, y: 0.5, z: 0.08 }, nominal: '1' };
   const codes = (patch: Partial<AluminiumRadiatorParams>) =>
     generator.validate({ ...base, ...patch }).map(({ code, param }) => `${code}:${param}`);
 
   it('ошибки параметров', () => {
-    expect(codes({ count: 0 })).toEqual(['out_of_range:count']);
-    expect(codes({ count: 11 })).toEqual(['out_of_range:count']);
-    expect(codes({ count: 2.5 })).toEqual(['not_integer:count']);
-    expect(codes({ r1: '7/8' })).toEqual(['unknown_option:r1']);
-    expect(codes({ size: { x: 0.04, y: 0.5, z: 0.08 } })).toEqual(['out_of_range:size.x']);
-    expect(codes({ size: { x: 0.08, y: 0.05, z: 0.08 } })).toEqual(['out_of_range:size.y']);
-    expect(() => generator.build({ ...base, count: 0 })).toThrow(GeneratorParamsError);
+    expect(codes({ sections: 0 })).toEqual(['out_of_range:sections']);
+    expect(codes({ sections: 11 })).toEqual(['out_of_range:sections']);
+    expect(codes({ sections: 2.5 })).toEqual(['not_integer:sections']);
+    expect(codes({ nominal: '7/8' })).toEqual(['unknown_option:nominal']);
+    expect(codes({ dimensions: { x: 0.04, y: 0.5, z: 0.08 } })).toEqual(['out_of_range:dimensions.x']);
+    expect(codes({ dimensions: { x: 0.08, y: 0.05, z: 0.08 } })).toEqual(['out_of_range:dimensions.y']);
+    expect(() => generator.build({ ...base, sections: 0 })).toThrow(GeneratorParamsError);
   });
 
   it('название как в gl2', () => {

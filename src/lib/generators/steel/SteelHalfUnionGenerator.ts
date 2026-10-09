@@ -10,14 +10,13 @@ import { specs } from '../../params/specs';
 import { ThreadSizes } from '../../sizes/ThreadSizes';
 import type { PartDiameters } from '../../sizes/ThreadSizes';
 
-/** Параметры в формате cdm из gl2. */
 export interface SteelHalfUnionParams {
   /** Номинал внутренней резьбы накидной гайки, например '3/4'. */
-  r1: string;
+  nutNominal: string;
   /** Номинал наружной резьбы патрубка, например '1/2'. */
-  r2: string;
+  pipeNominal: string;
   /** Длина от гайки до конца патрубка, м. */
-  m1: number;
+  length: number;
 }
 
 /** Толщина колец (x_3, x_4 в gl2), м. */
@@ -44,26 +43,28 @@ interface HalfUnionLayout {
 
 /** Стальной полусгон: накидная гайка с внутренней резьбой и патрубок с наружной (перенос st_pol_sgon_1). */
 export class SteelHalfUnionGenerator extends BaseGenerator<SteelHalfUnionParams, HalfUnionLayout> {
-  readonly id = 'st_pol_sgon_1';
+  readonly id = 'steel.half-union';
+  readonly version = 1;
   readonly title = 'Полусгон стальной';
   readonly paramSpecs: readonly ParamSpec[] = [
-    specs.threadNominal('r1', 'Резьба гайки (в)'),
-    specs.threadNominal('r2', 'Резьба патрубка (н)'),
-    specs.length('m1', 'Длина'),
+    specs.threadNominal('nutNominal', 'Резьба гайки (в)'),
+    specs.threadNominal('pipeNominal', 'Резьба патрубка (н)'),
+    specs.length('length', 'Длина'),
   ];
+  readonly defaults: SteelHalfUnionParams = { nutNominal: '3/4', pipeNominal: '1/2', length: 0.04 };
 
   protected override layout(params: SteelHalfUnionParams): HalfUnionLayout {
-    const d1 = ThreadSizes.require(params.r1, 'internal');
-    const d2 = ThreadSizes.require(params.r2, 'external');
+    const d1 = ThreadSizes.require(params.nutNominal, 'internal');
+    const d2 = ThreadSizes.require(params.pipeNominal, 'external');
     const x1 = 0.02 * d1.n * 20;
     const x2 = 0.02 * d2.n * 20;
     const x5 = x2 * 1.3;
-    return { d1, d2, x1, x2, x5, x3R: params.m1 - x2 - x5 - RING };
+    return { d1, d2, x1, x2, x5, x3R: params.length - x2 - x5 - RING };
   }
 
   protected override relations(_params: SteelHalfUnionParams, { x2, x5, x3R }: HalfUnionLayout): ValidationError[] {
     // Гладкий участок патрубка нулевой длины считается ошибкой.
-    return x3R <= 0 ? [ParamSchema.tooShort('m1', x2 + x5 + RING)] : [];
+    return x3R <= 0 ? [ParamSchema.tooShort('length', x2 + x5 + RING)] : [];
   }
 
   protected create(params: SteelHalfUnionParams, { d1, d2, x1, x2, x5, x3R }: HalfUnionLayout): GeneratedModel {
@@ -89,11 +90,11 @@ export class SteelHalfUnionGenerator extends BaseGenerator<SteelHalfUnionParams,
     // Торцы: открытый край гайки и конец патрубка. Глубина — резьба гайки и вся резьба патрубка.
     // В gl2 точки стояли в центрах резьбы гайки и концевой резьбы.
     return createMeshModel({
-      title: `Полусгон ${params.r2}`,
+      title: `Полусгон ${params.pipeNominal}`,
       ...merger.merge(),
       connectors: [
-        connector('nut', ConnectorFrame.left, at(nutEnd - 1.5 * x1), { depth: x1, nominal: params.r1, joint: 'thread', gender: 'internal' }),
-        connector('pipe', ConnectorFrame.right, params.m1, { depth: x5 + x2, nominal: params.r2, joint: 'thread', gender: 'external' }),
+        connector('nut', ConnectorFrame.left, at(nutEnd - 1.5 * x1), { depth: x1, nominal: params.nutNominal, joint: 'thread', gender: 'internal' }),
+        connector('pipe', ConnectorFrame.right, params.length, { depth: x5 + x2, nominal: params.pipeNominal, joint: 'thread', gender: 'external' }),
       ],
     });
   }

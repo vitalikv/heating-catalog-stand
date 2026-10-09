@@ -9,10 +9,9 @@ import { sleeves } from '../../geometry/SleeveGeometryBuilder';
 import { specs } from '../../params/specs';
 import { ThreadSizes } from '../../sizes/ThreadSizes';
 
-/** Параметры в формате cdm из gl2. */
 export interface CirculationPumpParams {
   /** Номинал наружной резьбы патрубков, например '1 1/4'. */
-  r1: string;
+  nominal: string;
 }
 
 // Размеры корпуса из cr_zr_nasos_1, м: от номинала зависит только резьба патрубков.
@@ -34,12 +33,14 @@ const TOP_SHAPE: readonly [number, number][] = [[0.4, -0.05], [0.4, 0.05], [0.35
 
 /** Циркуляционный насос: мотор вдоль Z, корпус с двумя патрубками вдоль X (перенос cr_zr_nasos_1). */
 export class CirculationPumpGenerator extends BaseGenerator<CirculationPumpParams> {
-  readonly id = 'cr_zr_nasos_1';
+  readonly id = 'equipment.pump';
+  readonly version = 1;
   readonly title = 'Насос циркуляционный';
-  readonly paramSpecs: readonly ParamSpec[] = [specs.threadNominal('r1', 'Резьба патрубков (н)')];
+  readonly paramSpecs: readonly ParamSpec[] = [specs.threadNominal('nominal', 'Резьба патрубков (н)')];
+  readonly defaults: CirculationPumpParams = { nominal: '1' };
 
   protected create(params: CirculationPumpParams): GeneratedModel {
-    const d1 = ThreadSizes.require(params.r1, 'external');
+    const d1 = ThreadSizes.require(params.nominal, 'external');
     const alongZ = { x: 0, y: Math.PI / 2, z: 0 };
     const coverZ = (MOTOR_LENGTH + COVER) / 2;
     // Ось корпуса — у задней стенки мотора.
@@ -65,9 +66,9 @@ export class CirculationPumpGenerator extends BaseGenerator<CirculationPumpParam
 
     // Торцы — концы патрубков, глубина — длина патрубка. В gl2 точки — в центрах патрубков.
     const face = BODY.length / 2 + PORT / 2;
-    const common = { depth: PORT, nominal: params.r1, joint: 'thread', gender: 'external' } as const;
+    const common = { depth: PORT, nominal: params.nominal, joint: 'thread', gender: 'external' } as const;
     return createMeshModel({
-      title: `цирк. насос ${params.r1}`,
+      title: `цирк. насос ${params.nominal}`,
       ...merger.merge(),
       connectors: [
         connector('left', ConnectorFrame.left, { x: -face, y: 0, z: bodyZ }, common),

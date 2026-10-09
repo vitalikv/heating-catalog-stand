@@ -8,29 +8,37 @@ import { sleeves } from '../../geometry/SleeveGeometryBuilder';
 import { ParamSchema } from '../../params/ParamSchema';
 import { specs } from '../../params/specs';
 import { PpPipeSizes } from '../../sizes/PpPipeSizes';
-import type { PpElbowParams } from './PpElbowGenerator';
 
 /** Длина раструба (x_1 в gl2), м. */
 const SOCKET_LENGTH = 0.015;
 
+export interface PpCrossParams {
+  /** Наружный диаметр ПП-трубы всех выходов, мм, строкой: '20', '25'… */
+  nominal: string;
+  /** Размер между торцами, м. */
+  size: number;
+}
+
 /** Полипропиленовая крестовина под пайку (перенос pl_krestovina_1): выходы по ±X и ±Y. */
-export class PpCrossGenerator extends BaseGenerator<PpElbowParams> {
-  readonly id = 'pl_krestovina_1';
+export class PpCrossGenerator extends BaseGenerator<PpCrossParams> {
+  readonly id = 'pp.cross';
+  readonly version = 1;
   readonly title = 'Крестовина ПП';
   readonly paramSpecs: readonly ParamSpec[] = [
-    specs.ppNominal('r1'),
-    specs.length('m1', 'Размер', { max: 0.3 }),
+    specs.ppNominal('nominal'),
+    specs.length('size', 'Размер', { max: 0.3 }),
   ];
+  readonly defaults: PpCrossParams = { nominal: '20', size: 0.052 };
 
-  protected override relations(params: PpElbowParams): ValidationError[] {
+  protected override relations(params: PpCrossParams): ValidationError[] {
     // Средняя часть (x_2 в gl2) была бы нулевой или отрицательной длины.
-    return params.m1 <= 2 * SOCKET_LENGTH ? [ParamSchema.tooShort('m1', 2 * SOCKET_LENGTH)] : [];
+    return params.size <= 2 * SOCKET_LENGTH ? [ParamSchema.tooShort('size', 2 * SOCKET_LENGTH)] : [];
   }
 
-  protected create(params: PpElbowParams): GeneratedModel {
-    const d = PpPipeSizes.require(params.r1);
+  protected create(params: PpCrossParams): GeneratedModel {
+    const d = PpPipeSizes.require(params.nominal);
     const x1 = SOCKET_LENGTH;
-    const x2 = params.m1 - 2 * x1;
+    const x2 = params.size - 2 * x1;
     const pipe = { outerDiameter: d.n, innerDiameter: d.v };
     const offset = (x2 + x1) / 2;
 
@@ -46,12 +54,12 @@ export class PpCrossGenerator extends BaseGenerator<PpElbowParams> {
       );
     }
 
-    // Торцы — концы раструбов (±m1/2), глубина — длина раструба. В gl2 точки — в центрах раструбов.
-    const common = { depth: x1, nominal: params.r1, joint: 'pp-socket', gender: 'internal' } as const;
-    const half = params.m1 / 2;
+    // Торцы — концы раструбов (±size/2), глубина — длина раструба. В gl2 точки — в центрах раструбов.
+    const common = { depth: x1, nominal: params.nominal, joint: 'pp-socket', gender: 'internal' } as const;
+    const half = params.size / 2;
     const { left, right, bottom, top } = ConnectorFrame;
     return createMeshModel({
-      title: `Крестовина ${params.r1}`,
+      title: `Крестовина ${params.nominal}`,
       ...merger.merge(),
       connectors: [
         connector('left', left, half, common),

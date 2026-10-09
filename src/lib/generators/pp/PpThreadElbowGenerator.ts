@@ -1,27 +1,25 @@
 import { BaseGenerator } from '../../core/BaseGenerator';
 import { connector } from '../../core/connector';
 import { ConnectorFrame } from '../../core/ConnectorFrame';
-import type { GeneratedModel, ParamSpec, ValidationError } from '../../core/contracts';
+import type { GeneratedModel, ParamSpec, ThreadGender, ValidationError } from '../../core/contracts';
 import { createMeshModel } from '../../core/MeshModel';
 import { MaterialGroupMerger } from '../../geometry/MaterialGroupMerger';
 import { sleeves } from '../../geometry/SleeveGeometryBuilder';
 import { spheres } from '../../geometry/SphereGeometryBuilder';
 import { ParamSchema } from '../../params/ParamSchema';
 import { specs } from '../../params/specs';
-import type { ThreadSideCode } from '../../params/specs';
 import { PpPipeSizes } from '../../sizes/PpPipeSizes';
 import { PpThreadInsert } from './PpThreadInsert';
 
-/** Параметры в формате cdm из gl2. */
 export interface PpThreadElbowParams {
   /** Сторона резьбы на правом выходе. */
-  side: ThreadSideCode;
+  threadGender: ThreadGender;
   /** Наружный диаметр ПП-трубы, мм, строкой. */
-  r1: string;
+  pipeNominal: string;
   /** Дюймовый номинал резьбы. */
-  r2: string;
+  threadNominal: string;
   /** Длина плеча от оси до торца раструба, м. */
-  m1: number;
+  armLength: number;
 }
 
 /** Длина раструба и резьбового участка (x_1 в gl2), м. */
@@ -32,24 +30,26 @@ const SOCKET_LENGTH = 0.015;
  * под пайку, вправо — металлическая резьбовая вставка в 12-гранном корпусе.
  */
 export class PpThreadElbowGenerator extends BaseGenerator<PpThreadElbowParams> {
-  readonly id = 'pl_ugol_90_rezba_1';
+  readonly id = 'pp.elbow-90-thread';
+  readonly version = 1;
   readonly title = 'Угол ПП 90° с резьбой';
   readonly paramSpecs: readonly ParamSpec[] = [
-    specs.threadSide(),
-    specs.ppNominal('r1'),
-    specs.threadNominal('r2', 'Номинал резьбы'),
-    specs.length('m1', 'Длина плеча'),
+    specs.threadGender(),
+    specs.ppNominal('pipeNominal'),
+    specs.threadNominal('threadNominal', 'Номинал резьбы'),
+    specs.length('armLength', 'Длина плеча'),
   ];
+  readonly defaults: PpThreadElbowParams = { threadGender: 'external', pipeNominal: '20', threadNominal: '1/2', armLength: 0.026 };
 
   protected override relations(params: PpThreadElbowParams): ValidationError[] {
-    return params.m1 <= SOCKET_LENGTH ? [ParamSchema.tooShort('m1', SOCKET_LENGTH)] : [];
+    return params.armLength <= SOCKET_LENGTH ? [ParamSchema.tooShort('armLength', SOCKET_LENGTH)] : [];
   }
 
   protected create(params: PpThreadElbowParams): GeneratedModel {
-    const d1 = PpPipeSizes.require(params.r1);
-    const insert = new PpThreadInsert(params.side, params.r2, d1);
+    const d1 = PpPipeSizes.require(params.pipeNominal);
+    const insert = new PpThreadInsert(params.threadGender, params.threadNominal, d1);
     const x1 = SOCKET_LENGTH;
-    const x2 = params.m1 - x1;
+    const x2 = params.armLength - x1;
     const pipe = { outerDiameter: d1.n, innerDiameter: d1.v };
     const vertical = { rotation: { x: 0, y: 0, z: -Math.PI / 2 } };
     const quarter = { phiLength: Math.PI / 2, rotation: { x: Math.PI / 2, y: 0, z: 0 } };
@@ -85,13 +85,13 @@ export class PpThreadElbowGenerator extends BaseGenerator<PpThreadElbowParams> {
 
     // Раструб: торец — конец плеча, глубина — длина раструба. Резьба: торец — край втулки,
     // глубина — длина втулки. В gl2 точки стояли в центрах раструба и втулки.
-    const face = insert.face(params.m1, x1);
+    const face = insert.face(params.armLength, x1);
     return createMeshModel({
-      title: `Угол ${params.r1}x${params.r2}${insert.suffix}`,
+      title: `Угол ${params.pipeNominal}x${params.threadNominal}${insert.suffix}`,
       ...merger.merge(),
       connectors: [
-        connector('right', ConnectorFrame.right, face, { depth: x1, nominal: params.r2, joint: 'thread', gender: insert.gender }),
-        connector('top', ConnectorFrame.top, params.m1, { depth: x1, nominal: params.r1, joint: 'pp-socket', gender: 'internal' }),
+        connector('right', ConnectorFrame.right, face, { depth: x1, nominal: params.threadNominal, joint: 'thread', gender: insert.gender }),
+        connector('top', ConnectorFrame.top, params.armLength, { depth: x1, nominal: params.pipeNominal, joint: 'pp-socket', gender: 'internal' }),
       ],
     });
   }

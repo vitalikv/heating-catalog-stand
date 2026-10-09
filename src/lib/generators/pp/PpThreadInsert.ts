@@ -1,5 +1,5 @@
+import type { ThreadGender } from '../../core/contracts';
 import type { SleeveMaterials } from '../../geometry/SleeveGeometryBuilder';
-import type { ThreadSideCode } from '../../params/specs';
 import { ThreadSizes } from '../../sizes/ThreadSizes';
 import type { PartDiameters } from '../../sizes/ThreadSizes';
 
@@ -23,9 +23,9 @@ export class PpThreadInsert {
   readonly materials: Partial<SleeveMaterials>;
 
   /** pipe — диаметры ПП-раструба; вызывать только для известного номинала резьбы. */
-  constructor(side: ThreadSideCode, nominal: string, pipe: PartDiameters) {
-    this.internal = side === 'v';
-    this.thread = ThreadSizes.require(nominal, this.internal ? 'internal' : 'external');
+  constructor(gender: ThreadGender, nominal: string, pipe: PartDiameters) {
+    this.internal = gender === 'internal';
+    this.thread = ThreadSizes.require(nominal, gender);
     const v = this.thread.n;
     this.body = { n: Math.max(v + (pipe.n - pipe.v) + BODY_EXTRA, pipe.n + BODY_EXTRA), v };
     this.materials = this.internal
@@ -43,7 +43,7 @@ export class PpThreadInsert {
     return this.internal ? bodyEnd + INTERNAL_PROTRUSION : bodyEnd + length;
   }
 
-  get gender(): 'internal' | 'external' {
+  get gender(): ThreadGender {
     return this.internal ? 'internal' : 'external';
   }
 
