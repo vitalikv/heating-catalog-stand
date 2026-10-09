@@ -1,7 +1,9 @@
 # heating-catalog-stand
 
 Независимый стенд для переноса и проверки параметрических моделей отопления
-из старого проекта `3d-stroyka/gl2`. План работы — `docs/development-plan.md`.
+из старого проекта `3d-stroyka/gl2` и библиотека генераторов `src/lib` для редактора.
+Устройство библиотеки — [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); история работ —
+`docs/development-plan.md`, `docs/catalog-porting-plan.md`, `docs/library-refactoring-plan.md`.
 
 Не требует OpenServer, PHP или БД и не импортирует код соседних проектов.
 
@@ -17,16 +19,33 @@ npm run build      # проверка типов и сборка в dist/
 
 ## Структура
 
-- `src/lib` — будущая библиотека генераторов. Не обращается к `window`,
+- `src/lib` — библиотека генераторов: 40 генераторов, весь каталог `gl2`. Не обращается к `window`,
   `document` и рендереру: `tsconfig.lib.json` проверяет её без DOM,
   поэтому генераторы пригодны для воркера редактора.
-- `src/lib/index.ts` — единственная точка импорта библиотеки.
-  Стенд не импортирует внутренние файлы `src/lib` напрямую.
-- `src/stand` — просмотр: сцена, панель параметров, диагностика.
+
+  ```text
+  src/lib/
+    index.ts      публичный API — единственная точка импорта для стенда и редактора
+    core/         контракт (ModelGenerator, GeneratedModel, Connector), BaseGenerator,
+                  разъёмы (connector, ConnectorFrame), createMeshModel
+    params/       ParamSchema, общие описания параметров specs
+    sizes/        таблицы размеров: ThreadSizes, PpPipeSizes, MpPipeSizes
+    geometry/     построители кусков геометрии и слияние по материалам
+    materials/    MaterialLibrary — материалы по ключам
+    scene/        createModelObject — модель + материалы → объект сцены
+    assembly/     ConnectorMating, Assembly — стыковка и сборки
+    catalog/      позиции каталога (CATALOG) по семействам
+    generators/   steel/, pp/, mp/, radiator/, valve/, equipment/; GeneratorRegistry
+    legacy/       перевод ID и параметров gl2 — только для сверки
+  ```
+
+  Стенд импортирует только `src/lib/index.ts`; тесты могут брать внутренние модули напрямую.
+- `src/stand` — просмотр: сцена, панель параметров по каталогу, сборки для проверки стыковки, диагностика.
   Свет и камера повторяют `src-heating`: `AmbientLight` 0.5π,
   `DirectionalLight` 1.5 у камеры, FOV 75.
 - `tests` — тесты vitest в среде node; `tests/fixtures/gl2-reference.json` —
-  эталон моделей `gl2` для теста `gl2Reference`.
+  эталон моделей `gl2` для теста `gl2Reference`, `tests/fixtures/gl2Presets.ts` — наборы
+  `start.js` в формате `gl2` (исходник каталога и сверки).
 - `scripts` — сверка с `gl2` через headless Chrome (`gl2-compare.mjs`, `gl2-snapshot.mjs`).
   Нужны `gl2` в OpenServer, `npx vite --port 5199` и Chrome с `--remote-debugging-port=9223`;
   для обычной работы и тестов не нужны. Порядок — `docs/catalog-porting-plan.md`, п. 5.

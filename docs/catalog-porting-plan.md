@@ -2,6 +2,11 @@
 
 Дата: 9 октября 2026.
 
+> **Имена в этом документе — из `gl2`.** ID генераторов, параметры `cdm` и часть имён классов
+> (`SteelCollectorGenerator`) здесь в виде до рефакторинга. Сейчас ID — `steel.coupling`, параметры —
+> `nominalLeft`, `length`, `threadGender`; соответствие — [library-refactoring-plan.md](library-refactoring-plan.md),
+> п. 3. Как добавить генератор сейчас — [ARCHITECTURE.md](ARCHITECTURE.md), п. 7.
+
 Продолжение [development-plan.md](development-plan.md): пилот на пяти генераторах
 закончен, контракт устоялся, дальше переносится весь каталог `gl2`.
 Правила проекта, контракт (п. 4), таблицы размеров и журнал расхождений (п. 12) —
@@ -10,8 +15,8 @@
 
 ## 1. Где мы сейчас
 
-Шаги 1–5 выполнены 9 октября 2026. Перенесён 41 генератор (ID в `GeneratorRegistry`) —
-все 41 функция из `start.js`: 5 пилотных, 29 из очередей 1–6 — фитинги, радиаторы
+Шаги 1–5 выполнены 9 октября 2026. Перенесены все 41 функция из `start.js`
+(после рефакторинга — 40 генераторов в `GeneratorRegistry`: три шаровых крана слиты, труба разделена): 5 пилотных, 29 из очередей 1–6 — фитинги, радиаторы
 и краны, — 6 котельного оборудования (шаг 4) и труба (шаг 5). GLB-файлы не переносятся,
 сборки `sborka/` — позже (раздел 6).
 
@@ -40,8 +45,8 @@
   поворота `offset` = `pos1`, сплошная, шестигранник через `outerSegments: 6`),
   `SphereGeometryBuilder` (`crSphere_2`), `ExtrudedShapeBuilder` (`arr_form_1`),
   `BoxProjectionUv` (`upUvs_5`), `MaterialGroupMerger` (`Geometry.merge(..., ind)`);
-- общие части семейств в `generators/`: `ConnectorFrame` (направления и `up` выходов),
-  `MeshModel` (модель из одного меша), `SteelCollectorPipe`, `PpThreadInsert`
+- общие части в `core/`: `ConnectorFrame` (направления и `up` выходов), `createMeshModel`
+  (модель из слитой геометрии); в `generators/<семейство>/`: `SteelManifoldPipe`, `PpThreadInsert`
   (резьбовая вставка ПП), `MpPressEnd` (пресс-конец и проход металлопластика),
   `BallValveParts` (корпус, шток с ручкой, сгон крана);
 - `materials/MaterialLibrary`: `metal`, `metalFlat`, `thread`, `plastic`, `plasticFlat`,
@@ -50,7 +55,7 @@
 - `assembly/ConnectorMating`: совместимость (`joint`, номинал, разный `gender`)
   и положение при стыковке: ввод на `min(depth)`, совпадение `up`, угол стыка.
 
-Стенд: панель строится по `paramSpecs`, наборы — в `stand/presets.ts`,
+Стенд: панель строится по `paramSpecs`, наборы — каталог `src/lib/catalog` (был `stand/presets.ts`),
 сборки для проверки стыковки (в том числе с углом стыка) — в `stand/assemblies.ts`;
 у разъёмов рисуется `up` (синий отрезок).
 
@@ -204,6 +209,10 @@
   «Ошибка: труба МП 20 в ПП-раструб 20».
 
 ## 3. Как переносить один генератор
+
+Порядок на момент переноса. Сейчас шаги 2, 6 и 9 выполняются по [ARCHITECTURE.md](ARCHITECTURE.md), п. 7:
+ID и параметры — в новом формате, перевод из `gl2` — в `legacy/gl2.ts`, наборы — в каталоге
+`src/lib/catalog` и в `tests/fixtures/gl2Presets.ts`.
 
 Проверенный на пилоте порядок:
 
