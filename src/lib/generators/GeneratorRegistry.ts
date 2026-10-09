@@ -39,6 +39,14 @@ import { SteelRadiatorGenerator } from './radiator/SteelRadiatorGenerator';
 import { SteelTeeGenerator } from './steel/SteelTeeGenerator';
 import { SteelValveManifoldGenerator } from './steel/SteelValveManifoldGenerator';
 import { StrainerGenerator } from './equipment/StrainerGenerator';
+import { SteelBushingGenerator } from './steel/SteelBushingGenerator';
+import { SteelCapGenerator } from './steel/SteelCapGenerator';
+import { SteelUnionGenerator } from './steel/SteelUnionGenerator';
+import { AngleThermostaticValveGenerator } from './valve/AngleThermostaticValveGenerator';
+import { CheckValveGenerator } from './valve/CheckValveGenerator';
+import { DrainValveGenerator } from './valve/DrainValveGenerator';
+import { LockshieldValveGenerator } from './valve/LockshieldValveGenerator';
+import { RadiatorHBlockGenerator } from './valve/RadiatorHBlockGenerator';
 
 /** Все генераторы библиотеки; порядок — порядок списка на стенде. */
 function createGenerators() {
@@ -83,6 +91,14 @@ function createGenerators() {
   new ExpansionTankGenerator(),
   new BoilerGenerator(),
   new SafetyGroupGenerator(),
+  new CheckValveGenerator(),
+  new AngleThermostaticValveGenerator(),
+  new LockshieldValveGenerator(),
+  new RadiatorHBlockGenerator(),
+  new SteelUnionGenerator(),
+  new SteelBushingGenerator(),
+  new SteelCapGenerator(),
+  new DrainValveGenerator(),
   ] as const;
 }
 

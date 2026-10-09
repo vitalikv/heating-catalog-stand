@@ -50,8 +50,10 @@ export type ThreadGender = 'internal' | 'external';
  * алюминиевого радиатора, к ней подходят только радиаторные переходники и пробки;
  * 'pp-socket' — раструб под пайку ПП-трубы; 'mp-press' — пресс-обжим
  * металлопластиковой трубы (номинал — наружный диаметр трубы, мм).
+ * 'eurocone' — конусное соединение (номинал резьбы, например '3/4'), не обычная thread;
+ * 'hose-barb' — штуцер/шланг (номинал — внутренний диаметр шланга, мм).
  */
-export type ConnectorJoint = 'thread' | 'radiator-thread' | 'pp-socket' | 'mp-press';
+export type ConnectorJoint = 'thread' | 'radiator-thread' | 'pp-socket' | 'mp-press' | 'eurocone' | 'hose-barb';
 
 /** Ключ материала MaterialLibrary: геометрия ссылается на материал по ключу, а не по индексу. */
 export type MaterialKey =

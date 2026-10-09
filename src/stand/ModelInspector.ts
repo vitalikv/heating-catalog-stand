@@ -141,7 +141,7 @@ export class ModelInspector {
         const element = document.createElement('div');
         element.className = 'connector-label';
         const gender = connector.gender === 'internal' ? 'в' : 'н';
-        const kind = { thread: gender, 'radiator-thread': `рад. ${gender}`, 'pp-socket': 'пайка', 'mp-press': 'пресс' }[connector.joint];
+        const kind = { thread: gender, 'radiator-thread': `рад. ${gender}`, 'pp-socket': 'пайка', 'mp-press': 'пресс', eurocone: 'евроконус', 'hose-barb': 'шланг' }[connector.joint];
         element.textContent = `${connector.id} · ${connector.nominal} (${kind})`;
         const label = new CSS2DObject(element);
         label.position.set(0, length * 1.15, 0);

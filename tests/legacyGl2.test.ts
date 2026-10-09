@@ -3,6 +3,7 @@ import { GeneratorRegistry } from '../src/lib/index';
 import { fromGl2, GL2_IDS, gl2TargetId } from '../src/lib/legacy/gl2';
 import { GL2_PRESETS } from './fixtures/gl2Presets';
 import reference from './fixtures/gl2-reference.json';
+import { EXTENSION_CATALOG } from '../src/lib/catalog/extensions';
 
 /** Семейство и деталь латиницей в kebab-case: 'steel.coupling', 'pp.elbow-90'. */
 const ID_FORMAT = /^(steel|pp|mp|radiator|valve|equipment)\.[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -12,11 +13,14 @@ const targets = Object.entries(GL2_IDS).flatMap(([id, target]) =>
 );
 
 describe('legacy/gl2', () => {
-  it('таблица покрывает наборы стенда и эталон, новые ID — ровно реестр', () => {
+  it('таблица покрывает наборы gl2 и эталон, вместе с расширениями — ровно реестр', () => {
     const gl2Ids = [...GL2_PRESETS.map((entry) => entry.generatorId), ...(reference as { id: string }[]).map((row) => row.id)];
     expect([...new Set(gl2Ids)].filter((id) => !(id in GL2_IDS))).toEqual([]);
     const registryIds = new GeneratorRegistry().list().map((generator) => generator.id);
-    expect([...new Set(targets.map(({ target }) => target))].sort()).toEqual([...registryIds].sort());
+    const legacyIds = [...new Set(targets.map(({ target }) => target))];
+    const additions = EXTENSION_CATALOG.map((entry) => entry.generatorId);
+    expect(additions.filter((id) => legacyIds.includes(id))).toEqual([]);
+    expect([...legacyIds, ...additions].sort()).toEqual([...registryIds].sort());
   });
 
   it('новые ID — в формате семейство.деталь и не совпадают, кроме слитых шаровых кранов', () => {

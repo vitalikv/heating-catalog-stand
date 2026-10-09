@@ -3,6 +3,7 @@ import { GeneratorRegistry } from '../src/lib/index';
 import { fromGl2 } from '../src/lib/legacy/gl2';
 import reference from './fixtures/gl2-reference.json';
 import { boundsBox, triangleCount } from './modelHelpers';
+import { EXTENSION_CATALOG } from '../src/lib/catalog/extensions';
 
 /**
  * Эталон gl2 для всех наборов стенда: название, число треугольников и точек разъёмов, габарит.
@@ -92,6 +93,8 @@ describe.each(rows)('$name', (row) => {
 describe('эталон gl2', () => {
   it('покрывает все генераторы реестра', () => {
     const covered = new Set(rows.map((row) => row.converted.generatorId));
-    expect(registry.list().filter((generator) => !covered.has(generator.id) && !(generator.id in NOT_IN_GL2)).map((generator) => generator.id)).toEqual([]);
+    const additions = new Set<string>(EXTENSION_CATALOG.map((entry) => entry.generatorId));
+    for (const id of additions) expect(covered.has(id), id).toBe(false);
+    expect(registry.list().filter((generator) => !covered.has(generator.id) && !(generator.id in NOT_IN_GL2) && !additions.has(generator.id)).map((generator) => generator.id)).toEqual([]);
   });
 });

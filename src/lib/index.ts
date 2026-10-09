@@ -59,6 +59,14 @@ export type { SteelValveManifoldParams, ValveColor } from './generators/steel/St
 export type { BallValveEnds, BallValveParams } from './generators/valve/BallValveGenerator';
 export type { BallValveUnionParams } from './generators/valve/BallValveUnionGenerator';
 export type { RegulatingValveHead, RegulatingValveParams } from './generators/valve/RegulatingValveGenerator';
+export type { SteelBushingParams } from './generators/steel/SteelBushingGenerator';
+export type { SteelCapParams } from './generators/steel/SteelCapGenerator';
+export type { SteelUnionParams } from './generators/steel/SteelUnionGenerator';
+export type { AngleThermostaticValveParams } from './generators/valve/AngleThermostaticValveGenerator';
+export type { CheckValveParams } from './generators/valve/CheckValveGenerator';
+export type { DrainValveParams } from './generators/valve/DrainValveGenerator';
+export type { LockshieldValveParams } from './generators/valve/LockshieldValveGenerator';
+export type { RadiatorHBlockParams } from './generators/valve/RadiatorHBlockGenerator';
 
 // Материалы и объект сцены.
 export { MaterialLibrary } from './materials/MaterialLibrary';

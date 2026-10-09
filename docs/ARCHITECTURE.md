@@ -109,7 +109,7 @@ interface Connector {
   up: Vector3Data;         // единичный, ⟂ direction — задаёт поворот вокруг оси
   depth: number;           // длина резьбы или раструба от торца внутрь, м
   nominal: string;
-  joint: 'thread' | 'radiator-thread' | 'pp-socket' | 'mp-press';
+  joint: 'thread' | 'radiator-thread' | 'pp-socket' | 'mp-press' | 'eurocone' | 'hose-barb';
   gender: 'internal' | 'external';
 }
 ```
@@ -117,6 +117,10 @@ interface Connector {
 **Совместимость** (`ConnectorMating.check`): одинаковые `joint` и `nominal`, разные `gender`.
 Номинал сравнивают только при одинаковом `joint`: `'20'` у ПП-раструба и у пресс-фитинга МП —
 разные соединения.
+
+Новые модели вне `gl2` описаны в [catalog-extensions.md](catalog-extensions.md).
+`eurocone` — конусное соединение с номиналом резьбы (`'3/4'`), отдельно от `thread`;
+`hose-barb` — штуцер под шланг, номинал — внутренний диаметр шланга в миллиметрах.
 
 **Стыковка** (`ConnectorMating.place`): направления противоположны, `up` совпадают, затем
 деталь доворачивается на угол стыка вокруг оси. Ответная деталь входит на
@@ -154,6 +158,10 @@ interface Connector {
 | `back-left`, `back-right` | выходы котла назад (−Z) | `equipment.boiler` |
 | `radiator`, `outlet` | в порт радиатора и наружу | `radiator.port-fitting` |
 | `nut`, `pipe` | гайка и патрубок | `steel.half-union`; у гайки насоса — `pump` и `pipe` |
+| `inlet`, `outlet` | вход и выход, ID сохраняются при смене прямого/углового исполнения | `steel.union` |
+| `inlet`, `radiator` | трубопровод и полусгон к радиатору | `valve.thermostatic-angle`, `valve.lockshield` |
+| `radiator-left`, `radiator-right`, `pipe-left`, `pipe-right` | две пары портов H-блока | `valve.radiator-h-block` |
+| `inlet`, `hose` | резьбовой вход и штуцер под шланг | `valve.drain` |
 
 У угла 45° второй выход тоже называется `left`, но это левый выход, повёрнутый на 45°
 (`leftTurned`).
@@ -205,6 +213,8 @@ ID хранится в проектах, поэтому после выпуск�
    параметров — в `index.ts`. `GeneratorParamsMap` обновится сам.
 6. **Каталог.** Добавить позиции в `catalog/<семейство>.ts` через `entry('<id>', [...])`.
    Параметры позиций проверяются типом генератора.
+   Для новых моделей без аналога в `gl2` — `catalog/extensions.ts`: эти позиции
+   проходят общие проверки, но не требуют фиктивных legacy-ID или эталона старого проекта.
 7. **Тесты.** Без отдельной работы на новый генератор распространяются `generatorRegistry`
    (ключи схемы есть в `defaults`), `paramSchema` (каждая позиция каталога проходит схему),
    `catalogModels` (буферы, группы, габарит, разъёмы на всех позициях) и `catalog` (уникальные подписи).

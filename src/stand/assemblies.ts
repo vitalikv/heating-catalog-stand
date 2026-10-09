@@ -358,4 +358,48 @@ export const STAND_ASSEMBLIES: AssemblyDefinition[] = [
       },
     ],
   },
+  {
+    label: 'Новые модели: радиатор с угловым термоклапаном и обраткой',
+    parts: [
+      { name: 'радиатор', generatorId: 'radiator.steel', params: { dimensions: { x: 0.6, y: 0.5, z: 0.07 }, nominal: '1/2' } },
+      { name: 'термоклапан', generatorId: 'valve.thermostatic-angle', params: { nominal: '1/2', armLength: 0.04, head: 'thermostatic' },
+        attach: { connector: 'radiator', to: 'радиатор', toConnector: 'top-right' } },
+      { name: 'обратка', generatorId: 'valve.lockshield', params: { nominal: '1/2', armLength: 0.035, configuration: 'angle' },
+        attach: { connector: 'radiator', to: 'радиатор', toConnector: 'bottom-right' } },
+    ],
+  },
+  {
+    label: 'Новые модели: американка, обратный клапан и слив',
+    parts: [
+      { name: 'обратный клапан', generatorId: 'valve.check', params: { nominal: '1/2', length: 0.055, flow: 'left-to-right' } },
+      { name: 'американка', generatorId: 'steel.union', params: { nominal: '1/2', armLength: 0.035, configuration: 'straight' },
+        attach: { connector: 'outlet', to: 'обратный клапан', toConnector: 'left' } },
+      { name: 'ниппель', generatorId: 'steel.nipple', params: { nominalLeft: '1/2', nominalRight: '1/2', length: 0.022 },
+        attach: { connector: 'left', to: 'обратный клапан', toConnector: 'right' } },
+      { name: 'тройник', generatorId: 'steel.tee', params: { threadGender: 'internal', nominalLeft: '1/2', nominalRight: '1/2', nominalBranch: '1/2', length: 0.046, branchLength: 0.023 },
+        attach: { connector: 'left', to: 'ниппель', toConnector: 'right' } },
+      { name: 'слив', generatorId: 'valve.drain', params: { nominal: '1/2', hoseNominal: '13', length: 0.06 },
+        attach: { connector: 'inlet', to: 'тройник', toConnector: 'top' } },
+    ],
+  },
+  {
+    label: 'Новые модели: футорка и внутренняя заглушка',
+    parts: [
+      { name: 'муфта', generatorId: 'steel.coupling', params: { nominalLeft: '3/4', nominalRight: '3/4', length: 0.033 } },
+      { name: 'футорка', generatorId: 'steel.bushing', params: { outerNominal: '3/4', innerNominal: '1/2', length: 0.025 },
+        attach: { connector: 'left', to: 'муфта', toConnector: 'right' } },
+      { name: 'ниппель', generatorId: 'steel.nipple', params: { nominalLeft: '1/2', nominalRight: '1/2', length: 0.022 },
+        attach: { connector: 'left', to: 'футорка', toConnector: 'right' } },
+      { name: 'заглушка', generatorId: 'steel.cap', params: { nominal: '1/2', length: 0.022 },
+        attach: { connector: 'left', to: 'ниппель', toConnector: 'right' } },
+    ],
+  },
+  {
+    label: 'Ошибка: обычная резьба вместо евроконуса H-блока',
+    parts: [
+      { name: 'H-блок', generatorId: 'valve.radiator-h-block', params: { radiatorNominal: '3/4', pipeNominal: '3/4', spacing: 0.05, height: 0.06, configuration: 'angle' } },
+      { name: 'муфта', generatorId: 'steel.coupling', params: { nominalLeft: '3/4', nominalRight: '3/4', length: 0.033 },
+        attach: { connector: 'left', to: 'H-блок', toConnector: 'pipe-left' } },
+    ],
+  },
 ];

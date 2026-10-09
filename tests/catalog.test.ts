@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CATALOG } from '../src/lib/index';
 import { fromGl2 } from '../src/lib/legacy/gl2';
 import { GL2_PRESETS } from './fixtures/gl2Presets';
+import { EXTENSION_CATALOG } from '../src/lib/catalog/extensions';
 
 describe('каталог', () => {
   it('подписи позиций генератора уникальны: панель выбирает позицию по подписи', () => {
@@ -24,7 +25,9 @@ describe('каталог', () => {
         converted.set(generatorId, [...(converted.get(generatorId) ?? []), { label, params: libraryParams }]);
       }
     }
-    const catalog = new Map<string, unknown>(CATALOG.map((entry) => [entry.generatorId, entry.items]));
+    const additions = new Set(EXTENSION_CATALOG.map((entry) => entry.generatorId));
+    const catalog = new Map<string, unknown>(CATALOG.filter((entry) => !additions.has(entry.generatorId)).map((entry) => [entry.generatorId, entry.items]));
     expect(Object.fromEntries(catalog)).toEqual(Object.fromEntries(converted));
+    for (const id of additions) expect(converted.has(id), id).toBe(false);
   });
 });

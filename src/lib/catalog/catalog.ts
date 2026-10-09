@@ -5,10 +5,11 @@ import { PP_CATALOG } from './pp';
 import { RADIATOR_CATALOG } from './radiator';
 import { STEEL_CATALOG } from './steel';
 import { VALVE_CATALOG } from './valve';
+import { EXTENSION_CATALOG } from './extensions';
 
 /**
- * Позиции каталога по генераторам: наборы start.js gl2 в формате библиотеки.
- * Совпадение с исходными наборами через legacy/gl2 проверяет tests/catalog.test.ts.
+ * Позиции каталога: перенесённые наборы gl2 и новые обобщённые модели.
+ * tests/catalog.test.ts сверяет перенесённую часть с gl2, extensions — отдельно.
  */
 export const CATALOG: readonly CatalogEntry[] = [
   ...STEEL_CATALOG,
@@ -17,4 +18,5 @@ export const CATALOG: readonly CatalogEntry[] = [
   ...RADIATOR_CATALOG,
   ...VALVE_CATALOG,
   ...EQUIPMENT_CATALOG,
+  ...EXTENSION_CATALOG,
 ];
