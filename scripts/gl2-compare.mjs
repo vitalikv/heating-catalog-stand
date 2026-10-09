@@ -1,5 +1,6 @@
-// Сверка генераторов стенда с gl2: для каждого набора stand/presets.ts строит модель
-// в gl2 и на стенде и сравнивает габариты, число треугольников и число разъёмов.
+// Сверка генераторов стенда с gl2: для каждого набора GL2_PRESETS (stand/presets.ts) строит модель
+// в gl2 и на стенде (через legacy/gl2 fromGl2) и сравнивает габариты, число треугольников
+// и число разъёмов. Отчёт и эталон — в формате gl2: ID функции и cdm.
 //
 // Нужны: gl2 в OpenServer, стенд `npx vite --port 5199` и headless Chrome с CDP:
 //   chrome.exe --headless=new --remote-debugging-port=9223 --enable-unsafe-swiftshader
@@ -58,19 +59,20 @@ async function evaluate(url, expression, waitMs) {
 // На стенде: наборы, габариты, треугольники и разъёмы моделей.
 const standExpression = `(async () => {
   const lib = await import('/src/lib/index.ts');
-  const { STAND_PRESETS } = await import('/src/stand/presets.ts');
+  const { fromGl2 } = await import('/src/lib/legacy/gl2.ts');
+  const { GL2_PRESETS } = await import('/src/stand/presets.ts');
   const registry = new lib.GeneratorRegistry(new lib.MaterialLibrary());
   const only = ${JSON.stringify(ONLY)};
   const cases = [];
-  for (const generator of registry.list()) {
-    if (only && !only.includes(generator.id)) continue;
-    const entry = STAND_PRESETS.find((presets) => presets.generatorId === generator.id);
-    for (const preset of entry?.presets ?? []) {
-      const model = generator.build(preset.params);
+  for (const entry of GL2_PRESETS) {
+    if (only && !only.includes(entry.generatorId)) continue;
+    for (const preset of entry.presets) {
+      const converted = fromGl2(entry.generatorId, preset.params);
+      const model = registry.get(converted.generatorId).build(converted.params);
       let triangles = 0;
       model.root.traverse((object) => { if (object.isMesh) triangles += object.geometry.getAttribute('position').count / 3; });
       cases.push({
-        id: generator.id, label: preset.label, params: preset.params, title: model.title, triangles,
+        id: entry.generatorId, label: preset.label, params: preset.params, title: model.title, triangles,
         bounds: { min: model.bounds.min.toArray(), max: model.bounds.max.toArray() },
         connectors: model.connectors.map((c) => ({ id: c.id, position: [c.position.x, c.position.y, c.position.z] })),
       });

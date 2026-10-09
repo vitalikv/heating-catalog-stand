@@ -1,11 +1,13 @@
 import { Mesh } from 'three';
 import { describe, expect, it } from 'vitest';
 import { GeneratorRegistry, MaterialLibrary } from '../src/lib/index';
+import { fromGl2 } from '../src/lib/legacy/gl2';
 import reference from './fixtures/gl2-reference.json';
 
 /**
  * Эталон gl2 для всех наборов стенда: название, число треугольников и точек разъёмов, габарит.
  * Снят скриптом scripts/gl2-compare.mjs --fixture из моделей, построенных в gl2.
+ * ID и параметры — в формате gl2; генератор библиотеки выбирается через fromGl2.
  */
 interface ReferenceRow {
   id: string;
@@ -49,7 +51,7 @@ const TRIANGLES_DIFFER: Record<string, string> = {
 };
 
 /**
- * Генераторы без эталона: в gl2 это не функция-генератор (журнал, п. 12).
+ * Генераторы библиотеки без эталона: в gl2 это не функция-генератор (журнал, п. 12).
  * createTubeWF_1 создаёт объект редактора TubeN по точкам пути, без типа трубы и разъёмов.
  */
 const NOT_IN_GL2: Record<string, string> = {
@@ -60,13 +62,17 @@ const NOT_IN_GL2: Record<string, string> = {
 const TITLE_DIFFERS = new Set(['al_zagl_radiator_1', 'gr_bez_1']);
 
 const registry = new GeneratorRegistry(new MaterialLibrary());
-const rows = (reference as ReferenceRow[]).map((row) => ({ ...row, name: `${row.id} ${JSON.stringify(row.params)}` }));
+const rows = (reference as ReferenceRow[]).map((row) => ({
+  ...row,
+  name: `${row.id} ${JSON.stringify(row.params)}`,
+  converted: fromGl2(row.id, row.params),
+}));
 
 describe.each(rows)('$name', (row) => {
   it('габарит, разъёмы и название как в gl2', () => {
-    const generator = registry.get(row.id);
-    expect(generator, row.id).toBeDefined();
-    const model = generator!.build(row.params);
+    const generator = registry.get(row.converted.generatorId);
+    expect(generator, row.converted.generatorId).toBeDefined();
+    const model = generator!.build(row.converted.params);
 
     const min = model.bounds.min.toArray();
     const max = model.bounds.max.toArray();
@@ -90,7 +96,7 @@ describe.each(rows)('$name', (row) => {
 
 describe('эталон gl2', () => {
   it('покрывает все генераторы реестра', () => {
-    const covered = new Set(rows.map((row) => row.id));
+    const covered = new Set(rows.map((row) => row.converted.generatorId));
     expect(registry.list().filter((generator) => !covered.has(generator.id) && !(generator.id in NOT_IN_GL2)).map((generator) => generator.id)).toEqual([]);
   });
 });
