@@ -1,6 +1,6 @@
 import type { BufferGeometry } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import type { MaterialKey } from '../contracts';
+import type { MaterialKey } from '../core/contracts';
 
 /** Кусок геометрии с ключом материала. */
 export interface GeometryPart {

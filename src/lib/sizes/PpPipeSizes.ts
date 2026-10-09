@@ -31,4 +31,11 @@ export class PpPipeSizes {
     // Округление до 0,1 мм и перевод в метры — как в источнике.
     return { n: Math.round((d + t * 1.4) * 10) / 10000, v: Math.round(d * 10) / 10000 };
   }
+
+  /** Как diameters(), но для неизвестного номинала — исключение: после проверки схемы это ошибка в коде. */
+  static require(nominal: string): PartDiameters {
+    const diameters = PpPipeSizes.diameters(nominal);
+    if (!diameters) throw new Error(`PpPipeSizes: неизвестный номинал '${nominal}'`);
+    return diameters;
+  }
 }

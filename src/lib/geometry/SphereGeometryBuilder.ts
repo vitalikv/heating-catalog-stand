@@ -1,5 +1,5 @@
 import { SphereGeometry } from 'three';
-import type { MaterialKey, Vector3Data } from '../contracts';
+import type { MaterialKey, Vector3Data } from '../core/contracts';
 import type { GeometryPart } from './MaterialGroupMerger';
 
 const DEFAULT_SEGMENTS = 32;
@@ -32,3 +32,6 @@ export class SphereGeometryBuilder {
     return { geometry, material: options.material };
   }
 }
+
+/** Общий экземпляр: построитель без состояния. */
+export const spheres = new SphereGeometryBuilder();

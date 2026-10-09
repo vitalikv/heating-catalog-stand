@@ -1,6 +1,6 @@
 import { ExtrudeGeometry, Shape, Vector2 } from 'three';
 import type { BufferGeometry } from 'three';
-import type { MaterialKey, Vector3Data } from '../contracts';
+import type { MaterialKey, Vector3Data } from '../core/contracts';
 import type { GeometryPart } from './MaterialGroupMerger';
 
 export interface ExtrudedShapeOptions {
@@ -34,3 +34,6 @@ export class ExtrudedShapeBuilder {
     return { geometry, material: options.material };
   }
 }
+
+/** Общий экземпляр: построитель без состояния. */
+export const shapes = new ExtrudedShapeBuilder();

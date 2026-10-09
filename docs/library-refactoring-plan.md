@@ -318,11 +318,27 @@ registry.get(id: string): ModelGenerator<unknown> | undefined;   // для да�
 - Тесты групп материалов проверяют ключи, а не индексы; `scripts/gl2-compare.mjs` и `gl2-snapshot.mjs`
   читают данные модели (снимок — через `fromGl2` и `createModelObject`).
 
-### Шаг 3. `BaseGenerator`, помощники, фабрики параметров
+### Шаг 3. `BaseGenerator`, помощники, фабрики параметров — сделано
 
 - `BaseGenerator`, `connector()`, `specs.*`, `ThreadSizes.require()`.
 - Генераторы переводятся по семействам: сталь → ПП → МП → радиаторы → краны → котельное.
 - В том же проходе — раскладка по папкам семейств (п. 6).
+
+Как сделано:
+
+- Раскладка по п. 6: `core/` (контракт, `BaseGenerator`, `connector`, `ConnectorFrame`, `createMeshModel`,
+  `GeneratorParamsError`), `generators/<семейство>/`. `PipeGenerator` пока в корне `generators/` —
+  делится на `pp.pipe` и `mp.pipe` в шаге 4. `NominalTable` и выбор таблицы по `ConnectorJoint`
+  не понадобились — отложено до места, где таблицу выбирают по разъёму.
+- `layout()` у `BaseGenerator` необязателен (по умолчанию размеров нет): он есть у генераторов,
+  где связям и построению нужны одни и те же размеры. `require()` есть у всех трёх таблиц,
+  `diameters(...)!` в генераторах не осталось.
+- `connector(id, frame, at, end)`: `at` — расстояние по оси выхода или точка. `ConnectorFrame.back`
+  (котёл); `branch` не нужен — выход тройника это `top`. Ручных `direction`/`up` в генераторах нет.
+- `specs.threadSide()` пока даёт коды `gl2` (`'v' | 'n'`) и тип `ThreadSideCode` (перенесён в `params/specs.ts`);
+  в шаге 4 станет `threadGender()`.
+- Построители геометрии — общие экземпляры `sleeves`, `spheres`, `shapes`; `MpPressEnd`, `BallValveParts`,
+  `SteelCollectorPipe` создаются без аргументов. `MeshModel.create` → `createMeshModel`.
 
 ### Шаг 4. Новые ID, параметры, версия, умолчания
 

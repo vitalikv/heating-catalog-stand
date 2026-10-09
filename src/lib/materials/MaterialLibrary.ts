@@ -1,6 +1,6 @@
 import { Color, DoubleSide, MathUtils, MeshPhongMaterial, RepeatWrapping, SRGBColorSpace } from 'three';
 import type { Material, Texture } from 'three';
-import type { MaterialKey } from '../contracts';
+import type { MaterialKey } from '../core/contracts';
 
 export type { MaterialKey };
 

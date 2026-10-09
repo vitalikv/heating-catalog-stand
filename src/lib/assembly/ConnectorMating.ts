@@ -1,5 +1,5 @@
 import { Matrix4, Quaternion, Vector3 } from 'three';
-import type { Connector } from '../contracts';
+import type { Connector } from '../core/contracts';
 
 /** Итог проверки пары разъёмов. */
 export type MatingCheck =

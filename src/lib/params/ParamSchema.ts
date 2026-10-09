@@ -1,4 +1,4 @@
-import type { ParamSpec, ValidationError } from '../contracts';
+import type { ParamSpec, ValidationError } from '../core/contracts';
 
 const toMm = (meters: number) => Math.round(meters * 10000) / 10;
 

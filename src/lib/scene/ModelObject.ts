@@ -1,5 +1,5 @@
 import { Group, Mesh } from 'three';
-import type { GeneratedModel } from '../contracts';
+import type { GeneratedModel } from '../core/contracts';
 import type { MaterialLibrary } from '../materials/MaterialLibrary';
 
 /**

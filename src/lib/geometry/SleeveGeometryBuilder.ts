@@ -1,5 +1,5 @@
 import { BufferGeometry, CylinderGeometry, Path, Shape, ShapeGeometry, Vector2 } from 'three';
-import type { MaterialKey, Vector3Data } from '../contracts';
+import type { MaterialKey, Vector3Data } from '../core/contracts';
 import { BoxProjectionUv } from './BoxProjectionUv';
 import type { GeometryPart } from './MaterialGroupMerger';
 
@@ -110,3 +110,6 @@ export class SleeveGeometryBuilder {
     return Array.from({ length: count }, (_, i) => new Vector2(Math.sin(step * i) * radius, Math.cos(step * i) * radius));
   }
 }
+
+/** Общий экземпляр: построитель без состояния. */
+export const sleeves = new SleeveGeometryBuilder();

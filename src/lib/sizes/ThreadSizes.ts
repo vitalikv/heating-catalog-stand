@@ -53,4 +53,11 @@ export class ThreadSizes {
     // Округление до 0,1 мм и перевод в метры — как в источнике.
     return { n: Math.round(n * 10) / 10000, v: Math.round(v * 10) / 10000 };
   }
+
+  /** Как diameters(), но для неизвестного номинала — исключение: после проверки схемы это ошибка в коде. */
+  static require(nominal: string, side: ThreadSide): PartDiameters {
+    const diameters = ThreadSizes.diameters(nominal, side);
+    if (!diameters) throw new Error(`ThreadSizes: неизвестный номинал '${nominal}'`);
+    return diameters;
+  }
 }
