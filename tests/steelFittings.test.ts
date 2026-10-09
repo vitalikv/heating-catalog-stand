@@ -1,16 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import {
-  GeneratorParamsError,
-  SteelManifoldGenerator,
-  SteelCrossGenerator,
-  SteelElbow45Generator,
-  SteelElbowGenerator,
-  SteelHalfUnionGenerator,
-  SteelPlugGenerator,
-  SteelTeeGenerator,
-  SteelValveManifoldGenerator,
-} from '../src/lib/index';
+import { GeneratorParamsError } from '../src/lib/index';
 import type { Connector, GeneratedModel, ModelGenerator } from '../src/lib/index';
+import { SteelCrossGenerator } from '../src/lib/generators/steel/SteelCrossGenerator';
+import { SteelElbow45Generator } from '../src/lib/generators/steel/SteelElbow45Generator';
+import { SteelElbowGenerator } from '../src/lib/generators/steel/SteelElbowGenerator';
+import { SteelHalfUnionGenerator } from '../src/lib/generators/steel/SteelHalfUnionGenerator';
+import { SteelManifoldGenerator } from '../src/lib/generators/steel/SteelManifoldGenerator';
+import { SteelPlugGenerator } from '../src/lib/generators/steel/SteelPlugGenerator';
+import { SteelTeeGenerator } from '../src/lib/generators/steel/SteelTeeGenerator';
+import { SteelValveManifoldGenerator } from '../src/lib/generators/steel/SteelValveManifoldGenerator';
 
 // Габариты всех наборов сверяются с gl2 в gl2Reference.test.ts; здесь — разъёмы и проверки параметров.
 // d и t по таблице sizeRezba, мм.

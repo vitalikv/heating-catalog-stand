@@ -1,15 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import {
-  PpCouplingGenerator,
-  PpCrossGenerator,
-  PpElbow45Generator,
-  PpReducingTeeGenerator,
-  PpTeeGenerator,
-  PpThreadAdapterGenerator,
-  PpThreadElbowGenerator,
-  PpThreadTeeGenerator,
-} from '../src/lib/index';
 import type { Connector, GeneratedModel, ModelGenerator } from '../src/lib/index';
+import { PpCouplingGenerator } from '../src/lib/generators/pp/PpCouplingGenerator';
+import { PpCrossGenerator } from '../src/lib/generators/pp/PpCrossGenerator';
+import { PpElbow45Generator } from '../src/lib/generators/pp/PpElbow45Generator';
+import { PpReducingTeeGenerator } from '../src/lib/generators/pp/PpReducingTeeGenerator';
+import { PpTeeGenerator } from '../src/lib/generators/pp/PpTeeGenerator';
+import { PpThreadAdapterGenerator } from '../src/lib/generators/pp/PpThreadAdapterGenerator';
+import { PpThreadElbowGenerator } from '../src/lib/generators/pp/PpThreadElbowGenerator';
+import { PpThreadTeeGenerator } from '../src/lib/generators/pp/PpThreadTeeGenerator';
 
 // Габариты всех наборов сверяются с gl2 в gl2Reference.test.ts; здесь — разъёмы и проверки параметров.
 // Толщина стенки t по таблице sizeTubePP, мм; n = d + 1.4t.

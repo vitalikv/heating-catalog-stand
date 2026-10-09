@@ -1,13 +1,11 @@
 import { Matrix4, Quaternion, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
-import {
-  AluminiumRadiatorGenerator,
-  ConnectorMating,
-  RadiatorPortFittingGenerator,
-  SteelCouplingGenerator,
-  SteelNippleGenerator,
-} from '../src/lib/index';
+import { ConnectorMating } from '../src/lib/index';
 import type { Connector } from '../src/lib/index';
+import { AluminiumRadiatorGenerator } from '../src/lib/generators/radiator/AluminiumRadiatorGenerator';
+import { RadiatorPortFittingGenerator } from '../src/lib/generators/radiator/RadiatorPortFittingGenerator';
+import { SteelCouplingGenerator } from '../src/lib/generators/steel/SteelCouplingGenerator';
+import { SteelNippleGenerator } from '../src/lib/generators/steel/SteelNippleGenerator';
 
 const coupling = new SteelCouplingGenerator();
 const nipple = new SteelNippleGenerator();

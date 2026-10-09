@@ -1,13 +1,11 @@
 import { Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
-import {
-  BallValveGenerator,
-  BallValveUnionGenerator,
-  RadiatorVentGenerator,
-  RegulatingValveGenerator,
-  SteelRadiatorGenerator,
-} from '../src/lib/index';
 import type { Connector, GeneratedModel, ModelGenerator } from '../src/lib/index';
+import { RadiatorVentGenerator } from '../src/lib/generators/radiator/RadiatorVentGenerator';
+import { SteelRadiatorGenerator } from '../src/lib/generators/radiator/SteelRadiatorGenerator';
+import { BallValveGenerator } from '../src/lib/generators/valve/BallValveGenerator';
+import { BallValveUnionGenerator } from '../src/lib/generators/valve/BallValveUnionGenerator';
+import { RegulatingValveGenerator } from '../src/lib/generators/valve/RegulatingValveGenerator';
 import { boundsBox } from './modelHelpers';
 
 // Габариты всех наборов сверяются с gl2 в gl2Reference.test.ts; здесь — разъёмы и проверки параметров.

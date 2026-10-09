@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { AluminiumRadiatorGenerator, GeneratorParamsError } from '../src/lib/index';
+import { GeneratorParamsError } from '../src/lib/index';
 import type { AluminiumRadiatorParams } from '../src/lib/index';
+import { AluminiumRadiatorGenerator } from '../src/lib/generators/radiator/AluminiumRadiatorGenerator';
 import { boundsBox } from './modelHelpers';
 
 // Наборы al_radiator_1 из gl2/createObj/start.js: 6 высот × 1…10 секций.

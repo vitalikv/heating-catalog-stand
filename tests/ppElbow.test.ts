@@ -1,7 +1,8 @@
 import { Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
-import { GeneratorParamsError, PpElbowGenerator, PpPipeSizes } from '../src/lib/index';
+import { GeneratorParamsError, PpPipeSizes } from '../src/lib/index';
 import type { PpElbowParams } from '../src/lib/index';
+import { PpElbowGenerator } from '../src/lib/generators/pp/PpElbowGenerator';
 import { boundsBox } from './modelHelpers';
 
 // Наборы pl_ugol_90 из gl2/createObj/start.js.

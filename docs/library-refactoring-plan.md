@@ -2,8 +2,7 @@
 
 Дата: 9 октября 2026.
 
-**Состояние:** шаги 1–5 сделаны (п. 7, у каждого — раздел «Как сделано»). Следующий — шаг 6
-(узкий `index.ts`), затем 7 (документы).
+**Состояние:** шаги 1–6 сделаны (п. 7, у каждого — раздел «Как сделано»). Остался шаг 7 (документы).
 Проверка после каждого шага: `npm run typecheck`, `npm test`, `npm run build`; эталон
 `tests/fixtures/gl2-reference.json` не меняется.
 
@@ -393,9 +392,20 @@ registry.get(id: string): ModelGenerator<unknown> | undefined;   // для да�
 - `tests/assemblies.test.ts` проверяет матрицы; `Assembly.bounds()` сверяется с `Box3.setFromObject`
   объектов, поставленных по матрицам.
 
-### Шаг 6. Узкий `index.ts`
+### Шаг 6. Узкий `index.ts` — сделано
 
 - Экспорт по п. 6; тесты переходят на прямые импорты внутренних модулей.
+
+Как сделано:
+
+- `index.ts` по п. 6, сгруппирован по разделам. Значения: `GeneratorRegistry`, `GeneratorParamsError`
+  (его бросает `build()` — часть контракта), `MaterialLibrary`, `createModelObject`, `Assembly`,
+  `ConnectorMating`, `ParamSchema`, `ThreadSizes`, `PpPipeSizes`, `MpPipeSizes`, `CATALOG`. Типы: контракт
+  (включая `MaterialKey`), `GeneratorId`/`GeneratorParamsMap`, параметры всех генераторов с их перечислениями
+  (добавлены `PpCrossParams`, `PpTeeParams`), сборка, каталог, `PartDiameters`.
+- Убраны классы генераторов, `createMeshModel`, `ConnectorFrame`, `MpPressEnd`, `EXPANSION_TANK_VOLUMES`.
+  Тесты импортируют классы генераторов из `src/lib/generators/...`; публичное по-прежнему берут из `index.ts`.
+- `tests/publicApi.test.ts` фиксирует список значений, которые экспортирует `index.ts`.
 
 ### Шаг 7. Документы
 

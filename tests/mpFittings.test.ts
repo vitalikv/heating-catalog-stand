@@ -1,15 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import {
-  ConnectorMating,
-  MpCouplingGenerator,
-  MpElbowGenerator,
-  MpPipeSizes,
-  MpTeeGenerator,
-  MpThreadAdapterGenerator,
-  MpThreadElbowGenerator,
-  MpThreadTeeGenerator,
-} from '../src/lib/index';
+import { ConnectorMating, MpPipeSizes } from '../src/lib/index';
 import type { Connector, GeneratedModel, ModelGenerator } from '../src/lib/index';
+import { MpCouplingGenerator } from '../src/lib/generators/mp/MpCouplingGenerator';
+import { MpElbowGenerator } from '../src/lib/generators/mp/MpElbowGenerator';
+import { MpTeeGenerator } from '../src/lib/generators/mp/MpTeeGenerator';
+import { MpThreadAdapterGenerator } from '../src/lib/generators/mp/MpThreadAdapterGenerator';
+import { MpThreadElbowGenerator } from '../src/lib/generators/mp/MpThreadElbowGenerator';
+import { MpThreadTeeGenerator } from '../src/lib/generators/mp/MpThreadTeeGenerator';
 
 // Габариты всех наборов сверяются с gl2 в gl2Reference.test.ts; здесь — разъёмы и проверки параметров.
 /** n = d + 0.7 мм (sizeTubeMP: t = 0.5, n = d + 1.4t). */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { RadiatorPortFittingGenerator } from '../src/lib/index';
 import type { RadiatorPortFittingParams } from '../src/lib/index';
+import { RadiatorPortFittingGenerator } from '../src/lib/generators/radiator/RadiatorPortFittingGenerator';
 import { boundsBox } from './modelHelpers';
 
 const generator = new RadiatorPortFittingGenerator();

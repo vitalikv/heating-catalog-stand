@@ -1,8 +1,9 @@
 import { Box3, Vector3 } from 'three';
 import type { BufferAttribute } from 'three';
 import { describe, expect, it } from 'vitest';
-import { GeneratorParamsError, SteelCouplingGenerator } from '../src/lib/index';
+import { GeneratorParamsError } from '../src/lib/index';
 import type { SteelCouplingParams } from '../src/lib/index';
+import { SteelCouplingGenerator } from '../src/lib/generators/steel/SteelCouplingGenerator';
 import { boundsBox } from './modelHelpers';
 
 // Наборы из gl2/createObj/start.js, блок st_mufta.

@@ -1,7 +1,11 @@
 import { Matrix4, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
-import { ConnectorMating, MpCouplingGenerator, MpPipeGenerator, PpCouplingGenerator, PpPipeGenerator } from '../src/lib/index';
+import { ConnectorMating } from '../src/lib/index';
 import type { Connector, GeneratedModel, ModelGenerator } from '../src/lib/index';
+import { MpCouplingGenerator } from '../src/lib/generators/mp/MpCouplingGenerator';
+import { MpPipeGenerator } from '../src/lib/generators/mp/MpPipeGenerator';
+import { PpCouplingGenerator } from '../src/lib/generators/pp/PpCouplingGenerator';
+import { PpPipeGenerator } from '../src/lib/generators/pp/PpPipeGenerator';
 
 // В gl2 труба — объект редактора TubeN, эталона gl2Reference нет: габарит, разъёмы и название — здесь.
 const pp = new PpPipeGenerator();

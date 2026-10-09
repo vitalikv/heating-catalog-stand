@@ -1,13 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import {
-  BoilerGenerator,
-  CirculationPumpGenerator,
-  ExpansionTankGenerator,
-  PumpNutGenerator,
-  SafetyGroupGenerator,
-  StrainerGenerator,
-} from '../src/lib/index';
 import type { Connector, GeneratedModel, ModelGenerator } from '../src/lib/index';
+import { BoilerGenerator } from '../src/lib/generators/equipment/BoilerGenerator';
+import { CirculationPumpGenerator } from '../src/lib/generators/equipment/CirculationPumpGenerator';
+import { ExpansionTankGenerator } from '../src/lib/generators/equipment/ExpansionTankGenerator';
+import { PumpNutGenerator } from '../src/lib/generators/equipment/PumpNutGenerator';
+import { SafetyGroupGenerator } from '../src/lib/generators/equipment/SafetyGroupGenerator';
+import { StrainerGenerator } from '../src/lib/generators/equipment/StrainerGenerator';
 
 // Габариты всех наборов сверяются с gl2 в gl2Reference.test.ts; здесь — разъёмы и проверки параметров.
 // Наружный диаметр резьбы по sizeRezba, м: внутренняя — d, наружная — d − t.

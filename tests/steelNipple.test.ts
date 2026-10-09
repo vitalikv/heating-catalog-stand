@@ -1,7 +1,8 @@
 import { Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
-import { CATALOG, SteelNippleGenerator } from '../src/lib/index';
+import { CATALOG } from '../src/lib/index';
 import type { SteelNippleParams } from '../src/lib/index';
+import { SteelNippleGenerator } from '../src/lib/generators/steel/SteelNippleGenerator';
 import { boundsBox } from './modelHelpers';
 
 const PRESETS = CATALOG.find((entry) => entry.generatorId === 'steel.nipple')!.items.map(
