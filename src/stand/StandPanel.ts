@@ -1,16 +1,18 @@
 import type GUI from 'lil-gui';
 import type { Controller } from 'lil-gui';
 import { ParamSchema } from '../lib/index';
-import type { ModelGenerator, ParamSpec } from '../lib/index';
-import type { GeneratorPresets, StandParams } from './presets';
+import type { CatalogEntry, CatalogItem, ModelGenerator, ParamSpec } from '../lib/index';
+
+/** Параметры на панели: правятся по ключам ParamSpec. */
+export type StandParams = Record<string, unknown>;
 
 /** Вызывается при каждом изменении; reframe — сменилась модель, а не только параметр. */
 export type PanelChangeHandler = (generatorId: string, params: StandParams, reframe: boolean) => void;
 
-/** Генератор и его наборы на стенде. */
+/** Генератор и его наборы (позиции каталога) на стенде. */
 interface PanelEntry {
   generator: ModelGenerator<unknown>;
-  presets: GeneratorPresets['presets'];
+  presets: CatalogItem[];
 }
 
 /**
@@ -31,12 +33,12 @@ export class StandPanel {
   constructor(
     gui: GUI,
     generators: readonly ModelGenerator<unknown>[],
-    catalog: readonly GeneratorPresets[],
+    catalog: readonly CatalogEntry[],
     private readonly onChange: PanelChangeHandler,
   ) {
     // На стенде только генераторы, для которых есть наборы.
     this.entries = generators.flatMap((generator) => {
-      const presets = catalog.find((entry) => entry.generatorId === generator.id)?.presets ?? [];
+      const presets: CatalogItem[] = catalog.find((entry) => entry.generatorId === generator.id)?.items ?? [];
       return presets.length > 0 ? [{ generator, presets }] : [];
     });
     if (this.entries.length === 0) throw new Error('StandPanel: нет генераторов с наборами параметров');
@@ -115,7 +117,8 @@ export class StandPanel {
 
   private emit(reframe: boolean): void {
     // Параметры вне схемы (например, size.z радиатора) берутся из набора.
-    const params = structuredClone(this.entry.presets[this.state.preset].params);
+    // Параметры каталога типизированы по генератору; панель правит их как запись по ключам.
+    const params = structuredClone(this.entry.presets[this.state.preset].params) as StandParams;
     for (const spec of this.entry.generator.paramSpecs) {
       const value = this.ui[spec.key];
       ParamSchema.set(params, spec.key, spec.kind === 'length' ? Number(value) / 1000 : value);

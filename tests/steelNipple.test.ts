@@ -1,11 +1,10 @@
 import { Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
-import { SteelNippleGenerator } from '../src/lib/index';
+import { CATALOG, SteelNippleGenerator } from '../src/lib/index';
 import type { SteelNippleParams } from '../src/lib/index';
-import { STAND_PRESETS } from '../src/stand/presets';
 import { boundsBox } from './modelHelpers';
 
-const PRESETS = STAND_PRESETS.find((entry) => entry.generatorId === 'steel.nipple')!.presets.map(
+const PRESETS = CATALOG.find((entry) => entry.generatorId === 'steel.nipple')!.items.map(
   (preset) => preset.params as unknown as SteelNippleParams,
 );
 

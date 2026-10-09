@@ -1,14 +1,13 @@
 import GUI from 'lil-gui';
 import { Box3, Mesh, TextureLoader, Vector3 } from 'three';
 import type { Object3D } from 'three';
-import { createModelObject, GeneratorRegistry, MaterialLibrary } from '../lib/index';
-import { Assembly } from './Assembly';
+import { Assembly, CATALOG, createModelObject, GeneratorRegistry, MaterialLibrary } from '../lib/index';
 import { STAND_ASSEMBLIES } from './assemblies';
+import { AssemblyView } from './AssemblyView';
 import { boundsBox, ModelInspector } from './ModelInspector';
 import type { SceneModel } from './ModelInspector';
-import { STAND_PRESETS } from './presets';
-import type { StandParams } from './presets';
 import { StandPanel } from './StandPanel';
+import type { StandParams } from './StandPanel';
 import { Viewer } from './Viewer';
 
 const viewport = document.getElementById('viewport');
@@ -23,7 +22,7 @@ const inspectorOptions = ModelInspector.defaultOptions();
 const inspector = new ModelInspector(viewer.scene, inspectorOptions);
 
 let current: SceneModel | null = null;
-let assembly: { value: Assembly; label: string; inspectors: ModelInspector[]; joints: GUI } | null = null;
+let assembly: { value: AssemblyView; label: string; inspectors: ModelInspector[]; joints: GUI } | null = null;
 let lastBuild: { generatorId: string; params: StandParams } | null = null;
 let textureWarning = '';
 
@@ -116,7 +115,7 @@ function showAssembly(index: number): void {
 
   panel.setVisible(false);
   clearModel();
-  const value = new Assembly(registry, materials, definition);
+  const value = new AssemblyView(new Assembly(registry, definition), materials);
   viewer.scene.add(value.root);
   // Состыкованные разъёмы не рисуются: их подписи легли бы друг на друга, стыки — в сведениях.
   const mated = new Map<string, Set<string>>();
@@ -133,7 +132,7 @@ function showAssembly(index: number): void {
   });
   assembly = { value, label: definition.label, inspectors, joints: jointsFolder(value) };
 
-  const framing = value.bounds();
+  const framing = boundsBox(value.assembly.bounds());
   for (const partInspector of inspectors) framing.union(partInspector.framingBox());
   viewer.frame(framing);
   showAssemblyInfo();
@@ -141,7 +140,8 @@ function showAssembly(index: number): void {
 
 function showAssemblyInfo(): void {
   if (!assembly) return;
-  const { value, label } = assembly;
+  const { label } = assembly;
+  const value = assembly.value.assembly;
   const joints = value.joints.map(({ label: joint, check, angle }) => {
     const turn = angle !== 0 ? `, ${angle}°` : '';
     return check.compatible ? `✓ ${joint}: ввод ${(check.engagement * 1000).toFixed(1)} мм${turn}` : `✗ ${joint}: ${check.message}${turn}`;
@@ -153,15 +153,16 @@ function showAssemblyInfo(): void {
       ...value.parts.map(({ name, model: part }) => `• ${name}: ${part.title}`),
       ...joints,
       ...value.errors.map((error) => `Ошибка: ${error}`),
-      `Треугольников: ${triangleCount(value.root).toLocaleString('ru-RU')}`,
-      formatSize(value.bounds()),
+      `Треугольников: ${triangleCount(assembly.value.root).toLocaleString('ru-RU')}`,
+      formatSize(boundsBox(value.bounds())),
     ],
     failed,
   );
 }
 
 /** Папка «Стыки»: угол каждого стыка сборки; рамка камеры при повороте не меняется. */
-function jointsFolder(value: Assembly): GUI {
+function jointsFolder(view: AssemblyView): GUI {
+  const value = view.assembly;
   const folder = gui.addFolder('Стыки');
   const angles = Object.fromEntries(value.joints.map(({ part, angle }) => [part, angle]));
   for (const joint of value.joints) {
@@ -170,6 +171,7 @@ function jointsFolder(value: Assembly): GUI {
       .name(joint.label)
       .onChange((degrees: number) => {
         value.setAngle(joint.part, degrees);
+        view.sync();
         refreshInspectors();
         showAssemblyInfo();
       });
@@ -191,7 +193,7 @@ function refreshInspectors(): void {
 
 function frameCurrent(): void {
   if (assembly) {
-    const framing = assembly.value.bounds();
+    const framing = boundsBox(assembly.value.assembly.bounds());
     for (const partInspector of assembly.inspectors) framing.union(partInspector.framingBox());
     viewer.frame(framing);
   } else if (current) {
@@ -205,7 +207,7 @@ const assemblyState = { index: -1 };
 const assemblyOptions = Object.fromEntries([['— одна модель —', -1], ...STAND_ASSEMBLIES.map((definition, index) => [definition.label, index])]);
 gui.add(assemblyState, 'index', assemblyOptions).name('Сборка').onChange((index: number) => showAssembly(index));
 
-const panel = new StandPanel(gui, registry.list(), STAND_PRESETS, rebuild);
+const panel = new StandPanel(gui, registry.list(), CATALOG, rebuild);
 
 const display = gui.addFolder('Отображение');
 display.add(inspectorOptions, 'connectors').name('Разъёмы').onChange(refreshInspectors);

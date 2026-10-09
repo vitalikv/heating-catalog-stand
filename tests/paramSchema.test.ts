@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { GeneratorRegistry, ParamSchema } from '../src/lib/index';
+import { CATALOG, GeneratorRegistry, ParamSchema } from '../src/lib/index';
 import type { ParamSpec } from '../src/lib/index';
-import { STAND_PRESETS } from '../src/stand/presets';
 
 describe('ParamSchema', () => {
   const specs: ParamSpec[] = [
@@ -36,14 +35,14 @@ describe('ParamSchema', () => {
   });
 });
 
-describe('схемы генераторов и наборы стенда', () => {
+describe('схемы генераторов и каталог', () => {
   const registry = new GeneratorRegistry();
 
-  it('у каждого генератора есть наборы, и все они проходят его схему', () => {
+  it('у каждого генератора есть позиции каталога, и все они проходят его схему', () => {
     for (const generator of registry.list()) {
-      const entry = STAND_PRESETS.find((presets) => presets.generatorId === generator.id);
+      const entry = CATALOG.find((entry) => entry.generatorId === generator.id);
       expect(entry, generator.id).toBeDefined();
-      for (const preset of entry!.presets) {
+      for (const preset of entry!.items) {
         expect(generator.validate(preset.params), `${generator.id} ${preset.label}`).toEqual([]);
       }
     }

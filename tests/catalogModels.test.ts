@@ -1,14 +1,13 @@
 import { Box3, Vector3 } from 'three';
 import type { BufferAttribute } from 'three';
 import { describe, expect, it } from 'vitest';
-import { GeneratorRegistry } from '../src/lib/index';
-import { STAND_PRESETS } from '../src/stand/presets';
+import { CATALOG, GeneratorRegistry } from '../src/lib/index';
 import { boundsBox } from './modelHelpers';
 
-// Общие проверки всех генераторов на всех наборах стенда; размеры — в тестах генераторов.
+// Общие проверки всех генераторов на всех позициях каталога; размеры — в тестах генераторов.
 const registry = new GeneratorRegistry();
 const cases = registry.list().flatMap((generator) =>
-  (STAND_PRESETS.find((entry) => entry.generatorId === generator.id)?.presets ?? []).map((preset) => ({
+  (CATALOG.find((entry) => entry.generatorId === generator.id)?.items ?? []).map((preset) => ({
     name: `${generator.id}: ${preset.label}`,
     generator,
     params: preset.params,

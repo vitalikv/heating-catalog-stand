@@ -1,7 +1,24 @@
-import { Box3, Group, MathUtils } from 'three';
-import { ConnectorMating, createModelObject } from '../lib/index';
-import type { Connector, GeneratedModel, GeneratorRegistry, MaterialLibrary, MatingCheck } from '../lib/index';
-import type { AssemblyDefinition } from './assemblies';
+import { Box3, MathUtils, Matrix4, Vector3 } from 'three';
+import type { BoundsData, Connector, GeneratedModel } from '../core/contracts';
+import type { GeneratorRegistry } from '../generators/GeneratorRegistry';
+import { ConnectorMating } from './ConnectorMating';
+import type { MatingCheck } from './ConnectorMating';
+
+/**
+ * Деталь сборки; attach — к какому разъёму уже поставленной детали её присоединить,
+ * angle — доворот вокруг оси стыка, градусы (по умолчанию up разъёмов совпадают).
+ */
+export interface AssemblyPart {
+  name: string;
+  generatorId: string;
+  params: unknown;
+  attach?: { connector: string; to: string; toConnector: string; angle?: number };
+}
+
+export interface AssemblyDefinition {
+  label: string;
+  parts: AssemblyPart[];
+}
 
 export interface AssemblyJoint {
   /** Имя присоединяемой детали. */
@@ -13,6 +30,13 @@ export interface AssemblyJoint {
   angle: number;
 }
 
+export interface AssemblyPartModel {
+  name: string;
+  model: GeneratedModel;
+  /** Положение детали в координатах сборки; первая деталь стоит в начале координат. */
+  matrix: Matrix4;
+}
+
 /** Как поставлена деталь: к какому разъёму какой детали. */
 interface Placement {
   part: AssemblyPartModel;
@@ -22,20 +46,14 @@ interface Placement {
   joint: AssemblyJoint;
 }
 
-export interface AssemblyPartModel {
-  name: string;
-  model: GeneratedModel;
-  /** Объект детали в сцене; его матрица ставит деталь по разъёмам. */
-  root: Group;
-}
-
 /**
  * Сборка из нескольких моделей: каждая деталь ставится по ConnectorMating
  * к разъёму уже поставленной. Несовместимые детали тоже ставятся — чтобы
- * их было видно, — а стык помечается причиной.
+ * их было видно, — а стык помечается причиной. Результат — модели и матрицы деталей;
+ * объекты сцены строит потребитель (createModelObject).
  */
 export class Assembly {
-  readonly root = new Group();
+  readonly label: string;
   readonly parts: AssemblyPartModel[] = [];
   readonly joints: AssemblyJoint[] = [];
   /** Ошибки описания: неизвестный генератор, неверные параметры, нет разъёма. */
@@ -43,8 +61,8 @@ export class Assembly {
   /** По порядку описания: детали ставятся после тех, к кому присоединены. */
   private readonly placements: Placement[] = [];
 
-  constructor(registry: GeneratorRegistry, library: MaterialLibrary, definition: AssemblyDefinition) {
-    this.root.name = definition.label;
+  constructor(registry: GeneratorRegistry, definition: AssemblyDefinition) {
+    this.label = definition.label;
 
     for (const part of definition.parts) {
       const generator = registry.get(part.generatorId);
@@ -59,8 +77,7 @@ export class Assembly {
       }
 
       const model = generator.build(part.params);
-      const placed = { name: part.name, model, root: createModelObject(model, library) };
-      this.root.add(placed.root);
+      const placed = { name: part.name, model, matrix: new Matrix4() };
       this.parts.push(placed);
 
       if (!part.attach) continue;
@@ -93,20 +110,19 @@ export class Assembly {
   }
 
   private static place({ part, target, fixed, moving, joint }: Placement): void {
-    target.root.updateMatrixWorld(true);
-    const matrix = ConnectorMating.place(fixed, target.root.matrixWorld, moving, MathUtils.degToRad(joint.angle));
-    matrix.decompose(part.root.position, part.root.quaternion, part.root.scale);
-    part.root.updateMatrixWorld(true);
+    part.matrix.copy(ConnectorMating.place(fixed, target.matrix, moving, MathUtils.degToRad(joint.angle)));
   }
 
-  /** Габарит всей сборки в координатах сцены. */
-  bounds(): Box3 {
-    this.root.updateMatrixWorld(true);
-    return new Box3().setFromObject(this.root);
+  /** Габарит всей сборки: габариты деталей, поставленные их матрицами. */
+  bounds(): BoundsData {
+    const box = new Box3();
+    for (const { model, matrix } of this.parts) {
+      box.union(new Box3(new Vector3().copy(model.bounds.min), new Vector3().copy(model.bounds.max)).applyMatrix4(matrix));
+    }
+    return { min: { x: box.min.x, y: box.min.y, z: box.min.z }, max: { x: box.max.x, y: box.max.y, z: box.max.z } };
   }
 
   dispose(): void {
-    this.root.removeFromParent();
     for (const { model } of this.parts) model.dispose();
     this.parts.length = 0;
   }

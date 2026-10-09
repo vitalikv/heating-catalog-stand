@@ -11,8 +11,12 @@ export type {
   ValidationError,
   Vector3Data,
 } from './core/contracts';
+export { Assembly } from './assembly/Assembly';
+export type { AssemblyDefinition, AssemblyJoint, AssemblyPart, AssemblyPartModel } from './assembly/Assembly';
 export { ConnectorMating } from './assembly/ConnectorMating';
 export type { MatingCheck } from './assembly/ConnectorMating';
+export { CATALOG } from './catalog/catalog';
+export type { CatalogEntry, CatalogItem } from './catalog/entry';
 export { GeneratorParamsError } from './core/GeneratorParamsError';
 export { AluminiumRadiatorGenerator } from './generators/radiator/AluminiumRadiatorGenerator';
 export type { AluminiumRadiatorParams } from './generators/radiator/AluminiumRadiatorGenerator';

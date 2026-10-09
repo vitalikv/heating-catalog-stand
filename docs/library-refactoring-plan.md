@@ -2,6 +2,11 @@
 
 Дата: 9 октября 2026.
 
+**Состояние:** шаги 1–5 сделаны (п. 7, у каждого — раздел «Как сделано»). Следующий — шаг 6
+(узкий `index.ts`), затем 7 (документы).
+Проверка после каждого шага: `npm run typecheck`, `npm test`, `npm run build`; эталон
+`tests/fixtures/gl2-reference.json` не меняется.
+
 Каталог `gl2` перенесён целиком: 41 ID, 40 классов ([catalog-porting-plan.md](catalog-porting-plan.md)).
 Код пока повторяет `gl2`: ID — имена функций, параметры — ключи `cdm`,
 результат генератора — готовые объекты Three.js. Библиотека пойдёт в новый проект,
@@ -239,7 +244,7 @@ src/lib/
   materials/      MaterialLibrary.ts
   scene/          ModelObject.ts — модель + материалы → Group
   assembly/       ConnectorMating.ts, Assembly.ts (из src/stand, без DOM)
-  catalog/        позиции каталога: generatorId + params (из src/stand/presets.ts)
+  catalog/        позиции каталога: generatorId + params (наборы start.js в новом формате)
   generators/
     steel/        муфта, ниппель, …, SteelManifoldPipe
     pp/           …, PpThreadInsert
@@ -364,12 +369,29 @@ registry.get(id: string): ModelGenerator<unknown> | undefined;   // для да�
   влияния на модель (`r2`, `m1` воздухоотводчика, `m1` гайки насоса) отбрасываются.
 - Подписи наборов шарового крана на стенде — с видом концов: три функции gl2 теперь один генератор.
 
-### Шаг 5. `Assembly` и каталог в библиотеку
+### Шаг 5. `Assembly` и каталог в библиотеку — сделано
 
 - `Assembly` из `src/stand` в `src/lib/assembly` (без DOM, корень — `Group` из `createModelObject`
   или только матрицы деталей — решить при переносе; для воркера удобнее матрицы).
 - Наборы `start.js` — в `src/lib/catalog` в новом формате (через `fromGl2` один раз),
   стенд берёт их оттуда.
+
+Как сделано:
+
+- `src/lib/assembly/Assembly.ts` — без объектов сцены: детали `{ name, model, matrix }`, матрица — положение
+  в координатах сборки (первая деталь в начале координат); `bounds()` → `BoundsData` (габариты деталей по
+  матрицам). Конструктор без `MaterialLibrary`. Типы `AssemblyDefinition`, `AssemblyPart` (`params: unknown` —
+  как данные проекта), `AssemblyJoint` — там же.
+- Стенд: `stand/AssemblyView.ts` строит объекты через `createModelObject` и переносит матрицы (`sync()`
+  после `setAngle`). Описания сборок `stand/assemblies.ts` остались в стенде — это проверочные данные.
+- `src/lib/catalog/` — по семействам (`steel.ts`, `pp.ts`, …), `CATALOG` в `catalog.ts`. Таблицы — в новых
+  ключах и кодах (`'internal'`, `volume: 6`), позиции через `entry(id, items)`: параметры проверяются типом
+  генератора. Каталог от `legacy/gl2` не зависит.
+- Наборы `gl2` (`GL2_PRESETS`) перенесены из `stand/presets.ts` в `tests/fixtures/gl2Presets.ts`;
+  `STAND_PRESETS` удалён. `tests/catalog.test.ts` сверяет `CATALOG` с `fromGl2(GL2_PRESETS)`: позиции,
+  подписи и порядок внутри генератора. `scripts/gl2-compare.mjs` берёт наборы из фикстуры.
+- `tests/assemblies.test.ts` проверяет матрицы; `Assembly.bounds()` сверяется с `Box3.setFromObject`
+  объектов, поставленных по матрицам.
 
 ### Шаг 6. Узкий `index.ts`
 
@@ -394,7 +416,7 @@ registry.get(id: string): ModelGenerator<unknown> | undefined;   // для да�
 
 ## 9. Готовность
 
-- Все ID и параметры — по п. 3; старые имена встречаются только в `legacy/`, `stand/presets.ts`
+- Все ID и параметры — по п. 3; старые имена встречаются только в `legacy/`, `tests/fixtures/gl2Presets.ts`
   (исходные наборы `start.js`) и эталоне `gl2`.
 - Ни один генератор не импортирует `MaterialLibrary` и не создаёт `Mesh`/`Group`.
 - В генераторах нет констант индексов материалов, ручных `up` и `throw GeneratorParamsError`.

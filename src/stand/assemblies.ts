@@ -1,22 +1,6 @@
-import type { StandParams } from './presets';
+import type { AluminiumRadiatorParams, AssemblyDefinition } from '../lib/index';
 
-/**
- * Деталь сборки; attach — к какому разъёму уже поставленной детали её присоединить,
- * angle — доворот вокруг оси стыка, градусы (по умолчанию up разъёмов совпадают).
- */
-export interface AssemblyPart {
-  name: string;
-  generatorId: string;
-  params: StandParams;
-  attach?: { connector: string; to: string; toConnector: string; angle?: number };
-}
-
-export interface AssemblyDefinition {
-  label: string;
-  parts: AssemblyPart[];
-}
-
-const radiator = (sections: number, height: number): StandParams => ({ sections, dimensions: { x: 0.08, y: height, z: 0.08 }, nominal: '1' });
+const radiator = (sections: number, height: number): AluminiumRadiatorParams => ({ sections, dimensions: { x: 0.08, y: height, z: 0.08 }, nominal: '1' });
 
 /**
  * Сборки для проверки стыковки. Сначала совместимые стыки, потом заведомо

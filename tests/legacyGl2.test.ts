@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GeneratorRegistry } from '../src/lib/index';
 import { fromGl2, GL2_IDS, gl2TargetId } from '../src/lib/legacy/gl2';
-import { GL2_PRESETS } from '../src/stand/presets';
+import { GL2_PRESETS } from './fixtures/gl2Presets';
 import reference from './fixtures/gl2-reference.json';
 
 /** Семейство и деталь латиницей в kebab-case: 'steel.coupling', 'pp.elbow-90'. */

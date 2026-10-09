@@ -1,4 +1,4 @@
-// Сверка генераторов стенда с gl2: для каждого набора GL2_PRESETS (stand/presets.ts) строит модель
+// Сверка генераторов стенда с gl2: для каждого набора GL2_PRESETS (tests/fixtures/gl2Presets.ts) строит модель
 // в gl2 и на стенде (через legacy/gl2 fromGl2) и сравнивает габариты, число треугольников
 // и число разъёмов. Отчёт и эталон — в формате gl2: ID функции и cdm.
 //
@@ -60,7 +60,7 @@ async function evaluate(url, expression, waitMs) {
 const standExpression = `(async () => {
   const lib = await import('/src/lib/index.ts');
   const { fromGl2 } = await import('/src/lib/legacy/gl2.ts');
-  const { GL2_PRESETS } = await import('/src/stand/presets.ts');
+  const { GL2_PRESETS } = await import('/tests/fixtures/gl2Presets.ts');
   const registry = new lib.GeneratorRegistry();
   const only = ${JSON.stringify(ONLY)};
   const cases = [];

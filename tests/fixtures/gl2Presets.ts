@@ -1,16 +1,15 @@
-import { fromGl2 } from '../lib/legacy/gl2';
+// Наборы gl2/createObj/start.js в формате gl2 — исходник каталога src/lib/catalog.
+// Сверка с gl2 (scripts/gl2-compare.mjs) и совпадение с каталогом через fromGl2 (tests/catalog.test.ts).
 
-export type StandParams = Record<string, unknown>;
-
-export interface Preset {
+export interface Gl2Preset {
   label: string;
-  params: StandParams;
+  params: Record<string, unknown>;
 }
 
-/** Наборы параметров генератора; поля панели берутся из его paramSpecs. */
-export interface GeneratorPresets {
+/** Наборы одной функции gl2. */
+export interface Gl2GeneratorPresets {
   generatorId: string;
-  presets: Preset[];
+  presets: Gl2Preset[];
 }
 
 /** Наборы st_mufta из gl2/createObj/start.js: [r1, r2, m1]. */
@@ -435,11 +434,8 @@ const EXPANSION_TANKS: [number, number, string][] = [
 const PP_PIPES = ['20', '25', '32', '40', '50', '63', '75', '90', '110'];
 const MP_PIPES = ['16', '20', '26', '32', '40'];
 
-/**
- * Наборы в формате gl2: ID функции и cdm, как в start.js. Источник для сверки с gl2
- * (scripts/gl2-compare.mjs); стенд и тесты берут STAND_PRESETS.
- */
-export const GL2_PRESETS: GeneratorPresets[] = [
+/** Наборы в формате gl2: ID функции и cdm, как в start.js. */
+export const GL2_PRESETS: Gl2GeneratorPresets[] = [
   {
     generatorId: 'st_mufta_1',
     presets: STEEL_COUPLINGS.map(([r1, r2, m1]) => ({
@@ -658,17 +654,3 @@ export const GL2_PRESETS: GeneratorPresets[] = [
     presets: [{ label: '1', params: { size: { x: 0.18, y: 0.05, z: 0.05 }, r1: '1' } }],
   },
 ];
-
-/** Наборы в формате библиотеки: GL2_PRESETS через fromGl2, по генераторам в порядке появления. */
-export const STAND_PRESETS: GeneratorPresets[] = (() => {
-  const byGenerator = new Map<string, Preset[]>();
-  for (const entry of GL2_PRESETS) {
-    for (const { label, params } of entry.presets) {
-      const converted = fromGl2(entry.generatorId, params);
-      const presets = byGenerator.get(converted.generatorId) ?? [];
-      presets.push({ label, params: converted.params });
-      byGenerator.set(converted.generatorId, presets);
-    }
-  }
-  return [...byGenerator].map(([generatorId, presets]) => ({ generatorId, presets }));
-})();
