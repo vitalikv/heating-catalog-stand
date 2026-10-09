@@ -1,4 +1,5 @@
 import { Mesh } from 'three';
+import type { Material } from 'three';
 import { describe, expect, it } from 'vitest';
 import { AluminiumRadiatorGenerator, GeneratorParamsError, MaterialLibrary } from '../src/lib/index';
 import type { AluminiumRadiatorParams } from '../src/lib/index';
@@ -29,7 +30,12 @@ function expected({ count, size }: AluminiumRadiatorParams) {
   };
 }
 
-const generator = new AluminiumRadiatorGenerator(new MaterialLibrary());
+const library = new MaterialLibrary();
+const generator = new AluminiumRadiatorGenerator(library);
+
+/** Материалы групп меша по порядку групп. */
+const groupMaterials = (mesh: Mesh) => mesh.geometry.groups.map((group) => (mesh.material as Material[])[group.materialIndex!]);
+
 
 describe.each(PRESETS)('радиатор $count шт., h = $size.y', (params) => {
   const exp = expected(params);
@@ -56,7 +62,7 @@ describe.each(PRESETS)('радиатор $count шт., h = $size.y', (params) =>
       expect(attribute.count).toBe(position.count);
       expect(Array.from(attribute.array).every(Number.isFinite)).toBe(true);
     }
-    expect(geometry.groups.map((group) => group.materialIndex)).toEqual([0, 1]);
+    expect(groupMaterials(sections[0] as Mesh)).toEqual([library.get('plastic'), library.get('thread')]);
     model.dispose();
   });
 

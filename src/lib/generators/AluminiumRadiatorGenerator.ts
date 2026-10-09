@@ -4,8 +4,9 @@ import { GeneratorParamsError } from '../GeneratorParamsError';
 import { ExtrudedShapeBuilder } from '../geometry/ExtrudedShapeBuilder';
 import type { ExtrudedShapeOptions } from '../geometry/ExtrudedShapeBuilder';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
+import type { MergedGeometry } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
-import type { SleeveOptions } from '../geometry/SleeveGeometryBuilder';
+import type { SleeveShape } from '../geometry/SleeveGeometryBuilder';
 import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
@@ -26,8 +27,6 @@ const COLLECTOR_CENTER = 0.04;
 const FIN = 0.003;
 /** В gl2 наружный диаметр коллектора — диаметр резьбы × 1.2. */
 const COLLECTOR_SCALE = 1.2;
-
-const THREAD = 1;
 
 /** Алюминиевый секционный радиатор (перенос al_radiator_1). */
 export class AluminiumRadiatorGenerator implements ModelGenerator<AluminiumRadiatorParams> {
@@ -64,13 +63,13 @@ export class AluminiumRadiatorGenerator implements ModelGenerator<AluminiumRadia
     // Торец резьбового участка коллектора — край секции.
     const threadEnd = x1 / 2 + x2;
 
-    const geometry = this.buildSection(params.size.x, h, n, v);
+    const { geometry, materials } = this.buildSection(params.size.x, h, n, v);
     geometry.computeBoundingBox();
     // Шаг секций — ширина габарита секции, как в gl2.
     const step = geometry.boundingBox!.max.x - geometry.boundingBox!.min.x;
 
     // Секции — меши с общей геометрией, как в gl2.
-    const meshMaterials = [this.materials.get('plastic'), this.materials.get('thread')];
+    const meshMaterials = materials.map((key) => this.materials.get(key));
     const root = new Group();
     const title = `Ал.радиатор h${Math.round(h * 1000)} (${params.count}шт.)`;
     root.name = title;
@@ -113,14 +112,14 @@ export class AluminiumRadiatorGenerator implements ModelGenerator<AluminiumRadia
   }
 
   /** Одна секция с центром в начале координат: коллекторы, вертикальная труба и рёбра. */
-  private buildSection(width: number, h: number, n: number, v: number) {
+  private buildSection(width: number, h: number, n: number, v: number): MergedGeometry {
     const x1 = COLLECTOR_CENTER;
     const x2 = (width - x1) / 2 + 0.001;
     const t1 = FIN;
     const pipe = { outerDiameter: n, innerDiameter: v };
-    const threaded: Partial<SleeveOptions> = { materials: { inner: THREAD } };
+    const threaded: Partial<SleeveShape> = { materials: { inner: 'thread' } };
 
-    const sleeves: SleeveOptions[] = [];
+    const sleeves: SleeveShape[] = [];
     for (const y of [h / 2, -h / 2]) {
       sleeves.push(
         { ...pipe, ...threaded, length: x2, center: { x: -x1 / 2 - x2 / 2, y, z: 0 } },
@@ -143,7 +142,7 @@ export class AluminiumRadiatorGenerator implements ModelGenerator<AluminiumRadia
       p(-n / 2 - 0.01 + t1, top + 0.03), p(-n / 2 - 0.02 + t1, top + 0.02), p(-n / 2 - 0.023 + t1, top + 0.01), p(-n / 2 - 0.025 + t1, top),
     ];
 
-    const fins: ExtrudedShapeOptions[] = [
+    const fins: Omit<ExtrudedShapeOptions, 'material'>[] = [
       // Центральное ребро сзади
       { ...centerFin, points: [p(n / 2, -top), p(n / 2 + 0.025, -top), p(n / 2 + 0.025, top), p(n / 2, top)] },
       // Верхнее центральное ребро вокруг коллектора
@@ -187,8 +186,8 @@ export class AluminiumRadiatorGenerator implements ModelGenerator<AluminiumRadia
     ];
 
     const merger = new MaterialGroupMerger();
-    for (const sleeve of sleeves) merger.add(...this.sleeves.build(sleeve));
-    for (const fin of fins) merger.add(this.shapes.build(fin));
+    for (const sleeve of sleeves) merger.add(...this.sleeves.build({ ...sleeve, material: 'plastic' }));
+    for (const fin of fins) merger.add(this.shapes.build({ ...fin, material: 'plastic' }));
     return merger.merge();
   }
 }

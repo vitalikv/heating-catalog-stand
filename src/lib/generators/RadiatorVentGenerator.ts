@@ -27,12 +27,6 @@ const NUT_SCALE = 1.3;
 /** Воздухоотводчик: диск и «бабочка», м. */
 const VENT = { disk: 0.001, diameter: 0.02, height: 0.016, width: 0.007, thickness: 0.004 };
 
-/** Индексы материалов меша. */
-const PLASTIC = 0;
-const THREAD = 1;
-const PLASTIC_FLAT = 2;
-const METAL = 3;
-
 /**
  * Радиаторный воздухоотводчик с наружной трубной резьбой (перенос rad_vozduhotvod_1):
  * ставится в переходник радиатора. Резьба по −X, сплошная гайка, диск и бабочка по +X.
@@ -63,15 +57,16 @@ export class RadiatorVentGenerator implements ModelGenerator<RadiatorVentParams>
 
     const merger = new MaterialGroupMerger();
     merger.add(
-      ...this.sleeves.build({ length: THREAD_LENGTH, outerDiameter: d.n, innerDiameter: d.v, center: at(-THREAD_LENGTH / 2), materials: { outer: THREAD } }),
+      ...this.sleeves.build({ material: 'plastic', length: THREAD_LENGTH, outerDiameter: d.n, innerDiameter: d.v, center: at(-THREAD_LENGTH / 2), materials: { outer: 'thread' } }),
       // Сплошная гайка-шестигранник
       ...this.sleeves.build({
+        material: 'plastic',
         length: NUT_LENGTH,
         outerDiameter: d.n * NUT_SCALE,
         innerDiameter: 0,
         outerSegments: 6,
         center: at(NUT_LENGTH / 2),
-        materials: { outer: PLASTIC_FLAT },
+        materials: { outer: 'plasticFlat' },
       }),
     );
 
@@ -83,14 +78,14 @@ export class RadiatorVentGenerator implements ModelGenerator<RadiatorVentParams>
           outerDiameter: VENT.diameter,
           innerDiameter: 0,
           center: at(NUT_LENGTH + VENT.disk / 2),
-          materials: { outer: METAL, inner: METAL, start: METAL, end: METAL },
+          material: 'metal',
         }),
-        // В gl2 бабочка сливается со смещением индекса 0 и получает white_1.
+        // В gl2 бабочка получает white_1 (сливается со смещением индекса 0).
         this.shapes.build({
           points: [p(0, -VENT.height / 2), p(0, VENT.height / 2), p(VENT.width, VENT.height / 2), p(VENT.width / 2, 0), p(VENT.width, -VENT.height / 2)],
           depth: VENT.thickness,
           position: { x: NUT_LENGTH + VENT.disk, y: 0, z: -VENT.thickness / 2 },
-          materialIndex: PLASTIC,
+          material: 'plastic',
         }),
       );
     }
@@ -98,8 +93,7 @@ export class RadiatorVentGenerator implements ModelGenerator<RadiatorVentParams>
     // Торец — конец резьбы, глубина — её длина. В gl2 точка стояла в центре резьбы.
     return MeshModel.create({
       title: params.type === 'vsd' ? `воздухоотв.радиаторный ${params.r1}` : `заглушка радиаторная ${params.r1}`,
-      geometry: merger.merge(),
-      materials: [this.materials.get('plastic'), this.materials.get('thread'), this.materials.get('plasticFlat'), this.materials.get('metal')],
+      ...merger.merge(),
       connectors: [
         {
           id: 'left',
@@ -111,6 +105,6 @@ export class RadiatorVentGenerator implements ModelGenerator<RadiatorVentParams>
           gender: 'external',
         },
       ],
-    });
+    }, this.materials);
   }
 }

@@ -1,5 +1,5 @@
 import { SphereGeometry } from 'three';
-import type { Vector3Data } from '../contracts';
+import type { MaterialKey, Vector3Data } from '../contracts';
 import type { GeometryPart } from './MaterialGroupMerger';
 
 const DEFAULT_SEGMENTS = 32;
@@ -11,7 +11,7 @@ export interface SphereOptions {
   /** Поворот вокруг центра, рад: сначала X, потом Y, потом Z. */
   rotation?: Vector3Data;
   center?: Vector3Data;
-  materialIndex?: number;
+  material: MaterialKey;
 }
 
 /**
@@ -29,6 +29,6 @@ export class SphereGeometryBuilder {
 
     const geometry = indexed.toNonIndexed();
     indexed.dispose();
-    return { geometry, materialIndex: options.materialIndex ?? 0 };
+    return { geometry, material: options.material };
   }
 }

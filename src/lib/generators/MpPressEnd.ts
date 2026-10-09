@@ -1,15 +1,7 @@
-import type { Material } from 'three';
 import type { Vector3Data } from '../contracts';
 import type { GeometryPart } from '../geometry/MaterialGroupMerger';
 import type { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import type { PartDiameters } from '../sizes/ThreadSizes';
-
-/**
- * Индексы материалов металлопластиковых фитингов: корпус bronz_1, заглушки red_1,
- * пресс-гильза metal_1, гайка bronz_1_edge, резьба rezba_2.
- */
-export const MP_MATERIALS = { bronze: 0, red: 1, metal: 2, bronzeFlat: 3, bronzeThread: 4 } as const;
 
 /** Толщина красной заглушки (w12 в gl2), м. */
 export const MP_CAP = 0.0025;
@@ -24,6 +16,7 @@ export type PlaceAlong = (t: number) => { center: Vector3Data; rotation?: Vector
 /**
  * Пресс-конец металлопластикового фитинга (mpl_*): металлическая гильза длиной w поверх
  * трубы, латунная втулка внутри и две красные заглушки у начала гильзы.
+ * Корпус фитинга — bronze, гайка — bronzeFlat, резьба — bronzeThread.
  */
 export class MpPressEnd {
   constructor(private readonly sleeves: SleeveGeometryBuilder) {}
@@ -38,16 +31,14 @@ export class MpPressEnd {
    * В gl2 у втулки (tb) диаметр n/2 — половина диаметра фитинга, перенесено как есть.
    */
   build(d: PartDiameters, start: number, length: number, place: PlaceAlong): GeometryPart[] {
-    const { bronze, red, metal } = MP_MATERIALS;
     const insert = { n: d.n / 2, v: d.n / 2 - 0.005 * d.n * 30 };
-    const all = (index: number) => ({ outer: index, inner: index, start: index, end: index });
     const middle = start + length / 2;
 
     return [
-      ...this.sleeves.build({ ...place(middle), length, outerDiameter: d.n, innerDiameter: d.v, materials: all(metal) }),
-      ...this.sleeves.build({ ...place(middle), length, outerDiameter: insert.n, innerDiameter: insert.v, materials: all(bronze) }),
-      ...this.sleeves.build({ ...place(start + MP_CAP * 1.5), length: MP_CAP, outerDiameter: d.n + CAP_EXTRA.outer, innerDiameter: insert.n, materials: all(red) }),
-      ...this.sleeves.build({ ...place(start + MP_CAP / 2), length: MP_CAP, outerDiameter: d.n + CAP_EXTRA.inner, innerDiameter: insert.n, materials: all(red) }),
+      ...this.sleeves.build({ ...place(middle), length, outerDiameter: d.n, innerDiameter: d.v, material: 'metal' }),
+      ...this.sleeves.build({ ...place(middle), length, outerDiameter: insert.n, innerDiameter: insert.v, material: 'bronze' }),
+      ...this.sleeves.build({ ...place(start + MP_CAP * 1.5), length: MP_CAP, outerDiameter: d.n + CAP_EXTRA.outer, innerDiameter: insert.n, material: 'red' }),
+      ...this.sleeves.build({ ...place(start + MP_CAP / 2), length: MP_CAP, outerDiameter: d.n + CAP_EXTRA.inner, innerDiameter: insert.n, material: 'red' }),
     ];
   }
 
@@ -66,10 +57,10 @@ export class MpPressEnd {
 
     return [
       ...this.build(d1, 2 * s1, w1, MpPressEnd.left),
-      ...this.sleeves.build({ length: s1, outerDiameter: d1.n, innerDiameter: d1.v, center: at(-1.5 * s1) }),
-      ...this.sleeves.build({ ...cone, length: s1, outerDiameterStart: d1.n, innerDiameterStart: d1.v, center: at(-s1 / 2) }),
-      ...this.sleeves.build({ ...cone, length: s3, outerDiameterStart: d3.n, innerDiameterStart: d3.v, center: at(s3 / 2), rotation: { x: 0, y: Math.PI, z: 0 } }),
-      ...this.sleeves.build({ length: s3, outerDiameter: d3.n, innerDiameter: d3.v, center: at(1.5 * s3) }),
+      ...this.sleeves.build({ material: 'bronze', length: s1, outerDiameter: d1.n, innerDiameter: d1.v, center: at(-1.5 * s1) }),
+      ...this.sleeves.build({ material: 'bronze', ...cone, length: s1, outerDiameterStart: d1.n, innerDiameterStart: d1.v, center: at(-s1 / 2) }),
+      ...this.sleeves.build({ material: 'bronze', ...cone, length: s3, outerDiameterStart: d3.n, innerDiameterStart: d3.v, center: at(s3 / 2), rotation: { x: 0, y: Math.PI, z: 0 } }),
+      ...this.sleeves.build({ material: 'bronze', length: s3, outerDiameter: d3.n, innerDiameter: d3.v, center: at(1.5 * s3) }),
       ...this.build(d3, 2 * s3, w3, MpPressEnd.right),
     ];
   }
@@ -78,9 +69,4 @@ export class MpPressEnd {
   static readonly right: PlaceAlong = (t) => ({ center: { x: t, y: 0, z: 0 } });
   static readonly left: PlaceAlong = (t) => ({ center: { x: -t, y: 0, z: 0 } });
   static readonly top: PlaceAlong = (t) => ({ center: { x: 0, y: t, z: 0 }, rotation: { x: 0, y: Math.PI, z: Math.PI / 2 } });
-
-  /** Материалы меша по индексам MP_MATERIALS. */
-  static meshMaterials(materials: MaterialLibrary): Material[] {
-    return (['bronze', 'red', 'metal', 'bronzeFlat', 'bronzeThread'] as const).map((key) => materials.get(key));
-  }
 }

@@ -26,10 +26,6 @@ const NUT_SHIFT = RING + 0.001;
 const NUT_SCALE = 1.236;
 const HEX_SEGMENTS = 6;
 
-/** Индексы материалов меша. */
-const THREAD = 1;
-const METAL_FLAT = 2;
-
 /** Размеры полусгона по формулам st_pol_sgon_1. */
 interface HalfUnionLayout {
   /** Длина резьбы гайки (x_1) и концевой резьбы патрубка (x_2). */
@@ -81,27 +77,26 @@ export class SteelHalfUnionGenerator implements ModelGenerator<SteelHalfUnionPar
     const merger = new MaterialGroupMerger();
     merger.add(
       // Гайка: резьбовая часть, гладкая часть и кольцо-упор вокруг патрубка
-      ...this.sleeves.build({ ...nut, length: x1, innerDiameter: d1.v, center: at(nutEnd - x1), materials: { outer: METAL_FLAT, inner: THREAD } }),
-      ...this.sleeves.build({ ...nut, length: x1 / 2, innerDiameter: d1.v, center: at(nutEnd - x1 / 4), materials: { outer: METAL_FLAT } }),
-      ...this.sleeves.build({ ...nut, length: RING, innerDiameter: d2.n + 0.001, center: at(NUT_SHIFT - RING / 2), materials: { outer: METAL_FLAT } }),
+      ...this.sleeves.build({ material: 'metal', ...nut, length: x1, innerDiameter: d1.v, center: at(nutEnd - x1), materials: { outer: 'metalFlat', inner: 'thread' } }),
+      ...this.sleeves.build({ material: 'metal', ...nut, length: x1 / 2, innerDiameter: d1.v, center: at(nutEnd - x1 / 4), materials: { outer: 'metalFlat' } }),
+      ...this.sleeves.build({ material: 'metal', ...nut, length: RING, innerDiameter: d2.n + 0.001, center: at(NUT_SHIFT - RING / 2), materials: { outer: 'metalFlat' } }),
       // Патрубок: буртик, гладкая часть, две резьбовые части
-      ...this.sleeves.build({ length: RING, outerDiameter: d1.v, innerDiameter: d2.v - 0.001, center: at(RING / 2) }),
-      ...this.sleeves.build({ ...pipe, length: x3R, center: at(RING + x3R / 2) }),
-      ...this.sleeves.build({ ...pipe, length: x5, center: at(RING + x3R + x5 / 2), materials: { outer: THREAD } }),
-      ...this.sleeves.build({ ...pipe, length: x2, center: at(RING + x3R + x5 + x2 / 2), materials: { outer: THREAD } }),
+      ...this.sleeves.build({ material: 'metal', length: RING, outerDiameter: d1.v, innerDiameter: d2.v - 0.001, center: at(RING / 2) }),
+      ...this.sleeves.build({ material: 'metal', ...pipe, length: x3R, center: at(RING + x3R / 2) }),
+      ...this.sleeves.build({ material: 'metal', ...pipe, length: x5, center: at(RING + x3R + x5 / 2), materials: { outer: 'thread' } }),
+      ...this.sleeves.build({ material: 'metal', ...pipe, length: x2, center: at(RING + x3R + x5 + x2 / 2), materials: { outer: 'thread' } }),
     );
 
     // Торцы: открытый край гайки и конец патрубка. Глубина — резьба гайки и вся резьба патрубка.
     // В gl2 точки стояли в центрах резьбы гайки и концевой резьбы.
     return MeshModel.create({
       title: `Полусгон ${params.r2}`,
-      geometry: merger.merge(),
-      materials: [this.materials.get('metal'), this.materials.get('thread'), this.materials.get('metalFlat')],
+      ...merger.merge(),
       connectors: [
         { id: 'nut', position: at(nutEnd - 1.5 * x1), ...ConnectorFrame.left, depth: x1, nominal: params.r1, joint: 'thread', gender: 'internal' },
         { id: 'pipe', position: at(params.m1), ...ConnectorFrame.right, depth: x5 + x2, nominal: params.r2, joint: 'thread', gender: 'external' },
       ],
-    });
+    }, this.materials);
   }
 
   /** Вызывать только для известных номиналов. */

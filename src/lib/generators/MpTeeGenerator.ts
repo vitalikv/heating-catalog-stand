@@ -64,6 +64,7 @@ export class MpTeeGenerator implements ModelGenerator<MpTeeParams> {
       ...this.ends.buildRun(params.m1, d1, d3, dc),
       // Отвод: конус от наибольшего диаметра, труба, пресс-конец
       ...this.sleeves.build({
+        material: 'bronze',
         length: s2,
         outerDiameter: dc.n,
         innerDiameter: dc.v,
@@ -72,7 +73,7 @@ export class MpTeeGenerator implements ModelGenerator<MpTeeParams> {
         center: { x: 0, y: s2 / 2, z: 0 },
         rotation: { x: 0, y: 0, z: -Math.PI / 2 },
       }),
-      ...this.sleeves.build({ length: s2, outerDiameter: d2.n, innerDiameter: d2.v, ...MpPressEnd.top(1.5 * s2) }),
+      ...this.sleeves.build({ material: 'bronze', length: s2, outerDiameter: d2.n, innerDiameter: d2.v, ...MpPressEnd.top(1.5 * s2) }),
       ...this.ends.build(d2, 2 * s2, w2, MpPressEnd.top),
     );
 
@@ -82,13 +83,12 @@ export class MpTeeGenerator implements ModelGenerator<MpTeeParams> {
     const names = [params.r1, params.r2, params.r3];
     return MeshModel.create({
       title: new Set(names).size === 1 ? `Тройник ${params.r1}` : `Тройник ${names.join('x')}`,
-      geometry: merger.merge(),
-      materials: MpPressEnd.meshMaterials(this.materials),
+      ...merger.merge(),
       connectors: [
         { id: 'left', position: ConnectorFrame.point(left, params.m1 / 2), ...left, depth: MpPressEnd.pressLength(d1), nominal: params.r1, ...common },
         { id: 'top', position: ConnectorFrame.point(top, params.m2), ...top, depth: w2, nominal: params.r2, ...common },
         { id: 'right', position: ConnectorFrame.point(right, params.m1 / 2), ...right, depth: MpPressEnd.pressLength(d3), nominal: params.r3, ...common },
       ],
-    });
+    }, this.materials);
   }
 }

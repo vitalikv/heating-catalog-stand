@@ -50,6 +50,25 @@ export interface Connector {
  */
 export type ConnectorJoint = 'thread' | 'radiator-thread' | 'pp-socket' | 'mp-press';
 
+/** Ключ материала MaterialLibrary: геометрия ссылается на материал по ключу, а не по индексу. */
+export type MaterialKey =
+  | 'metal'
+  | 'metalFlat'
+  | 'thread'
+  | 'plastic'
+  | 'plasticFlat'
+  | 'plasticGrey'
+  | 'bronze'
+  | 'bronzeFlat'
+  | 'bronzeThread'
+  | 'red'
+  | 'blue'
+  | 'pipe'
+  | 'redFlat'
+  | 'black'
+  | 'blackFlat'
+  | 'manometer';
+
 export interface ValidationError {
   code: string;
   /** Путь параметра, как ParamSpec.key: 'm1', 'size.y'. */

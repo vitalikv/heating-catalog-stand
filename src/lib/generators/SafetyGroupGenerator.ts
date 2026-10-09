@@ -4,7 +4,7 @@ import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import type { GeometryPart } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
-import type { SleeveMaterials } from '../geometry/SleeveGeometryBuilder';
+import type { SleeveShape } from '../geometry/SleeveGeometryBuilder';
 import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
@@ -33,13 +33,6 @@ const VENT = { thread: 0.01, nut: 0.005, barrel: 0.055, barrelTop: 0.046, barrel
 /** Предохранительный клапан (prd в gl2), м. */
 const VALVE = { gap: 0.003, step: 0.01, body: 0.03, outlet1: 0.012, outlet2: 0.012, cap: 0.022 };
 
-/** Индексы материалов меша. */
-const BRONZE = 0;
-const THREAD = 1;
-const BRONZE_FLAT = 2;
-const BLACK_FLAT = 3;
-const DIAL = 5;
-const RED_FLAT = 6;
 
 /**
  * Группа безопасности котла: корпус, на нём манометр, воздухоотводчик и
@@ -82,32 +75,24 @@ export class SafetyGroupGenerator implements ModelGenerator<SafetyGroupParams> {
       ...this.vent(y / 2),
       ...this.valve(x * 0.35, y / 2),
       ...this.seats(x * 0.35, y / 2),
-      { geometry: box, materialIndex: BRONZE },
+      { geometry: box, material: 'bronze' },
       // Гайка снизу
       ...this.sleeves.build({
+        material: 'bronze',
         length: x1,
         outerDiameter: d1.n * NUT_SCALE,
         innerDiameter: d1.v,
         outerSegments: HEX_SEGMENTS,
         rotation: this.up(),
         center: { x: 0, y: -(y / 2 + x1 / 2), z: 0 },
-        materials: { outer: BRONZE_FLAT, inner: THREAD },
+        materials: { outer: 'bronzeFlat', inner: 'bronzeThread' },
       }),
     );
 
     // Торец — низ гайки, глубина — её высота. В gl2 точка — в центре гайки.
     return MeshModel.create({
       title: 'Группа безопасности',
-      geometry: merger.merge(),
-      materials: [
-        this.materials.get('bronze'),
-        this.materials.get('bronzeThread'),
-        this.materials.get('bronzeFlat'),
-        this.materials.get('blackFlat'),
-        this.materials.get('metal'),
-        this.materials.get('manometer'),
-        this.materials.get('redFlat'),
-      ],
+      ...merger.merge(),
       connectors: [
         {
           id: 'bottom',
@@ -119,7 +104,7 @@ export class SafetyGroupGenerator implements ModelGenerator<SafetyGroupParams> {
           gender: 'internal',
         },
       ],
-    });
+    }, this.materials);
   }
 
   /** Манометр на левой гайке: резьба, гайка, корпус с циферблатом. */
@@ -130,17 +115,18 @@ export class SafetyGroupGenerator implements ModelGenerator<SafetyGroupParams> {
     const face = { length: 0.001, outerDiameter: g.diameter * 0.9, innerDiameter: 0 };
     return [
       // Циферблат и задняя крышка — диски поперёк Z
-      ...this.sleeves.build({ ...face, rotation: { x: 0, y: -Math.PI / 2, z: 0 }, center: { x, y: center, z: g.depth / 2 - 0.004 }, materials: this.all(DIAL) }),
-      ...this.sleeves.build({ ...face, rotation: { x: 0, y: -Math.PI / 2, z: 0 }, center: { x, y: center, z: -g.depth / 2 }, materials: this.all(BLACK_FLAT) }),
+      ...this.sleeves.build({ ...face, rotation: { x: 0, y: -Math.PI / 2, z: 0 }, center: { x, y: center, z: g.depth / 2 - 0.004 }, material: 'manometer' }),
+      ...this.sleeves.build({ ...face, rotation: { x: 0, y: -Math.PI / 2, z: 0 }, center: { x, y: center, z: -g.depth / 2 }, material: 'blackFlat' }),
       ...this.sleeves.build({
         length: g.depth,
         outerDiameter: g.diameter,
         innerDiameter: g.diameter * 0.9,
         rotation: { x: 0, y: Math.PI / 2, z: 0 },
         center: { x, y: center, z: 0 },
-        materials: this.all(BLACK_FLAT),
+        material: 'blackFlat',
       }),
       ...this.sleeves.build({
+        material: 'bronze',
         length: g.nut,
         outerDiameter: g.nutDiameter,
         innerDiameter: g.nutDiameter * 0.7,
@@ -148,15 +134,16 @@ export class SafetyGroupGenerator implements ModelGenerator<SafetyGroupParams> {
         innerSegments: HEX_SEGMENTS,
         rotation: this.up(),
         center: { x, y: top + g.gap + g.thread + g.nut / 2, z: 0 },
-        materials: { outer: BRONZE_FLAT },
+        materials: { outer: 'bronzeFlat' },
       }),
       ...this.sleeves.build({
+        material: 'bronze',
         length: g.thread,
         outerDiameter: d2.v,
         innerDiameter: d2.v * 0.8,
         rotation: this.up(),
         center: { x, y: top + g.gap + g.thread / 2, z: 0 },
-        materials: { outer: THREAD },
+        materials: { outer: 'bronzeThread' },
       }),
     ];
   }
@@ -175,19 +162,21 @@ export class SafetyGroupGenerator implements ModelGenerator<SafetyGroupParams> {
         outerSegments: CAP_SEGMENTS,
         rotation: up,
         center: { x: -v.lid / 2 + v.lid * 0.2, y: base + v.nut + v.barrel + v.lidHeight + v.cap / 2, z: 0 },
-        materials: this.all(BLACK_FLAT),
+        material: 'blackFlat',
       }),
       ...this.sleeves.build({
+        material: 'bronze',
         length: v.lidHeight,
         outerDiameter: v.lid,
         innerDiameter: 0,
         outerSegments: CAP_SEGMENTS,
         rotation: up,
         center: { x: 0, y: base + v.nut + v.barrel + v.lidHeight / 2, z: 0 },
-        materials: { outer: BRONZE_FLAT },
+        materials: { outer: 'bronzeFlat' },
       }),
       // Бочок — конус: сверху (+X до поворота) шире
       ...this.sleeves.build({
+        material: 'bronze',
         length: v.barrel,
         outerDiameter: v.barrelTop,
         innerDiameter: 0,
@@ -196,21 +185,23 @@ export class SafetyGroupGenerator implements ModelGenerator<SafetyGroupParams> {
         center: { x: 0, y: base + v.nut + v.barrel / 2, z: 0 },
       }),
       ...this.sleeves.build({
+        material: 'bronze',
         length: v.nut,
         outerDiameter: d2.n * NUT_SCALE,
         innerDiameter: d2.v,
         outerSegments: HEX_SEGMENTS,
         rotation: up,
         center: { x: 0, y: base + v.nut / 2, z: 0 },
-        materials: { outer: BRONZE_FLAT },
+        materials: { outer: 'bronzeFlat' },
       }),
       ...this.sleeves.build({
+        material: 'bronze',
         length: v.thread,
         outerDiameter: d2.v,
         innerDiameter: d2.v * 0.8,
         rotation: up,
         center: { x: 0, y: top + SEAT - v.thread / 4, z: 0 },
-        materials: { outer: THREAD },
+        materials: { outer: 'bronzeThread' },
       }),
     ];
   }
@@ -231,17 +222,19 @@ export class SafetyGroupGenerator implements ModelGenerator<SafetyGroupParams> {
         outerSegments: CAP_SEGMENTS,
         rotation: { x: 0, y: 0, z: -Math.PI / 2 },
         center: { x, y: bodyBottom + p.body + p.cap / 2, z: 0 },
-        materials: this.all(RED_FLAT),
+        material: 'redFlat',
       }),
       // Боковой выход вдоль +X: резьба и переход к корпусу
       ...this.sleeves.build({
+        material: 'bronze',
         length: p.outlet2,
         outerDiameter: d4.n,
         innerDiameter: d4.v,
         center: { x: x + p.outlet1 + p.outlet2 / 2, y: outletY, z: 0 },
-        materials: { inner: THREAD },
+        materials: { inner: 'bronzeThread' },
       }),
       ...this.sleeves.build({
+        material: 'bronze',
         length: p.outlet1,
         outerDiameter: d4.n,
         innerDiameter: d4.v,
@@ -249,25 +242,27 @@ export class SafetyGroupGenerator implements ModelGenerator<SafetyGroupParams> {
         innerDiameterStart: d4.v * 0.9,
         center: { x: x + p.outlet1 / 2, y: outletY, z: 0 },
       }),
-      ...this.sleeves.build({ length: p.body, outerDiameter: d4.v, innerDiameter: 0, rotation: up, center: { x, y: outletY, z: 0 } }),
+      ...this.sleeves.build({ material: 'bronze', length: p.body, outerDiameter: d4.v, innerDiameter: 0, rotation: up, center: { x, y: outletY, z: 0 } }),
       ...this.sleeves.build({
+        material: 'bronze',
         length: p.step,
         outerDiameter: d4.n,
         innerDiameter: 0,
         outerSegments: HEX_SEGMENTS,
         rotation: up,
         center: { x, y: top + p.gap + p.step * 2.5, z: 0 },
-        materials: { outer: BRONZE_FLAT },
+        materials: { outer: 'bronzeFlat' },
       }),
-      ...this.sleeves.build({ length: p.step, outerDiameter: d4.v, innerDiameter: 0, rotation: up, center: { x, y: top + p.gap + p.step * 1.5, z: 0 } }),
+      ...this.sleeves.build({ material: 'bronze', length: p.step, outerDiameter: d4.v, innerDiameter: 0, rotation: up, center: { x, y: top + p.gap + p.step * 1.5, z: 0 } }),
       ...this.sleeves.build({
+        material: 'bronze',
         length: p.step,
         outerDiameter: d4.n * NUT_SCALE,
         innerDiameter: d4.v,
         outerSegments: HEX_SEGMENTS,
         rotation: up,
         center: { x, y: top + p.gap + p.step / 2, z: 0 },
-        materials: { outer: BRONZE_FLAT, inner: THREAD },
+        materials: { outer: 'bronzeFlat', inner: 'bronzeThread' },
       }),
     ];
   }
@@ -283,18 +278,19 @@ export class SafetyGroupGenerator implements ModelGenerator<SafetyGroupParams> {
       innerDiameter: d2.v,
       outerSegments: HEX_SEGMENTS,
       rotation: up,
-      materials: { outer: BRONZE_FLAT, inner: THREAD },
-    };
+      materials: { outer: 'bronzeFlat', inner: 'bronzeThread' },
+    } satisfies Partial<SleeveShape>;
     return [
-      ...this.sleeves.build({ ...nut, center: { x: -valveX, y: top + SEAT / 2, z: 0 } }),
-      ...this.sleeves.build({ ...nut, center: { x: 0, y: top + SEAT / 2, z: 0 } }),
+      ...this.sleeves.build({ material: 'bronze', ...nut, center: { x: -valveX, y: top + SEAT / 2, z: 0 } }),
+      ...this.sleeves.build({ material: 'bronze', ...nut, center: { x: 0, y: top + SEAT / 2, z: 0 } }),
       ...this.sleeves.build({
+        material: 'bronze',
         length: SEAT,
         outerDiameter: d3.n,
         innerDiameter: d3.v,
         rotation: up,
         center: { x: valveX, y: top + SEAT / 2, z: 0 },
-        materials: { outer: THREAD },
+        materials: { outer: 'bronzeThread' },
       }),
     ];
   }
@@ -302,9 +298,5 @@ export class SafetyGroupGenerator implements ModelGenerator<SafetyGroupParams> {
   /** Ось втулки вертикально (rot.z = π/2 в gl2). */
   private up(): Vector3Data {
     return { x: 0, y: 0, z: Math.PI / 2 };
-  }
-
-  private all(index: number): SleeveMaterials {
-    return { outer: index, inner: index, start: index, end: index };
   }
 }

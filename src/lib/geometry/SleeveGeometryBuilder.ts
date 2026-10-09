@@ -1,18 +1,18 @@
 import { BufferGeometry, CylinderGeometry, Path, Shape, ShapeGeometry, Vector2 } from 'three';
-import type { Vector3Data } from '../contracts';
+import type { MaterialKey, Vector3Data } from '../contracts';
 import { BoxProjectionUv } from './BoxProjectionUv';
 import type { GeometryPart } from './MaterialGroupMerger';
 
 const DEFAULT_SEGMENTS = 32;
 
-/** Индексы материалов частей втулки (ind = [нар., вн., торец1, торец2] в gl2). */
+/** Материалы частей втулки (ind = [нар., вн., торец1, торец2] в gl2). */
 export interface SleeveMaterials {
-  outer: number;
-  inner: number;
+  outer: MaterialKey;
+  inner: MaterialKey;
   /** Торец на −X. */
-  start: number;
+  start: MaterialKey;
   /** Торец на +X. */
-  end: number;
+  end: MaterialKey;
 }
 
 export interface SleeveOptions {
@@ -35,9 +35,13 @@ export interface SleeveOptions {
   rotation?: Vector3Data;
   /** Центр втулки, м. */
   center?: Vector3Data;
-  /** По умолчанию все части — материал 0. */
+  /** Материал всех частей, кроме заданных в materials. */
+  material: MaterialKey;
   materials?: Partial<SleeveMaterials>;
 }
+
+/** Размеры и положение втулки без материала: материал задаёт место сборки. */
+export type SleeveShape = Omit<SleeveOptions, 'material'>;
 
 /**
  * Втулка вдоль X: наружный и внутренний открытые цилиндры и два торцевых
@@ -51,18 +55,19 @@ export class SleeveGeometryBuilder {
     const innerEnd = options.innerDiameter;
     const outerStart = options.outerDiameterStart ?? outerEnd;
     const innerStart = options.innerDiameterStart ?? innerEnd;
-    const materials: SleeveMaterials = { outer: 0, inner: 0, start: 0, end: 0, ...options.materials };
+    const { material } = options;
+    const materials: SleeveMaterials = { outer: material, inner: material, start: material, end: material, ...options.materials };
     const half = options.length / 2;
 
     const parts: GeometryPart[] = [
-      { geometry: this.tube(outerEnd, outerStart, options.length, outerSegments), materialIndex: materials.outer },
-      { geometry: this.ring(outerStart, innerStart, outerSegments, innerSegments, -half), materialIndex: materials.start },
-      { geometry: this.ring(outerEnd, innerEnd, outerSegments, innerSegments, half), materialIndex: materials.end },
+      { geometry: this.tube(outerEnd, outerStart, options.length, outerSegments), material: materials.outer },
+      { geometry: this.ring(outerStart, innerStart, outerSegments, innerSegments, -half), material: materials.start },
+      { geometry: this.ring(outerEnd, innerEnd, outerSegments, innerSegments, half), material: materials.end },
     ];
     // Сплошная втулка (внутренний диаметр 0) — без внутреннего цилиндра. В gl2 здесь
     // получался вырожденный цилиндр и отверстие из NaN (crCircle_2 с radius_vn = {}).
     if (innerEnd > 0 || innerStart > 0) {
-      parts.splice(1, 0, { geometry: this.tube(innerEnd, innerStart, options.length, innerSegments), materialIndex: materials.inner });
+      parts.splice(1, 0, { geometry: this.tube(innerEnd, innerStart, options.length, innerSegments), material: materials.inner });
     }
 
     const offset = options.offset ?? { x: 0, y: 0, z: 0 };

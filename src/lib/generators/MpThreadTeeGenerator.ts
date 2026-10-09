@@ -8,7 +8,7 @@ import { MpPipeSizes } from '../sizes/MpPipeSizes';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import { ConnectorFrame } from './ConnectorFrame';
 import { MeshModel } from './MeshModel';
-import { MP_MATERIALS, MpPressEnd } from './MpPressEnd';
+import { MpPressEnd } from './MpPressEnd';
 import type { ThreadSideCode } from './SteelElbowGenerator';
 import type { MpTeeParams } from './MpTeeGenerator';
 
@@ -67,12 +67,12 @@ export class MpThreadTeeGenerator implements ModelGenerator<MpThreadTeeParams> {
     const s2 = (params.m2 - w2) / 2;
     const up = { x: 0, y: Math.PI, z: Math.PI / 2 };
     const at = (y: number) => ({ x: 0, y, z: 0 });
-    const { bronzeFlat, bronzeThread } = MP_MATERIALS;
 
     const merger = new MaterialGroupMerger();
     merger.add(
       ...this.ends.buildRun(params.m1, d1, d3, dc),
       ...this.sleeves.build({
+        material: 'bronze',
         length: s2,
         outerDiameter: dc.n,
         innerDiameter: dc.v,
@@ -81,24 +81,26 @@ export class MpThreadTeeGenerator implements ModelGenerator<MpThreadTeeParams> {
         center: at(s2 / 2),
         rotation: { x: 0, y: 0, z: -Math.PI / 2 },
       }),
-      ...this.sleeves.build({ length: s2, outerDiameter: d2.n, innerDiameter: d2.v, center: at(1.5 * s2), rotation: up }),
+      ...this.sleeves.build({ material: 'bronze', length: s2, outerDiameter: d2.n, innerDiameter: d2.v, center: at(1.5 * s2), rotation: up }),
       // Гайка в конце трубы отвода: в gl2 внутренний диаметр — n/2 резьбы (tb2.n), перенесено как есть
       ...this.sleeves.build({
+        material: 'bronze',
         length: NUT_LENGTH,
         outerDiameter: d2.n + 0.01,
         innerDiameter: d2.n / 2,
         outerSegments: 6,
         center: at(2 * s2 - NUT_LENGTH / 2),
         rotation: up,
-        materials: { outer: bronzeFlat },
+        materials: { outer: 'bronzeFlat' },
       }),
       ...this.sleeves.build({
+        material: 'bronze',
         length: w2,
         outerDiameter: d2.n,
         innerDiameter: d2.v,
         center: at(2 * s2 + w2 / 2),
         rotation: up,
-        materials: internal ? { inner: bronzeThread } : { outer: bronzeThread },
+        materials: internal ? { inner: 'bronzeThread' } : { outer: 'bronzeThread' },
       }),
     );
 
@@ -109,8 +111,7 @@ export class MpThreadTeeGenerator implements ModelGenerator<MpThreadTeeParams> {
     const { left, top, right } = ConnectorFrame;
     return MeshModel.create({
       title: `Тройник ${params.r1}x${params.r2}${suffix}x${params.r3}`,
-      geometry: merger.merge(),
-      materials: MpPressEnd.meshMaterials(this.materials),
+      ...merger.merge(),
       connectors: [
         { id: 'left', position: ConnectorFrame.point(left, params.m1 / 2), ...left, depth: MpPressEnd.pressLength(d1), nominal: params.r1, ...press },
         {
@@ -124,6 +125,6 @@ export class MpThreadTeeGenerator implements ModelGenerator<MpThreadTeeParams> {
         },
         { id: 'right', position: ConnectorFrame.point(right, params.m1 / 2), ...right, depth: MpPressEnd.pressLength(d3), nominal: params.r3, ...press },
       ],
-    });
+    }, this.materials);
   }
 }

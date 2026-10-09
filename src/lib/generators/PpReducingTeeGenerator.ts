@@ -70,12 +70,12 @@ export class PpReducingTeeGenerator implements ModelGenerator<PpReducingTeeParam
 
     const merger = new MaterialGroupMerger();
     merger.add(
-      ...this.sleeves.build({ ...size(d1), length: x1, center: at(-(x2 + x1) / 2) }),
-      ...this.sleeves.build({ ...cone(d1), length: x2 / 2, center: at(-x2 / 4) }),
-      ...this.sleeves.build({ ...cone(d3), length: x2 / 2, center: at(x2 / 4), rotation: { x: 0, y: Math.PI, z: 0 } }),
-      ...this.sleeves.build({ ...size(d3), length: x1, center: at((x2 + x1) / 2) }),
-      ...this.sleeves.build({ ...cone(d2), length: x3, center: { x: 0, y: x3 / 2, z: 0 }, rotation: { x: 0, y: 0, z: -Math.PI / 2 } }),
-      ...this.sleeves.build({ ...size(d2), length: x1, center: { x: 0, y: x3 + x1 / 2, z: 0 }, rotation: { x: 0, y: Math.PI, z: Math.PI / 2 } }),
+      ...this.sleeves.build({ material: 'plastic', ...size(d1), length: x1, center: at(-(x2 + x1) / 2) }),
+      ...this.sleeves.build({ material: 'plastic', ...cone(d1), length: x2 / 2, center: at(-x2 / 4) }),
+      ...this.sleeves.build({ material: 'plastic', ...cone(d3), length: x2 / 2, center: at(x2 / 4), rotation: { x: 0, y: Math.PI, z: 0 } }),
+      ...this.sleeves.build({ material: 'plastic', ...size(d3), length: x1, center: at((x2 + x1) / 2) }),
+      ...this.sleeves.build({ material: 'plastic', ...cone(d2), length: x3, center: { x: 0, y: x3 / 2, z: 0 }, rotation: { x: 0, y: 0, z: -Math.PI / 2 } }),
+      ...this.sleeves.build({ material: 'plastic', ...size(d2), length: x1, center: { x: 0, y: x3 + x1 / 2, z: 0 }, rotation: { x: 0, y: Math.PI, z: Math.PI / 2 } }),
     );
 
     // Торцы — концы раструбов, глубина — длина раструба. В gl2 точки — в центрах раструбов.
@@ -83,14 +83,13 @@ export class PpReducingTeeGenerator implements ModelGenerator<PpReducingTeeParam
     const { left, top, right } = ConnectorFrame;
     return MeshModel.create({
       title: `Тройник ${params.r1}x${params.r2}x${params.r3}`,
-      geometry: merger.merge(),
-      materials: [this.materials.get('plastic')],
+      ...merger.merge(),
       connectors: [
         { id: 'left', position: ConnectorFrame.point(left, params.m1 / 2), ...left, nominal: params.r1, ...common },
         { id: 'top', position: ConnectorFrame.point(top, height), ...top, nominal: params.r2, ...common },
         { id: 'right', position: ConnectorFrame.point(right, params.m1 / 2), ...right, nominal: params.r3, ...common },
       ],
-    });
+    }, this.materials);
   }
 
   /** Диаметры выхода с наибольшим наружным диаметром; вызывать только для известных номиналов. */

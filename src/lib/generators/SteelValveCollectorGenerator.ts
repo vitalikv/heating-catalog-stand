@@ -9,7 +9,7 @@ import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import { ConnectorFrame } from './ConnectorFrame';
 import { MeshModel } from './MeshModel';
-import { COLLECTOR_MATERIALS, COLLECTOR_THREAD, SteelCollectorPipe } from './SteelCollectorPipe';
+import { COLLECTOR_THREAD, SteelCollectorPipe } from './SteelCollectorPipe';
 
 /** Цвет ручек кранов: в gl2 — материал red_1 или blue_1. */
 export type ValveColor = 'red' | 'blue';
@@ -31,8 +31,6 @@ export interface SteelValveCollectorParams {
 const OUTLET_NECK = 0.01;
 /** Ручка крана (crKran в gl2): размеры флажка, м; сдвиг флажка от оси штока по Z. */
 const HANDLE = { x: 0.003, y: 0.02, z: 0.015, shift: 0.005 };
-
-const COLOR = 3;
 
 /**
  * Стальной коллектор с кранами на выходах (перенос st_collector_2): как st_collector_1
@@ -83,6 +81,7 @@ export class SteelValveCollectorGenerator implements ModelGenerator<SteelValveCo
     for (const x of outlets) {
       merger.add(
         ...this.sleeves.build({
+          material: 'metal',
           length: s2,
           outerDiameter: dc.n,
           innerDiameter: dc.v,
@@ -91,17 +90,16 @@ export class SteelValveCollectorGenerator implements ModelGenerator<SteelValveCo
           rotation: { x: 0, y: 0, z: -Math.PI / 2 },
           center: { x, y: s2 / 2, z: 0 },
         }),
-        ...this.sleeves.build({ ...pipe, length: OUTLET_NECK, center: { x, y: s2 + OUTLET_NECK / 2, z: 0 } }),
-        ...this.sleeves.build({ ...pipe, length: w, center: { x, y: s2 + OUTLET_NECK + w / 2, z: 0 }, materials: { outer: COLLECTOR_MATERIALS.thread } }),
+        ...this.sleeves.build({ material: 'metal', ...pipe, length: OUTLET_NECK, center: { x, y: s2 + OUTLET_NECK / 2, z: 0 } }),
+        ...this.sleeves.build({ material: 'metal', ...pipe, length: w, center: { x, y: s2 + OUTLET_NECK + w / 2, z: 0 }, materials: { outer: 'thread' } }),
         // Кран на выходе: у оси выхода на высоте резьбы трубы, перед трубой по Z
-        ...this.valve({ x, y: w, z: HANDLE.z / 2 + d2.n / 2 }),
+        ...this.valve({ x, y: w, z: HANDLE.z / 2 + d2.n / 2 }, params.color),
       );
     }
 
     return MeshModel.create({
       title: `коллектор с кранами ${params.r1}x${params.r2}(н) [${params.count} вых.]`,
-      geometry: merger.merge(),
-      materials: [this.materials.get('metal'), this.materials.get('thread'), this.materials.get('metalFlat'), this.materials.get(params.color)],
+      ...merger.merge(),
       connectors: SteelCollectorPipe.connectors(
         params.m1,
         params.r1,
@@ -117,13 +115,12 @@ export class SteelValveCollectorGenerator implements ModelGenerator<SteelValveCo
           }),
         ),
       ),
-    });
+    }, this.materials);
   }
 
-  /** Шток вдоль Z и ручка-флажок с конусной втулкой; position — центр штока. */
-  private valve(position: { x: number; y: number; z: number }): GeometryPart[] {
+  /** Шток вдоль Z и ручка-флажок цвета color с конусной втулкой; position — центр штока. */
+  private valve(position: { x: number; y: number; z: number }, color: ValveColor): GeometryPart[] {
     const along = { x: 0, y: Math.PI / 2, z: 0 };
-    const color = { outer: COLOR, inner: COLOR, start: COLOR, end: COLOR };
     const at = (z: number) => ({ x: position.x, y: position.y, z: position.z + z });
     const coneInner = 0.01 - 0.0027;
 
@@ -133,7 +130,7 @@ export class SteelValveCollectorGenerator implements ModelGenerator<SteelValveCo
     indexed.dispose();
 
     return [
-      { geometry: box, materialIndex: COLOR },
+      { geometry: box, material: color },
       ...this.sleeves.build({
         length: HANDLE.z,
         outerDiameter: 0.02,
@@ -142,9 +139,9 @@ export class SteelValveCollectorGenerator implements ModelGenerator<SteelValveCo
         innerDiameterStart: coneInner,
         rotation: along,
         center: at(HANDLE.shift),
-        materials: color,
+        material: color,
       }),
-      ...this.sleeves.build({ length: HANDLE.z + 0.012, outerDiameter: 0.007, innerDiameter: 0.0001, rotation: along, center: at(0) }),
+      ...this.sleeves.build({ material: 'metal', length: HANDLE.z + 0.012, outerDiameter: 0.007, innerDiameter: 0.0001, rotation: along, center: at(0) }),
     ];
   }
 }

@@ -1,11 +1,12 @@
-import { Box3, Group, Mesh } from 'three';
 import type { Connector, GeneratedModel, ModelGenerator, ParamSpec, ValidationError } from '../contracts';
 import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
+import type { SleeveShape } from '../geometry/SleeveGeometryBuilder';
 import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
+import { MeshModel } from './MeshModel';
 
 /** Параметры в формате cdm из gl2. */
 export interface SteelNippleParams {
@@ -22,8 +23,6 @@ const MIN_THREAD_LENGTH = 0.008;
 const MAX_THREAD_LENGTH = 0.012;
 const HEX_SEGMENTS = 6;
 
-/** Индексы материалов меша: 0 — metal, 1 — thread. */
-const THREAD = 1;
 
 /** Стальной ниппель с наружной резьбой с двух сторон (перенос st_nippel_1). */
 export class SteelNippleGenerator implements ModelGenerator<SteelNippleParams> {
@@ -65,34 +64,27 @@ export class SteelNippleGenerator implements ModelGenerator<SteelNippleParams> {
     const x3R = params.m1 / 2 - x2;
     const maxN = Math.max(d1.n, d2.n);
     const at = (x: number) => ({ x, y: 0, z: 0 });
-    const thread = { materials: { outer: THREAD } };
+    const thread: Partial<SleeveShape> = { materials: { outer: 'thread' } };
 
     const merger = new MaterialGroupMerger();
     merger.add(
       // Резьба и гладкая часть слева
-      ...this.sleeves.build({ ...thread, length: x1, outerDiameter: d1.n, innerDiameter: d1.v, center: at(-(x3L + x1 / 2)) }),
-      ...this.sleeves.build({ length: x3L, outerDiameter: d1.n, innerDiameter: d1.v, center: at(-x3L / 2) }),
+      ...this.sleeves.build({ material: 'metal', ...thread, length: x1, outerDiameter: d1.n, innerDiameter: d1.v, center: at(-(x3L + x1 / 2)) }),
+      ...this.sleeves.build({ material: 'metal', length: x3L, outerDiameter: d1.n, innerDiameter: d1.v, center: at(-x3L / 2) }),
       // Шестигранник: длина n/7, описанный диаметр n + n/4
       ...this.sleeves.build({
+        material: 'metal',
         length: maxN / 7,
         outerDiameter: maxN + maxN / 4,
         innerDiameter: Math.min(d1.v, d2.v) + 0.001,
         outerSegments: HEX_SEGMENTS,
       }),
       // Гладкая часть и резьба справа
-      ...this.sleeves.build({ length: x3R, outerDiameter: d2.n, innerDiameter: d2.v, center: at(x3R / 2) }),
-      ...this.sleeves.build({ ...thread, length: x2, outerDiameter: d2.n, innerDiameter: d2.v, center: at(x3R + x2 / 2) }),
+      ...this.sleeves.build({ material: 'metal', length: x3R, outerDiameter: d2.n, innerDiameter: d2.v, center: at(x3R / 2) }),
+      ...this.sleeves.build({ material: 'metal', ...thread, length: x2, outerDiameter: d2.n, innerDiameter: d2.v, center: at(x3R + x2 / 2) }),
     );
 
-    const geometry = merger.merge();
-    geometry.computeBoundingBox();
-    const bounds = new Box3().copy(geometry.boundingBox!);
-
-    const mesh = new Mesh(geometry, [this.materials.get('metal'), this.materials.get('thread')]);
-    const root = new Group();
     const title = params.r1 === params.r2 ? `Ниппель ${params.r1}(н)` : `Ниппель ${params.r1}(н)х${params.r2}(н)`;
-    root.name = title;
-    root.add(mesh);
 
     // Торцы — концы резьбы (±m1/2), глубина — длина резьбового участка.
     // В gl2 точка разъёма стояла в центре резьбового участка.
@@ -102,19 +94,7 @@ export class SteelNippleGenerator implements ModelGenerator<SteelNippleParams> {
       { id: 'right', position: at(params.m1 / 2), direction: { x: 1, y: 0, z: 0 }, depth: x2, nominal: params.r2, ...common },
     ];
 
-    let disposed = false;
-    return {
-      root,
-      title,
-      connectors,
-      bounds,
-      warnings: [],
-      dispose: () => {
-        if (disposed) return;
-        disposed = true;
-        geometry.dispose();
-      },
-    };
+    return MeshModel.create({ title, ...merger.merge(), connectors }, this.materials);
   }
 
   /** Длины резьбовых участков; вызывать только для известных номиналов. */

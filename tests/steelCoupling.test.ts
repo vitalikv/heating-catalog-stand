@@ -59,7 +59,8 @@ function geometryOf(root: { children: unknown[] }): BufferGeometry {
   return mesh.geometry;
 }
 
-const generator = new SteelCouplingGenerator(new MaterialLibrary());
+const library = new MaterialLibrary();
+const generator = new SteelCouplingGenerator(library);
 
 describe.each(PRESETS)('муфта $r1 × $r2, m1 = $m1', (params) => {
   const exp = expected(params);
@@ -83,7 +84,8 @@ describe.each(PRESETS)('муфта $r1 × $r2, m1 = $m1', (params) => {
       expect(Array.from(attribute.array).every(Number.isFinite)).toBe(true);
     }
 
-    expect(geometry.groups.map((group) => group.materialIndex)).toEqual([0, 1]);
+    expect(geometry.groups).toHaveLength(2);
+    expect((model.root.children[0] as Mesh).material).toEqual([library.get('metal'), library.get('thread')]);
     expect(geometry.groups.reduce((sum, group) => sum + group.count, 0)).toBe(position.count);
     model.dispose();
   });

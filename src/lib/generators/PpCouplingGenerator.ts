@@ -60,25 +60,24 @@ export class PpCouplingGenerator implements ModelGenerator<PpCouplingParams> {
 
     const merger = new MaterialGroupMerger();
     merger.add(
-      ...this.sleeves.build({ ...left, length: x1, center: at(-(x3L + x1 / 2)) }),
-      ...this.sleeves.build({ ...left, length: x3L, center: at(-x3L / 2) }),
+      ...this.sleeves.build({ material: 'plastic', ...left, length: x1, center: at(-(x3L + x1 / 2)) }),
+      ...this.sleeves.build({ material: 'plastic', ...left, length: x3L, center: at(-x3L / 2) }),
       // Центр: длина n/7, наружный — больший, внутренний — меньший диаметр
-      ...this.sleeves.build({ length: Math.max(d1.n, d2.n) / 7, outerDiameter: Math.max(d1.n, d2.n), innerDiameter: Math.min(d1.v, d2.v) }),
-      ...this.sleeves.build({ ...right, length: x3R, center: at(x3R / 2) }),
-      ...this.sleeves.build({ ...right, length: x2, center: at(x3R + x2 / 2) }),
+      ...this.sleeves.build({ material: 'plastic', length: Math.max(d1.n, d2.n) / 7, outerDiameter: Math.max(d1.n, d2.n), innerDiameter: Math.min(d1.v, d2.v) }),
+      ...this.sleeves.build({ material: 'plastic', ...right, length: x3R, center: at(x3R / 2) }),
+      ...this.sleeves.build({ material: 'plastic', ...right, length: x2, center: at(x3R + x2 / 2) }),
     );
 
     // Торцы — концы муфты (±m1/2), глубина — длина раструба. В gl2 точки — в центрах раструбов.
     const common = { joint: 'pp-socket', gender: 'internal' } as const;
     return MeshModel.create({
       title: params.r1 === params.r2 ? `Муфта ${params.r1}` : `Муфта ${params.r1}х${params.r2}`,
-      geometry: merger.merge(),
-      materials: [this.materials.get('plastic')],
+      ...merger.merge(),
       connectors: [
         { id: 'left', position: at(-params.m1 / 2), ...ConnectorFrame.left, depth: x1, nominal: params.r1, ...common },
         { id: 'right', position: at(params.m1 / 2), ...ConnectorFrame.right, depth: x2, nominal: params.r2, ...common },
       ],
-    });
+    }, this.materials);
   }
 
   /** Вызывать только для известного номинала. */

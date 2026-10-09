@@ -1,17 +1,24 @@
 import type { BufferGeometry } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import type { MaterialKey } from '../contracts';
 
-/** Кусок геометрии с индексом материала в массиве материалов меша. */
+/** Кусок геометрии с ключом материала. */
 export interface GeometryPart {
   geometry: BufferGeometry;
-  materialIndex: number;
+  material: MaterialKey;
+}
+
+/** Слитая геометрия: группа i рисуется материалом materials[i]. */
+export interface MergedGeometry {
+  geometry: BufferGeometry;
+  materials: MaterialKey[];
 }
 
 /**
  * Собирает куски в одну геометрию (замена Geometry.merge(..., ind) из gl2).
  * Куски одного материала идут подряд, поэтому на каждый материал одна группа
- * и один вызов отрисовки. Все куски должны быть неиндексированными
- * и иметь одинаковый набор атрибутов.
+ * и один вызов отрисовки. Группы идут в порядке первого появления ключа.
+ * Все куски должны быть неиндексированными и иметь одинаковый набор атрибутов.
  */
 export class MaterialGroupMerger {
   private parts: GeometryPart[] = [];
@@ -21,15 +28,16 @@ export class MaterialGroupMerger {
   }
 
   /** Сливает накопленные куски, освобождает их и очищает список. */
-  merge(): BufferGeometry {
+  merge(): MergedGeometry {
     if (this.parts.length === 0) throw new Error('MaterialGroupMerger: нет кусков для слияния');
 
+    const materials = [...new Set(this.parts.map((part) => part.material))];
     // Array.prototype.sort устойчива: порядок кусков внутри материала сохраняется.
-    const sorted = [...this.parts].sort((a, b) => a.materialIndex - b.materialIndex);
+    const sorted = [...this.parts].sort((a, b) => materials.indexOf(a.material) - materials.indexOf(b.material));
     this.parts = [];
 
-    const merged = mergeGeometries(sorted.map((part) => part.geometry));
-    if (merged === null) {
+    const geometry = mergeGeometries(sorted.map((part) => part.geometry));
+    if (geometry === null) {
       for (const part of sorted) part.geometry.dispose();
       throw new Error('MaterialGroupMerger: несовместимые атрибуты кусков');
     }
@@ -37,16 +45,17 @@ export class MaterialGroupMerger {
     let start = 0;
     for (const part of sorted) {
       const count = part.geometry.getAttribute('position').count;
-      const last = merged.groups.at(-1);
-      if (last !== undefined && last.materialIndex === part.materialIndex) {
+      const group = materials.indexOf(part.material);
+      const last = geometry.groups.at(-1);
+      if (last !== undefined && last.materialIndex === group) {
         last.count += count;
       } else {
-        merged.addGroup(start, count, part.materialIndex);
+        geometry.addGroup(start, count, group);
       }
       start += count;
       part.geometry.dispose();
     }
 
-    return merged;
+    return { geometry, materials };
   }
 }

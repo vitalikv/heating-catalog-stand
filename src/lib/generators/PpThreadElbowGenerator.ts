@@ -9,7 +9,7 @@ import { PpPipeSizes } from '../sizes/PpPipeSizes';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import { ConnectorFrame } from './ConnectorFrame';
 import { MeshModel } from './MeshModel';
-import { PP_THREAD_MATERIALS, PpThreadInsert } from './PpThreadInsert';
+import { PpThreadInsert } from './PpThreadInsert';
 import type { ThreadSideCode } from './SteelElbowGenerator';
 
 /** Параметры в формате cdm из gl2. */
@@ -68,16 +68,18 @@ export class PpThreadElbowGenerator implements ModelGenerator<PpThreadElbowParam
     const merger = new MaterialGroupMerger();
     merger.add(
       // Вправо: труба, корпус вставки, резьбовая втулка
-      ...this.sleeves.build({ ...pipe, length: x2, center: { x: x2 / 2, y: 0, z: 0 } }),
+      ...this.sleeves.build({ material: 'plastic', ...pipe, length: x2, center: { x: x2 / 2, y: 0, z: 0 } }),
       ...this.sleeves.build({
+        material: 'plastic',
         length: x1,
         outerDiameter: insert.body.n,
         innerDiameter: insert.body.v,
         outerSegments: 12,
         center: { x: bodyCenter, y: 0, z: 0 },
-        materials: { outer: PP_THREAD_MATERIALS.plasticFlat },
+        materials: { outer: 'plasticFlat' },
       }),
       ...this.sleeves.build({
+        material: 'metal',
         length: x1,
         outerDiameter: insert.thread.n,
         innerDiameter: insert.thread.v,
@@ -85,10 +87,10 @@ export class PpThreadElbowGenerator implements ModelGenerator<PpThreadElbowParam
         materials: insert.materials,
       }),
       // Вверх: труба и раструб
-      ...this.sleeves.build({ ...pipe, ...vertical, length: x2, center: { x: 0, y: x2 / 2, z: 0 } }),
-      ...this.sleeves.build({ ...pipe, ...vertical, length: x1, center: { x: 0, y: x2 + x1 / 2, z: 0 } }),
-      this.spheres.build({ ...quarter, radius: d1.n / 2 }),
-      this.spheres.build({ ...quarter, radius: d1.v / 2 }),
+      ...this.sleeves.build({ material: 'plastic', ...pipe, ...vertical, length: x2, center: { x: 0, y: x2 / 2, z: 0 } }),
+      ...this.sleeves.build({ material: 'plastic', ...pipe, ...vertical, length: x1, center: { x: 0, y: x2 + x1 / 2, z: 0 } }),
+      this.spheres.build({ material: 'plastic', ...quarter, radius: d1.n / 2 }),
+      this.spheres.build({ material: 'plastic', ...quarter, radius: d1.v / 2 }),
     );
 
     // Раструб: торец — конец плеча, глубина — длина раструба. Резьба: торец — край втулки,
@@ -96,8 +98,7 @@ export class PpThreadElbowGenerator implements ModelGenerator<PpThreadElbowParam
     const face = insert.face(params.m1, x1);
     return MeshModel.create({
       title: `Угол ${params.r1}x${params.r2}${insert.suffix}`,
-      geometry: merger.merge(),
-      materials: [this.materials.get('plastic'), this.materials.get('plasticFlat'), this.materials.get('metal'), this.materials.get('thread')],
+      ...merger.merge(),
       connectors: [
         {
           id: 'right',
@@ -118,6 +119,6 @@ export class PpThreadElbowGenerator implements ModelGenerator<PpThreadElbowParam
           gender: 'internal',
         },
       ],
-    });
+    }, this.materials);
   }
 }

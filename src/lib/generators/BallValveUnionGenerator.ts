@@ -6,7 +6,7 @@ import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
 import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
-import { BallValveParts, VALVE_BODY_STEP, VALVE_MATERIALS, VALVE_NUT_SCALE } from './BallValveParts';
+import { BallValveParts, VALVE_BODY_STEP, VALVE_NUT_SCALE } from './BallValveParts';
 import { ConnectorFrame } from './ConnectorFrame';
 import { MeshModel } from './MeshModel';
 
@@ -60,8 +60,6 @@ export class BallValveUnionGenerator implements ModelGenerator<BallValveUnionPar
   build(params: BallValveUnionParams): GeneratedModel {
     const errors = this.validate(params);
     if (errors.length > 0) throw new GeneratorParamsError(this.id, errors);
-
-    const { thread, metalFlat } = VALVE_MATERIALS;
     const d1 = ThreadSizes.diameters(params.r1, 'internal')!;
     const d2 = ThreadSizes.diameters(params.r2, 'external')!;
     const half = params.m1 / 2;
@@ -76,18 +74,19 @@ export class BallValveUnionGenerator implements ModelGenerator<BallValveUnionPar
     merger.add(
       // Слева: гайка и внутренняя резьба
       ...this.sleeves.build({
+        material: 'metal',
         length: x1,
         outerDiameter: d1.n * VALVE_NUT_SCALE,
         innerDiameter: d1.v + 0.001,
         outerSegments: 6,
         center: at(-(half - x1 / 2)),
-        materials: { outer: metalFlat },
+        materials: { outer: 'metalFlat' },
       }),
-      ...this.sleeves.build({ length: x1, outerDiameter: d1.n, innerDiameter: d1.v, center: at(-(half - x1 / 2)), materials: { inner: thread } }),
+      ...this.sleeves.build({ material: 'metal', length: x1, outerDiameter: d1.n, innerDiameter: d1.v, center: at(-(half - x1 / 2)), materials: { inner: 'thread' } }),
       ...this.parts.body(d1, half - x1, right),
       ...this.parts.stemAndHandle(d1, params.t1),
       // Справа: наружная резьба крана под гайкой сгона
-      ...this.sleeves.build({ length: x1, outerDiameter: d2.n, innerDiameter: d2.v, center: at(VALVE_BODY_STEP + right + x1 / 2), materials: { outer: thread } }),
+      ...this.sleeves.build({ material: 'metal', length: x1, outerDiameter: d2.n, innerDiameter: d2.v, center: at(VALVE_BODY_STEP + right + x1 / 2), materials: { outer: 'thread' } }),
       ...union.parts,
     );
 
@@ -96,12 +95,11 @@ export class BallValveUnionGenerator implements ModelGenerator<BallValveUnionPar
     const common = { nominal: params.r1, joint: 'thread' } as const;
     return MeshModel.create({
       title: `Шаровой кран с полусгоном ${params.r1}`,
-      geometry: merger.merge(),
-      materials: [this.materials.get('metal'), this.materials.get('thread'), this.materials.get('metalFlat'), this.materials.get('red')],
+      ...merger.merge(),
       connectors: [
         { id: 'left', position: at(-half), ...ConnectorFrame.left, depth: x1, gender: 'internal', ...common },
         { id: 'right', position: at(union.end), ...ConnectorFrame.right, depth: union.threadLength, gender: 'external', ...common },
       ],
-    });
+    }, this.materials);
   }
 }

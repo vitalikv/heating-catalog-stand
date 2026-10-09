@@ -1,6 +1,6 @@
 import { ExtrudeGeometry, Shape, Vector2 } from 'three';
 import type { BufferGeometry } from 'three';
-import type { Vector3Data } from '../contracts';
+import type { MaterialKey, Vector3Data } from '../contracts';
 import type { GeometryPart } from './MaterialGroupMerger';
 
 export interface ExtrudedShapeOptions {
@@ -12,7 +12,7 @@ export interface ExtrudedShapeOptions {
   rotation?: Vector3Data;
   /** Сдвиг после поворота, м. */
   position?: Vector3Data;
-  materialIndex?: number;
+  material: MaterialKey;
 }
 
 /** Плоский контур, выдавленный на толщину (перенос arr_form_1). */
@@ -31,6 +31,6 @@ export class ExtrudedShapeBuilder {
       geometry = extruded.toNonIndexed();
       extruded.dispose();
     }
-    return { geometry, materialIndex: options.materialIndex ?? 0 };
+    return { geometry, material: options.material };
   }
 }

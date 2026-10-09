@@ -22,7 +22,8 @@ function expected({ r1, m1 }: PpElbowParams) {
   return { size: new Vector3(m1 + n / 2, m1 + n / 2, n) };
 }
 
-const generator = new PpElbowGenerator(new MaterialLibrary());
+const library = new MaterialLibrary();
+const generator = new PpElbowGenerator(library);
 
 describe('PpPipeSizes', () => {
   // Посчитано вручную: n = d + 1.4t с округлением до 0,1 мм, v = d.
@@ -50,6 +51,7 @@ describe.each(PRESETS)('угол ПП $r1, m1 = $m1', (params) => {
       expect(Array.from(geometry.getAttribute(name).array).every(Number.isFinite)).toBe(true);
     }
     expect(geometry.groups).toEqual([{ start: 0, count: position.count, materialIndex: 0 }]);
+    expect(mesh.material).toEqual([library.get('plastic')]);
     model.dispose();
   });
 

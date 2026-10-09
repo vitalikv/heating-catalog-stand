@@ -48,9 +48,9 @@ export class PpCrossGenerator implements ModelGenerator<PpElbowParams> {
       const at = (value: number) => (vertical ? { x: 0, y: value, z: 0 } : { x: value, y: 0, z: 0 });
       const rotation = vertical ? { x: 0, y: 0, z: Math.PI / 2 } : undefined;
       merger.add(
-        ...this.sleeves.build({ ...pipe, rotation, length: x1, center: at(-offset) }),
-        ...this.sleeves.build({ ...pipe, rotation, length: x2 }),
-        ...this.sleeves.build({ ...pipe, rotation, length: x1, center: at(offset) }),
+        ...this.sleeves.build({ material: 'plastic', ...pipe, rotation, length: x1, center: at(-offset) }),
+        ...this.sleeves.build({ material: 'plastic', ...pipe, rotation, length: x2 }),
+        ...this.sleeves.build({ material: 'plastic', ...pipe, rotation, length: x1, center: at(offset) }),
       );
     }
 
@@ -60,14 +60,13 @@ export class PpCrossGenerator implements ModelGenerator<PpElbowParams> {
     const { left, right, bottom, top } = ConnectorFrame;
     return MeshModel.create({
       title: `Крестовина ${params.r1}`,
-      geometry: merger.merge(),
-      materials: [this.materials.get('plastic')],
+      ...merger.merge(),
       connectors: [
         { id: 'left', position: ConnectorFrame.point(left, half), ...left, ...common },
         { id: 'right', position: ConnectorFrame.point(right, half), ...right, ...common },
         { id: 'bottom', position: ConnectorFrame.point(bottom, half), ...bottom, ...common },
         { id: 'top', position: ConnectorFrame.point(top, half), ...top, ...common },
       ],
-    });
+    }, this.materials);
   }
 }

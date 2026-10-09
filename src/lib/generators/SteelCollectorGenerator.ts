@@ -7,7 +7,7 @@ import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import { ConnectorFrame } from './ConnectorFrame';
 import { MeshModel } from './MeshModel';
-import { COLLECTOR_MATERIALS, COLLECTOR_RING_GAP, COLLECTOR_THREAD, SteelCollectorPipe } from './SteelCollectorPipe';
+import { COLLECTOR_RING_GAP, COLLECTOR_THREAD, SteelCollectorPipe } from './SteelCollectorPipe';
 import type { ThreadSideCode } from './SteelElbowGenerator';
 
 /** Параметры в формате cdm из gl2. */
@@ -79,6 +79,7 @@ export class SteelCollectorGenerator implements ModelGenerator<SteelCollectorPar
     for (const x of outlets) {
       merger.add(
         ...this.sleeves.build({
+          material: 'metal',
           length: s2,
           outerDiameter: dc.n,
           innerDiameter: dc.v,
@@ -87,14 +88,15 @@ export class SteelCollectorGenerator implements ModelGenerator<SteelCollectorPar
           rotation: { x: 0, y: 0, z: -Math.PI / 2 },
           center: { x, y: s2 / 2, z: 0 },
         }),
-        ...this.sleeves.build({ length: ring, outerDiameter: d2.n + ring, innerDiameter: d2.v + COLLECTOR_RING_GAP, rotation: vertical, center: { x, y: ringY, z: 0 } }),
+        ...this.sleeves.build({ material: 'metal', length: ring, outerDiameter: d2.n + ring, innerDiameter: d2.v + COLLECTOR_RING_GAP, rotation: vertical, center: { x, y: ringY, z: 0 } }),
         ...this.sleeves.build({
+          material: 'metal',
           length: w,
           outerDiameter: d2.n,
           innerDiameter: d2.v,
           rotation: vertical,
           center: { x, y: s2 + w / 2, z: 0 },
-          materials: internal ? { inner: COLLECTOR_MATERIALS.thread } : { outer: COLLECTOR_MATERIALS.thread },
+          materials: internal ? { inner: 'thread' } : { outer: 'thread' },
         }),
       );
     }
@@ -102,8 +104,7 @@ export class SteelCollectorGenerator implements ModelGenerator<SteelCollectorPar
     const suffix = internal ? '(в)' : '(н)';
     return MeshModel.create({
       title: `коллектор ${params.r1}x${params.r2}${suffix} [${params.count} вых.]`,
-      geometry: merger.merge(),
-      materials: [this.materials.get('metal'), this.materials.get('thread'), this.materials.get('metalFlat')],
+      ...merger.merge(),
       connectors: SteelCollectorPipe.connectors(
         params.m1,
         params.r1,
@@ -119,6 +120,6 @@ export class SteelCollectorGenerator implements ModelGenerator<SteelCollectorPar
           }),
         ),
       ),
-    });
+    }, this.materials);
   }
 }

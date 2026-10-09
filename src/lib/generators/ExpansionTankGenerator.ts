@@ -34,11 +34,6 @@ const FITTING = 0.015;
 /** Втулка заходит в нижнее днище на 5 мм. */
 const COLLAR_INSET = 0.005;
 
-/** Индексы материалов меша. */
-const RED = 0;
-const THREAD = 1;
-const METAL = 2;
-
 /** Расширительный бак: цилиндр с днищами, штуцер с наружной резьбой вниз (перенос cr_rash_bak_1). */
 export class ExpansionTankGenerator implements ModelGenerator<ExpansionTankParams> {
   readonly id = 'cr_rash_bak_1';
@@ -73,23 +68,21 @@ export class ExpansionTankGenerator implements ModelGenerator<ExpansionTankParam
     const collarTop = bottom + COLLAR_INSET;
     const down = { x: 0, y: 0, z: -Math.PI / 2 };
     const fitting = { outerDiameter: d2.n, innerDiameter: d2.v, rotation: down };
-    const all = (index: number) => ({ outer: index, inner: index, start: index, end: index });
 
     const shell = new CylinderGeometry(radius, radius, h2, SEGMENTS, 1, true);
     const merger = new MaterialGroupMerger();
     merger.add(
-      { geometry: this.nonIndexed(shell), materialIndex: RED },
-      { geometry: this.dome(radius, Math.PI, h2 / 2), materialIndex: RED },
-      { geometry: this.dome(radius, 0, -h2 / 2), materialIndex: RED },
-      ...this.sleeves.build({ ...fitting, length: COLLAR, center: { x: 0, y: collarTop - COLLAR / 2, z: 0 }, materials: all(METAL) }),
-      ...this.sleeves.build({ ...fitting, length: FITTING, center: { x: 0, y: collarTop - COLLAR - FITTING / 2, z: 0 }, materials: all(THREAD) }),
+      { geometry: this.nonIndexed(shell), material: 'red' },
+      { geometry: this.dome(radius, Math.PI, h2 / 2), material: 'red' },
+      { geometry: this.dome(radius, 0, -h2 / 2), material: 'red' },
+      ...this.sleeves.build({ material: 'metal', ...fitting, length: COLLAR, center: { x: 0, y: collarTop - COLLAR / 2, z: 0 } }),
+      ...this.sleeves.build({ material: 'thread', ...fitting, length: FITTING, center: { x: 0, y: collarTop - COLLAR - FITTING / 2, z: 0 } }),
     );
 
     // Торец — конец штуцера, глубина — его резьба. В gl2 точка — в центре штуцера.
     return MeshModel.create({
       title: `Расш.бак ${params.name}`,
-      geometry: merger.merge(),
-      materials: [this.materials.get('red'), this.materials.get('thread'), this.materials.get('metal')],
+      ...merger.merge(),
       connectors: [
         {
           id: 'bottom',
@@ -101,7 +94,7 @@ export class ExpansionTankGenerator implements ModelGenerator<ExpansionTankParam
           gender: 'external',
         },
       ],
-    });
+    }, this.materials);
   }
 
   /**

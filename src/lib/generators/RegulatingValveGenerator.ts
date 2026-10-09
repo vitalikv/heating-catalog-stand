@@ -6,7 +6,7 @@ import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
 import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
-import { BallValveParts, VALVE_MATERIALS, VALVE_NUT_SCALE } from './BallValveParts';
+import { BallValveParts, VALVE_NUT_SCALE } from './BallValveParts';
 import { ConnectorFrame } from './ConnectorFrame';
 import { MeshModel } from './MeshModel';
 
@@ -31,9 +31,6 @@ export interface RegulatingValveParams {
 
 /** Переходные участки корпуса слева и справа (x_1L, x_1R в gl2), м. */
 const STEP = 0.002;
-/** Индекс материала головки: white_1_edge в gl2. */
-const PLASTIC_FLAT = 4;
-
 /**
  * Кран регулировочный и клапан с терморегулятором (перенос reg_kran_primoy_1): слева внутренняя
  * резьба r1 под гайкой, справа наружная r2 со сгоном на r1, сверху шток с колпачком или терморегулятором.
@@ -70,8 +67,6 @@ export class RegulatingValveGenerator implements ModelGenerator<RegulatingValveP
   build(params: RegulatingValveParams): GeneratedModel {
     const errors = this.validate(params);
     if (errors.length > 0) throw new GeneratorParamsError(this.id, errors);
-
-    const { thread, metalFlat } = VALVE_MATERIALS;
     const d1 = ThreadSizes.diameters(params.r1, 'internal')!;
     const d2 = ThreadSizes.diameters(params.r2, 'external')!;
     const x1 = BallValveParts.threadLength(d1);
@@ -87,15 +82,17 @@ export class RegulatingValveGenerator implements ModelGenerator<RegulatingValveP
     merger.add(
       // Слева: гайка с внутренней резьбой и переход к корпусу
       ...this.sleeves.build({
+        material: 'metal',
         length: x1,
         outerDiameter: d1.n * VALVE_NUT_SCALE * 1.1,
         innerDiameter: bore,
         outerSegments: 6,
         center: at(-(half + 2 * STEP + x1 / 2)),
-        materials: { outer: metalFlat },
+        materials: { outer: 'metalFlat' },
       }),
-      ...this.sleeves.build({ length: x1, outerDiameter: d1.n, innerDiameter: d1.v, center: at(-(half + 2 * STEP + x1 / 2)), materials: { inner: thread } }),
+      ...this.sleeves.build({ material: 'metal', length: x1, outerDiameter: d1.n, innerDiameter: d1.v, center: at(-(half + 2 * STEP + x1 / 2)), materials: { inner: 'thread' } }),
       ...this.sleeves.build({
+        material: 'metal',
         length: STEP,
         outerDiameter: d1.v + 0.003,
         innerDiameter: d1.v,
@@ -104,10 +101,11 @@ export class RegulatingValveGenerator implements ModelGenerator<RegulatingValveP
         rotation: flipped,
         center: at(-(half + 1.5 * STEP)),
       }),
-      ...this.sleeves.build({ length: STEP, outerDiameter: bore, innerDiameter: d1.v, center: at(-(half + STEP / 2)) }),
+      ...this.sleeves.build({ material: 'metal', length: STEP, outerDiameter: bore, innerDiameter: d1.v, center: at(-(half + STEP / 2)) }),
       // Корпус и переход к наружной резьбе
-      ...this.sleeves.build({ length: x2, outerDiameter: bore, innerDiameter: d1.v }),
+      ...this.sleeves.build({ material: 'metal', length: x2, outerDiameter: bore, innerDiameter: d1.v }),
       ...this.sleeves.build({
+        material: 'metal',
         length: STEP,
         outerDiameter: bore,
         innerDiameter: d1.v,
@@ -116,8 +114,8 @@ export class RegulatingValveGenerator implements ModelGenerator<RegulatingValveP
         rotation: flipped,
         center: at(half + STEP / 2),
       }),
-      ...this.sleeves.build({ length: STEP, outerDiameter: d2.n, innerDiameter: d1.v, center: at(half + 1.5 * STEP) }),
-      ...this.sleeves.build({ length: x1, outerDiameter: d2.n, innerDiameter: d2.v, center: at(half + 2 * STEP + x1 / 2), materials: { outer: thread } }),
+      ...this.sleeves.build({ material: 'metal', length: STEP, outerDiameter: d2.n, innerDiameter: d1.v, center: at(half + 1.5 * STEP) }),
+      ...this.sleeves.build({ material: 'metal', length: x1, outerDiameter: d2.n, innerDiameter: d2.v, center: at(half + 2 * STEP + x1 / 2), materials: { outer: 'thread' } }),
       ...union.parts,
       ...this.head(d1.n, params.head),
     );
@@ -127,19 +125,12 @@ export class RegulatingValveGenerator implements ModelGenerator<RegulatingValveP
     const common = { nominal: params.r1, joint: 'thread' } as const;
     return MeshModel.create({
       title: `${params.head === 'termo' ? 'Клапан с терморегулятором' : 'Кран регулировочный'} ${params.r1}`,
-      geometry: merger.merge(),
-      materials: [
-        this.materials.get('metal'),
-        this.materials.get('thread'),
-        this.materials.get('metalFlat'),
-        this.materials.get('red'),
-        this.materials.get('plasticFlat'),
-      ],
+      ...merger.merge(),
       connectors: [
         { id: 'left', position: at(-params.m1 / 2), ...ConnectorFrame.left, depth: x1, gender: 'internal', ...common },
         { id: 'right', position: at(union.end), ...ConnectorFrame.right, depth: union.threadLength, gender: 'external', ...common },
       ],
-    });
+    }, this.materials);
   }
 
   /** Шток над корпусом и головка: колпачок или терморегулятор (16 граней). */
@@ -147,32 +138,30 @@ export class RegulatingValveGenerator implements ModelGenerator<RegulatingValveP
     const h1 = n / 2 + 0.008;
     const up = { x: 0, y: 0, z: -Math.PI / 2 };
     const at = (y: number) => ({ x: 0, y, z: 0 });
-    const all = (index: number) => ({ outer: index, inner: index, start: index, end: index });
     const solid = { innerDiameter: 0, rotation: up };
 
-    const stem = this.sleeves.build({ ...solid, length: h1, outerDiameter: 0.015, center: at(h1 / 2) });
+    const stem = this.sleeves.build({ material: 'metal', ...solid, length: h1, outerDiameter: 0.015, center: at(h1 / 2) });
     if (head === 'termo') {
       const cap = 0.01;
       return [
         ...stem,
-        ...this.sleeves.build({ ...solid, length: 0.006, outerDiameter: 0.02, outerSegments: 16, center: at(h1 + 0.003), materials: all(VALVE_MATERIALS.metalFlat) }),
-        ...this.sleeves.build({ ...solid, length: cap, outerDiameter: 0.035, outerSegments: 16, center: at(h1 + 0.006 + cap / 2), materials: all(PLASTIC_FLAT) }),
-        ...this.sleeves.build({
-          ...solid,
+        ...this.sleeves.build({ ...solid, length: 0.006, outerDiameter: 0.02, outerSegments: 16, center: at(h1 + 0.003), material: 'metalFlat' }),
+        ...this.sleeves.build({ ...solid, length: cap, outerDiameter: 0.035, outerSegments: 16, center: at(h1 + 0.006 + cap / 2), material: 'plasticFlat' }),
+        ...this.sleeves.build({ ...solid,
           length: 0.035,
           outerDiameter: 0.032,
           outerDiameterStart: 0.024,
           outerSegments: 16,
           center: at(h1 + 0.006 + cap + 0.035 / 2),
-          materials: all(PLASTIC_FLAT),
+          material: 'plasticFlat',
         }),
       ];
     }
     const cap = 0.02;
     return [
       ...stem,
-      ...this.sleeves.build({ ...solid, length: 0.002, outerDiameter: 0.017, center: at(h1 + 0.001) }),
-      ...this.sleeves.build({ ...solid, length: cap, outerDiameter: 0.024, outerSegments: 16, center: at(h1 + 0.002 + cap / 2), materials: all(PLASTIC_FLAT) }),
+      ...this.sleeves.build({ material: 'metal', ...solid, length: 0.002, outerDiameter: 0.017, center: at(h1 + 0.001) }),
+      ...this.sleeves.build({ ...solid, length: cap, outerDiameter: 0.024, outerSegments: 16, center: at(h1 + 0.002 + cap / 2), material: 'plasticFlat' }),
     ];
   }
 }

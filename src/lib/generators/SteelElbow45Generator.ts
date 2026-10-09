@@ -2,7 +2,7 @@ import type { GeneratedModel, ModelGenerator, ParamSpec, ValidationError } from 
 import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
-import type { SleeveOptions } from '../geometry/SleeveGeometryBuilder';
+import type { SleeveMaterials, SleeveShape } from '../geometry/SleeveGeometryBuilder';
 import { SphereGeometryBuilder } from '../geometry/SphereGeometryBuilder';
 import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
@@ -22,8 +22,6 @@ export interface SteelElbow45Params {
 const THREAD_LENGTH = 0.015;
 /** Поворот левого плеча вокруг Z: −45° — плечо уходит влево-вверх. */
 const TURN = -Math.PI / 4;
-
-const THREAD = 1;
 
 /**
  * Стальной угол 45° с внутренней резьбой (перенос st_ugol_45_1). Правое плечо по +X,
@@ -58,12 +56,12 @@ export class SteelElbow45Generator implements ModelGenerator<SteelElbow45Params>
     const ring = d.n / 10;
     const pipe = { outerDiameter: d.n, innerDiameter: d.v };
     const ringSize = { outerDiameter: d.n + ring, innerDiameter: d.v };
-    const thread = { inner: THREAD };
+    const thread: Partial<SleeveMaterials> = { inner: 'thread' };
 
     // Наклонное плечо: куски вдоль −X (pos1 в gl2), потом поворот на 45°.
     const turned = (x: number) => ({ offset: { x, y: 0, z: 0 }, rotation: { x: 0, y: 0, z: TURN } });
     const at = (x: number) => ({ center: { x, y: 0, z: 0 } });
-    const sleeves: SleeveOptions[] = [
+    const sleeves: SleeveShape[] = [
       { ...ringSize, ...turned(-(x2 + x1 + ring / 2)), length: ring },
       { ...pipe, ...turned(-(x2 + x1 / 2)), length: x1, materials: thread },
       { ...pipe, ...turned(-x2 / 2), length: x2 },
@@ -74,8 +72,8 @@ export class SteelElbow45Generator implements ModelGenerator<SteelElbow45Params>
 
     const sector = { phiLength: Math.PI / 4, rotation: { x: Math.PI / 2, y: 0, z: Math.PI / 4 } };
     const merger = new MaterialGroupMerger();
-    for (const sleeve of sleeves) merger.add(...this.sleeves.build(sleeve));
-    merger.add(this.spheres.build({ ...sector, radius: d.n / 2 }), this.spheres.build({ ...sector, radius: d.v / 2 }));
+    for (const sleeve of sleeves) merger.add(...this.sleeves.build({ material: 'metal', ...sleeve }));
+    merger.add(this.spheres.build({ material: 'metal', ...sector, radius: d.n / 2 }), this.spheres.build({ material: 'metal', ...sector, radius: d.v / 2 }));
 
     // Торец — наружная грань кольца за резьбой, глубина — резьба и кольцо.
     // В gl2 точки стояли в центрах резьбы. ID — по стороне выхода.
@@ -84,12 +82,11 @@ export class SteelElbow45Generator implements ModelGenerator<SteelElbow45Params>
     const common = { depth: x1 + ring, nominal: params.r1, joint: 'thread', gender: 'internal' } as const;
     return MeshModel.create({
       title: `Угол_45 ${params.r1}(в)`,
-      geometry: merger.merge(),
-      materials: [this.materials.get('metal'), this.materials.get('thread')],
+      ...merger.merge(),
       connectors: [
         { id: 'right', position: ConnectorFrame.point(ConnectorFrame.right, face), ...ConnectorFrame.right, ...common },
         { id: 'left', position: ConnectorFrame.point(angled, face), ...angled, ...common },
       ],
-    });
+    }, this.materials);
   }
 }

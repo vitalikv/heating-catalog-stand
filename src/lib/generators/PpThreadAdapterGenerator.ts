@@ -8,7 +8,7 @@ import { PpPipeSizes } from '../sizes/PpPipeSizes';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import { ConnectorFrame } from './ConnectorFrame';
 import { MeshModel } from './MeshModel';
-import { PP_THREAD_MATERIALS, PpThreadInsert } from './PpThreadInsert';
+import { PpThreadInsert } from './PpThreadInsert';
 import type { ThreadSideCode } from './SteelElbowGenerator';
 
 /** Параметры в формате cdm из gl2. */
@@ -70,14 +70,15 @@ export class PpThreadAdapterGenerator implements ModelGenerator<PpThreadAdapterP
     const merger = new MaterialGroupMerger();
     merger.add(
       // Слева: раструб и гладкая часть
-      ...this.sleeves.build({ ...pipe, length: x1, center: at(-(x3L + x1 / 2)) }),
-      ...this.sleeves.build({ ...pipe, length: x3L, center: at(-x3L / 2) }),
+      ...this.sleeves.build({ material: 'plastic', ...pipe, length: x1, center: at(-(x3L + x1 / 2)) }),
+      ...this.sleeves.build({ material: 'plastic', ...pipe, length: x3L, center: at(-x3L / 2) }),
       // Центр и корпус вставки
-      ...this.sleeves.build({ ...body, length: Math.max(d1.n, insert.thread.n) / 7 }),
-      ...this.sleeves.build({ ...body, length: x3R, center: at(x3R / 2) }),
-      ...this.sleeves.build({ ...body, length: x2, outerSegments: 12, center: at(bodyCenter), materials: { outer: PP_THREAD_MATERIALS.plasticFlat } }),
+      ...this.sleeves.build({ material: 'plastic', ...body, length: Math.max(d1.n, insert.thread.n) / 7 }),
+      ...this.sleeves.build({ material: 'plastic', ...body, length: x3R, center: at(x3R / 2) }),
+      ...this.sleeves.build({ material: 'plastic', ...body, length: x2, outerSegments: 12, center: at(bodyCenter), materials: { outer: 'plasticFlat' } }),
       // Резьбовая втулка
       ...this.sleeves.build({
+        material: 'metal',
         length: x2,
         outerDiameter: insert.thread.n,
         innerDiameter: insert.thread.v,
@@ -90,8 +91,7 @@ export class PpThreadAdapterGenerator implements ModelGenerator<PpThreadAdapterP
     // В gl2 точки стояли в центрах раструба и втулки.
     return MeshModel.create({
       title: `Соединитель ${params.r1}х${params.r2}${insert.suffix}`,
-      geometry: merger.merge(),
-      materials: [this.materials.get('plastic'), this.materials.get('plasticFlat'), this.materials.get('metal'), this.materials.get('thread')],
+      ...merger.merge(),
       connectors: [
         { id: 'left', position: at(-params.m1 / 2), ...ConnectorFrame.left, depth: x1, nominal: params.r1, joint: 'pp-socket', gender: 'internal' },
         {
@@ -104,7 +104,7 @@ export class PpThreadAdapterGenerator implements ModelGenerator<PpThreadAdapterP
           gender: insert.gender,
         },
       ],
-    });
+    }, this.materials);
   }
 
   /** Длины раструба (x_1) и резьбы (x_2); вызывать только для известных номиналов. */

@@ -2,13 +2,14 @@ import type { GeneratedModel, ModelGenerator, ParamSpec, ValidationError } from 
 import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
+import type { SleeveMaterials } from '../geometry/SleeveGeometryBuilder';
 import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { MpPipeSizes } from '../sizes/MpPipeSizes';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import { ConnectorFrame } from './ConnectorFrame';
 import { MeshModel } from './MeshModel';
-import { MP_CAP, MP_MATERIALS, MpPressEnd } from './MpPressEnd';
+import { MP_CAP, MpPressEnd } from './MpPressEnd';
 import type { ThreadSideCode } from './SteelElbowGenerator';
 
 /** Параметры в формате cdm из gl2. */
@@ -71,23 +72,24 @@ export class MpThreadAdapterGenerator implements ModelGenerator<MpThreadAdapterP
     const s2 = half - w2;
     const s3 = s2 - MP_CAP;
     const at = (x: number) => ({ x, y: 0, z: 0 });
-    const flat = { outer: MP_MATERIALS.bronzeFlat };
+    const flat: Partial<SleeveMaterials> = { outer: 'bronzeFlat' };
     // В gl2 внутренний диаметр гайки — n/2 резьбы (tb2.n), перенесено как есть.
     const nutInner = d2.n / 2;
 
     const merger = new MaterialGroupMerger();
     merger.add(
       ...this.ends.build(d1, s1, w1, MpPressEnd.left),
-      ...this.sleeves.build({ length: s1, outerDiameter: d1.n, innerDiameter: d1.v, center: at(-s1 / 2), rotation: { x: 0, y: Math.PI, z: 0 } }),
+      ...this.sleeves.build({ material: 'bronze', length: s1, outerDiameter: d1.n, innerDiameter: d1.v, center: at(-s1 / 2), rotation: { x: 0, y: Math.PI, z: 0 } }),
       // Буртик и шестигранник
-      ...this.sleeves.build({ length: MP_CAP, outerDiameter: d2.n + 0.0025, innerDiameter: nutInner, center: at(MP_CAP / 2), materials: flat }),
-      ...this.sleeves.build({ length: s3, outerDiameter: d2.n + 0.01, innerDiameter: nutInner, outerSegments: 6, center: at(MP_CAP + s3 / 2), materials: flat }),
+      ...this.sleeves.build({ material: 'bronze', length: MP_CAP, outerDiameter: d2.n + 0.0025, innerDiameter: nutInner, center: at(MP_CAP / 2), materials: flat }),
+      ...this.sleeves.build({ material: 'bronze', length: s3, outerDiameter: d2.n + 0.01, innerDiameter: nutInner, outerSegments: 6, center: at(MP_CAP + s3 / 2), materials: flat }),
       ...this.sleeves.build({
+        material: 'bronze',
         length: w2,
         outerDiameter: d2.n,
         innerDiameter: d2.v,
         center: at(s2 + w2 / 2),
-        materials: internal ? { inner: MP_MATERIALS.bronzeThread } : { outer: MP_MATERIALS.bronzeThread },
+        materials: internal ? { inner: 'bronzeThread' } : { outer: 'bronzeThread' },
       }),
     );
 
@@ -96,8 +98,7 @@ export class MpThreadAdapterGenerator implements ModelGenerator<MpThreadAdapterP
     const { left, right } = ConnectorFrame;
     return MeshModel.create({
       title: `Соединитель ${params.r1}x${params.r2}${suffix}`,
-      geometry: merger.merge(),
-      materials: MpPressEnd.meshMaterials(this.materials),
+      ...merger.merge(),
       connectors: [
         { id: 'left', position: ConnectorFrame.point(left, half), ...left, depth: w1, nominal: params.r1, joint: 'mp-press', gender: 'internal' },
         {
@@ -110,6 +111,6 @@ export class MpThreadAdapterGenerator implements ModelGenerator<MpThreadAdapterP
           gender: internal ? 'internal' : 'external',
         },
       ],
-    });
+    }, this.materials);
   }
 }

@@ -21,8 +21,6 @@ const MIN_THREAD_LENGTH = 0.008;
 const MAX_THREAD_LENGTH = 0.012;
 const HEX_SEGMENTS = 6;
 
-const THREAD = 1;
-
 /** Стальная заглушка с наружной резьбой и сплошным шестигранником (перенос st_zagl_nr). */
 export class SteelPlugGenerator implements ModelGenerator<SteelPlugParams> {
   readonly id = 'st_zagl_nr';
@@ -58,22 +56,21 @@ export class SteelPlugGenerator implements ModelGenerator<SteelPlugParams> {
     const merger = new MaterialGroupMerger();
     merger.add(
       // Резьба и гладкая часть
-      ...this.sleeves.build({ length: x1, outerDiameter: d1.n, innerDiameter: d1.v, center: at(-(x3L + x1 / 2)), materials: { outer: THREAD } }),
-      ...this.sleeves.build({ length: x3L, outerDiameter: d1.n, innerDiameter: d1.v, center: at(-x3L / 2) }),
+      ...this.sleeves.build({ material: 'metal', length: x1, outerDiameter: d1.n, innerDiameter: d1.v, center: at(-(x3L + x1 / 2)), materials: { outer: 'thread' } }),
+      ...this.sleeves.build({ material: 'metal', length: x3L, outerDiameter: d1.n, innerDiameter: d1.v, center: at(-x3L / 2) }),
       // Сплошной шестигранник: длина n/7, описанный диаметр n + n/4
-      ...this.sleeves.build({ length: d1.n / 7, outerDiameter: d1.n + d1.n / 4, innerDiameter: 0, outerSegments: HEX_SEGMENTS }),
+      ...this.sleeves.build({ material: 'metal', length: d1.n / 7, outerDiameter: d1.n + d1.n / 4, innerDiameter: 0, outerSegments: HEX_SEGMENTS }),
     );
 
     // Торец — конец резьбы (−m1/2), глубина — длина резьбы. В gl2 точка — в центре резьбы.
     const left = ConnectorFrame.left;
     return MeshModel.create({
       title: `Заглушка ${params.r1}(н)`,
-      geometry: merger.merge(),
-      materials: [this.materials.get('metal'), this.materials.get('thread')],
+      ...merger.merge(),
       connectors: [
         { id: 'left', position: at(-params.m1 / 2), ...left, depth: x1, nominal: params.r1, joint: 'thread', gender: 'external' },
       ],
-    });
+    }, this.materials);
   }
 
   /** Вызывать только для известного номинала. */

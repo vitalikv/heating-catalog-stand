@@ -33,10 +33,6 @@ const CONNECTION_LABELS: Readonly<Record<BoilerConnection, string>> = {
   'left-right': 'слева-справа',
 };
 
-/** Индексы материалов меша. */
-const THREAD = 1;
-const CASING = 2;
-
 /** Патрубок: где начинается (на стенке корпуса), куда выходит и его ID. */
 interface Port {
   id: string;
@@ -84,7 +80,7 @@ export class BoilerGenerator implements ModelGenerator<BoilerParams> {
     indexed.dispose();
 
     const merger = new MaterialGroupMerger();
-    merger.add({ geometry: box, materialIndex: CASING });
+    merger.add({ geometry: box, material: 'plasticGrey' });
     const connectors: Connector[] = [];
     for (const port of this.ports(params)) {
       // Удлинитель от стенки, за ним резьба; ось втулки X поворачивается на направление выхода.
@@ -95,8 +91,8 @@ export class BoilerGenerator implements ModelGenerator<BoilerParams> {
       });
       const pipe = { length: x1, outerDiameter: d1.n, innerDiameter: d1.v, rotation: this.rotation(port.frame) };
       merger.add(
-        ...this.sleeves.build({ ...pipe, center: along(x1 / 2) }),
-        ...this.sleeves.build({ ...pipe, center: along(x1 * 1.5), materials: { outer: THREAD } }),
+        ...this.sleeves.build({ material: 'metal', ...pipe, center: along(x1 / 2) }),
+        ...this.sleeves.build({ material: 'metal', ...pipe, center: along(x1 * 1.5), materials: { outer: 'thread' } }),
       );
       // Торец — конец резьбы, глубина — её длина. В gl2 точка — в центре резьбы.
       connectors.push({ id: port.id, position: along(x1 * 2), ...port.frame, depth: x1, nominal: params.r1, joint: 'thread', gender: 'external' });
@@ -104,10 +100,9 @@ export class BoilerGenerator implements ModelGenerator<BoilerParams> {
 
     return MeshModel.create({
       title: `Котел (разъемы ${CONNECTION_LABELS[params.type]})`,
-      geometry: merger.merge(),
-      materials: [this.materials.get('metal'), this.materials.get('thread'), this.materials.get('plasticGrey')],
+      ...merger.merge(),
       connectors,
-    });
+    }, this.materials);
   }
 
   /** Расположение патрубков по cr_kotel_1. */

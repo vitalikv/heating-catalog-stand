@@ -52,12 +52,12 @@ export class PpElbow45Generator implements ModelGenerator<PpElbowParams> {
     // В gl2 плечо и раструб — две втулки одного диаметра; разбиение сохранено.
     const merger = new MaterialGroupMerger();
     merger.add(
-      ...this.sleeves.build({ ...pipe, length: x2, center: { x: x2 / 2, y: 0, z: 0 } }),
-      ...this.sleeves.build({ ...pipe, length: x1, center: { x: x2 + x1 / 2, y: 0, z: 0 } }),
-      ...this.sleeves.build({ ...pipe, ...turned(-x2 / 2), length: x2 }),
-      ...this.sleeves.build({ ...pipe, ...turned(-(x2 + x1 / 2)), length: x1 }),
-      this.spheres.build({ ...sector, radius: d.n / 2 }),
-      this.spheres.build({ ...sector, radius: d.v / 2 }),
+      ...this.sleeves.build({ material: 'plastic', ...pipe, length: x2, center: { x: x2 / 2, y: 0, z: 0 } }),
+      ...this.sleeves.build({ material: 'plastic', ...pipe, length: x1, center: { x: x2 + x1 / 2, y: 0, z: 0 } }),
+      ...this.sleeves.build({ material: 'plastic', ...pipe, ...turned(-x2 / 2), length: x2 }),
+      ...this.sleeves.build({ material: 'plastic', ...pipe, ...turned(-(x2 + x1 / 2)), length: x1 }),
+      this.spheres.build({ material: 'plastic', ...sector, radius: d.n / 2 }),
+      this.spheres.build({ material: 'plastic', ...sector, radius: d.v / 2 }),
     );
 
     // Торец раструба — конец плеча m1, глубина — длина раструба. В gl2 точки — в центрах раструбов.
@@ -65,12 +65,11 @@ export class PpElbow45Generator implements ModelGenerator<PpElbowParams> {
     const common = { depth: x1, nominal: params.r1, joint: 'pp-socket', gender: 'internal' } as const;
     return MeshModel.create({
       title: `Отвод_45 ${params.r1}`,
-      geometry: merger.merge(),
-      materials: [this.materials.get('plastic')],
+      ...merger.merge(),
       connectors: [
         { id: 'right', position: ConnectorFrame.point(ConnectorFrame.right, params.m1), ...ConnectorFrame.right, ...common },
         { id: 'left', position: ConnectorFrame.point(angled, params.m1), ...angled, ...common },
       ],
-    });
+    }, this.materials);
   }
 }

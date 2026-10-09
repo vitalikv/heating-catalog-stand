@@ -1,4 +1,5 @@
 import { Mesh, Vector3 } from 'three';
+import type { Material } from 'three';
 import { describe, expect, it } from 'vitest';
 import { MaterialLibrary, SteelNippleGenerator } from '../src/lib/index';
 import type { SteelNippleParams } from '../src/lib/index';
@@ -26,7 +27,12 @@ function expected({ r1, r2, m1 }: SteelNippleParams) {
   return { size: new Vector3(m1, hex * Math.sqrt(3), hex * 2), x1: thread(r1), x2: thread(r2) };
 }
 
-const generator = new SteelNippleGenerator(new MaterialLibrary());
+const library = new MaterialLibrary();
+const generator = new SteelNippleGenerator(library);
+
+/** Материалы групп меша по порядку групп. */
+const groupMaterials = (mesh: Mesh) => mesh.geometry.groups.map((group) => (mesh.material as Material[])[group.materialIndex!]);
+
 
 describe.each(PRESETS)('ниппель $r1 × $r2, m1 = $m1', (params) => {
   const exp = expected(params);
@@ -34,14 +40,16 @@ describe.each(PRESETS)('ниппель $r1 × $r2, m1 = $m1', (params) => {
   it('строится, буферы согласованы, есть резьба', () => {
     expect(generator.validate(params)).toEqual([]);
     const model = generator.build(params);
-    const geometry = (model.root.children[0] as Mesh).geometry;
+    const mesh = model.root.children[0] as Mesh;
+    const geometry = mesh.geometry;
     const position = geometry.getAttribute('position');
     // В gl2 у ниппеля 1176 треугольников.
     expect(position.count / 3).toBe(1176);
     for (const name of ['position', 'normal', 'uv']) {
       expect(Array.from(geometry.getAttribute(name).array).every(Number.isFinite)).toBe(true);
     }
-    expect(geometry.groups.map((group) => group.materialIndex)).toEqual([0, 1]);
+    // Группы — в порядке первого появления ключа: первым идёт кусок резьбы.
+    expect(groupMaterials(mesh)).toEqual([library.get('thread'), library.get('metal')]);
     model.dispose();
   });
 

@@ -45,8 +45,8 @@ export class PpTeeGenerator implements ModelGenerator<PpElbowParams> {
 
     const merger = new MaterialGroupMerger();
     merger.add(
-      ...this.sleeves.build({ ...pipe, length: params.m1 }),
-      ...this.sleeves.build({ ...pipe, length: m2, center: { x: 0, y: m2 / 2, z: 0 }, rotation: { x: 0, y: 0, z: -Math.PI / 2 } }),
+      ...this.sleeves.build({ material: 'plastic', ...pipe, length: params.m1 }),
+      ...this.sleeves.build({ material: 'plastic', ...pipe, length: m2, center: { x: 0, y: m2 / 2, z: 0 }, rotation: { x: 0, y: 0, z: -Math.PI / 2 } }),
     );
 
     // Торцы — концы прохода и отвода, глубина — длина раструба. В gl2 точки — в центрах раструбов.
@@ -54,13 +54,12 @@ export class PpTeeGenerator implements ModelGenerator<PpElbowParams> {
     const { left, top, right } = ConnectorFrame;
     return MeshModel.create({
       title: `Тройник ${params.r1}`,
-      geometry: merger.merge(),
-      materials: [this.materials.get('plastic')],
+      ...merger.merge(),
       connectors: [
         { id: 'left', position: ConnectorFrame.point(left, m2), ...left, ...common },
         { id: 'top', position: ConnectorFrame.point(top, m2), ...top, ...common },
         { id: 'right', position: ConnectorFrame.point(right, m2), ...right, ...common },
       ],
-    });
+    }, this.materials);
   }
 }

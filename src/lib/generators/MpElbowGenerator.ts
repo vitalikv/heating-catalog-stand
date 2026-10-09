@@ -59,24 +59,23 @@ export class MpElbowGenerator implements ModelGenerator<MpElbowParams> {
     const merger = new MaterialGroupMerger();
     merger.add(
       ...this.ends.build(d, s1, w1, MpPressEnd.right),
-      ...this.sleeves.build({ ...pipe, center: { x: s1 / 2, y: 0, z: 0 } }),
-      ...this.sleeves.build({ ...pipe, center: { x: 0, y: s1 / 2, z: 0 }, rotation: { x: 0, y: 0, z: -Math.PI / 2 } }),
+      ...this.sleeves.build({ material: 'bronze', ...pipe, center: { x: s1 / 2, y: 0, z: 0 } }),
+      ...this.sleeves.build({ material: 'bronze', ...pipe, center: { x: 0, y: s1 / 2, z: 0 }, rotation: { x: 0, y: 0, z: -Math.PI / 2 } }),
       ...this.ends.build(d, s1, w1, MpPressEnd.top),
-      this.spheres.build({ ...quarter, radius: d.n / 2 }),
-      this.spheres.build({ ...quarter, radius: d.v / 2 }),
+      this.spheres.build({ material: 'bronze', ...quarter, radius: d.n / 2 }),
+      this.spheres.build({ material: 'bronze', ...quarter, radius: d.v / 2 }),
     );
 
     // Торец — конец пресс-гильзы, глубина — её длина. В gl2 точки стояли в центрах гильз.
     const common = { depth: w1, nominal: params.r1, joint: 'mp-press', gender: 'internal' } as const;
     return MeshModel.create({
       title: `Угол ${params.r1}`,
-      geometry: merger.merge(),
-      materials: MpPressEnd.meshMaterials(this.materials),
+      ...merger.merge(),
       connectors: [
         { id: 'right', position: ConnectorFrame.point(ConnectorFrame.right, params.m1), ...ConnectorFrame.right, ...common },
         { id: 'top', position: ConnectorFrame.point(ConnectorFrame.top, params.m1), ...ConnectorFrame.top, ...common },
       ],
-    });
+    }, this.materials);
   }
 
 }

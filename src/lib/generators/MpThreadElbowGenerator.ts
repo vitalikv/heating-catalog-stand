@@ -9,7 +9,7 @@ import { MpPipeSizes } from '../sizes/MpPipeSizes';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import { ConnectorFrame } from './ConnectorFrame';
 import { MeshModel } from './MeshModel';
-import { MP_MATERIALS, MpPressEnd } from './MpPressEnd';
+import { MpPressEnd } from './MpPressEnd';
 import type { ThreadSideCode } from './SteelElbowGenerator';
 
 /** Параметры в формате cdm из gl2. */
@@ -76,31 +76,32 @@ export class MpThreadElbowGenerator implements ModelGenerator<MpThreadElbowParam
     const s2 = params.m2 - w2;
     const pipe = { outerDiameter: d1.n, innerDiameter: d1.v };
     const quarter = { phiLength: Math.PI / 2, rotation: { x: Math.PI / 2, y: 0, z: 0 } };
-    const { bronzeFlat, bronzeThread } = MP_MATERIALS;
 
     const merger = new MaterialGroupMerger();
     merger.add(
       ...this.ends.build(d1, s1, w1, MpPressEnd.top),
-      ...this.sleeves.build({ ...pipe, length: s1, center: { x: 0, y: s1 / 2, z: 0 }, rotation: { x: 0, y: 0, z: -Math.PI / 2 } }),
-      ...this.sleeves.build({ ...pipe, length: s2, center: { x: s2 / 2, y: 0, z: 0 } }),
+      ...this.sleeves.build({ material: 'bronze', ...pipe, length: s1, center: { x: 0, y: s1 / 2, z: 0 }, rotation: { x: 0, y: 0, z: -Math.PI / 2 } }),
+      ...this.sleeves.build({ material: 'bronze', ...pipe, length: s2, center: { x: s2 / 2, y: 0, z: 0 } }),
       // Гайка: в gl2 внутренний диаметр — n/2 резьбы (tb2.n), перенесено как есть
       ...this.sleeves.build({
+        material: 'bronze',
         length: NUT_LENGTH,
         outerDiameter: d2.n + 0.01,
         innerDiameter: d2.n / 2,
         outerSegments: 6,
         center: { x: s2 + NUT_LENGTH / 2, y: 0, z: 0 },
-        materials: { outer: bronzeFlat },
+        materials: { outer: 'bronzeFlat' },
       }),
       ...this.sleeves.build({
+        material: 'bronze',
         length: w2,
         outerDiameter: d2.n,
         innerDiameter: d2.v,
         center: { x: s2 + NUT_LENGTH + w2 / 2, y: 0, z: 0 },
-        materials: internal ? { inner: bronzeThread } : { outer: bronzeThread },
+        materials: internal ? { inner: 'bronzeThread' } : { outer: 'bronzeThread' },
       }),
-      this.spheres.build({ ...quarter, radius: d1.n / 2 }),
-      this.spheres.build({ ...quarter, radius: d1.v / 2 }),
+      this.spheres.build({ material: 'bronze', ...quarter, radius: d1.n / 2 }),
+      this.spheres.build({ material: 'bronze', ...quarter, radius: d1.v / 2 }),
     );
 
     // Резьба: торец — конец резьбы за гайкой, глубина — длина резьбы. Пресс: торец — конец гильзы.
@@ -109,8 +110,7 @@ export class MpThreadElbowGenerator implements ModelGenerator<MpThreadElbowParam
     const suffix = internal ? '(в)' : '(н)';
     return MeshModel.create({
       title: `Угол ${params.r1}x${params.r2}${suffix}`,
-      geometry: merger.merge(),
-      materials: MpPressEnd.meshMaterials(this.materials),
+      ...merger.merge(),
       connectors: [
         {
           id: 'right',
@@ -131,6 +131,6 @@ export class MpThreadElbowGenerator implements ModelGenerator<MpThreadElbowParam
           gender: 'internal',
         },
       ],
-    });
+    }, this.materials);
   }
 }

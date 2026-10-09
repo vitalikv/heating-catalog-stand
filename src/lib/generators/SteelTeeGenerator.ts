@@ -2,7 +2,7 @@ import type { GeneratedModel, ModelGenerator, ParamSpec, ValidationError } from 
 import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
-import type { SleeveOptions } from '../geometry/SleeveGeometryBuilder';
+import type { SleeveMaterials, SleeveShape } from '../geometry/SleeveGeometryBuilder';
 import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
@@ -28,8 +28,6 @@ export interface SteelTeeParams {
 const THREAD_LENGTH = 0.015;
 /** Зазор кольца по внутреннему диаметру (kf в gl2), м. */
 const RING_GAP = 0.0001;
-
-const THREAD = 1;
 
 /**
  * Стальной тройник с резьбой (перенос st_troinik_1). Проход по X, отвод по +Y;
@@ -74,12 +72,12 @@ export class SteelTeeGenerator implements ModelGenerator<SteelTeeParams> {
     const w = THREAD_LENGTH;
     // В gl2 ширина всех трёх колец считается по левому выходу.
     const ring = d1.n / 10;
-    const thread = internal ? { inner: THREAD } : { outer: THREAD };
+    const thread: Partial<SleeveMaterials> = internal ? { inner: 'thread' } : { outer: 'thread' };
     // Внутренняя резьба: кольцо у торца внутри резьбы; наружная — у начала резьбы.
     const ringOffset = (s: number) => (internal ? s + w - ring / 2 : s + ring / 2);
 
     /** Выход от центра: конус dc → d, кольцо, резьба. Строится вдоль +X и поворачивается. */
-    const outlet = (d: PartDiameters, s: number, place: (offset: number) => Partial<SleeveOptions>, cone: Partial<SleeveOptions>): SleeveOptions[] => [
+    const outlet = (d: PartDiameters, s: number, place: (offset: number) => Partial<SleeveShape>, cone: Partial<SleeveShape>): SleeveShape[] => [
       { ...cone, length: s, outerDiameter: dc.n, innerDiameter: dc.v, outerDiameterStart: d.n, innerDiameterStart: d.v },
       { ...place(ringOffset(s)), length: ring, outerDiameter: d.n + ring, innerDiameter: d.v + RING_GAP },
       { ...place(s + w / 2), length: w, outerDiameter: d.n, innerDiameter: d.v, materials: thread },
@@ -96,7 +94,7 @@ export class SteelTeeGenerator implements ModelGenerator<SteelTeeParams> {
     ];
 
     const merger = new MaterialGroupMerger();
-    for (const sleeve of sleeves) merger.add(...this.sleeves.build(sleeve));
+    for (const sleeve of sleeves) merger.add(...this.sleeves.build({ material: 'metal', ...sleeve }));
 
     // Торцы — концы резьбы; глубина — резьба (у наружной — без кольца у её начала).
     // В gl2 точки стояли в центрах резьбы. ID — по стороне выхода.
@@ -106,13 +104,12 @@ export class SteelTeeGenerator implements ModelGenerator<SteelTeeParams> {
     const { left, top, right } = ConnectorFrame;
     return MeshModel.create({
       title: n1 === n2 && n1 === n3 ? `Тройник ${n1}` : `Тройник ${n1}x${n2}x${n3}`,
-      geometry: merger.merge(),
-      materials: [this.materials.get('metal'), this.materials.get('thread')],
+      ...merger.merge(),
       connectors: [
         { id: 'left', position: ConnectorFrame.point(left, params.m1 / 2), ...left, nominal: params.r1, ...common },
         { id: 'top', position: ConnectorFrame.point(top, params.m2), ...top, nominal: params.r2, ...common },
         { id: 'right', position: ConnectorFrame.point(right, params.m1 / 2), ...right, nominal: params.r3, ...common },
       ],
-    });
+    }, this.materials);
   }
 }

@@ -1,4 +1,3 @@
-import { Box3, Group, Mesh } from 'three';
 import type { Connector, GeneratedModel, ModelGenerator, ParamSpec, ValidationError } from '../contracts';
 import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
@@ -7,6 +6,7 @@ import { SphereGeometryBuilder } from '../geometry/SphereGeometryBuilder';
 import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { PpPipeSizes } from '../sizes/PpPipeSizes';
+import { MeshModel } from './MeshModel';
 
 /** Параметры в формате cdm из gl2. */
 export interface PpElbowParams {
@@ -61,23 +61,15 @@ export class PpElbowGenerator implements ModelGenerator<PpElbowParams> {
     // В gl2 плечо и раструб — две втулки одного диаметра; разбиение сохранено.
     const merger = new MaterialGroupMerger();
     merger.add(
-      ...this.sleeves.build({ ...pipe, length: x2, center: { x: x2 / 2, y: 0, z: 0 } }),
-      ...this.sleeves.build({ ...pipe, length: x1, center: { x: x2 + x1 / 2, y: 0, z: 0 } }),
-      ...this.sleeves.build({ ...pipe, length: x2, rotation: vertical, center: { x: 0, y: x2 / 2, z: 0 } }),
-      ...this.sleeves.build({ ...pipe, length: x1, rotation: vertical, center: { x: 0, y: x2 + x1 / 2, z: 0 } }),
-      this.spheres.build({ ...quarter, radius: d.n / 2 }),
-      this.spheres.build({ ...quarter, radius: d.v / 2 }),
+      ...this.sleeves.build({ material: 'plastic', ...pipe, length: x2, center: { x: x2 / 2, y: 0, z: 0 } }),
+      ...this.sleeves.build({ material: 'plastic', ...pipe, length: x1, center: { x: x2 + x1 / 2, y: 0, z: 0 } }),
+      ...this.sleeves.build({ material: 'plastic', ...pipe, length: x2, rotation: vertical, center: { x: 0, y: x2 / 2, z: 0 } }),
+      ...this.sleeves.build({ material: 'plastic', ...pipe, length: x1, rotation: vertical, center: { x: 0, y: x2 + x1 / 2, z: 0 } }),
+      this.spheres.build({ material: 'plastic', ...quarter, radius: d.n / 2 }),
+      this.spheres.build({ material: 'plastic', ...quarter, radius: d.v / 2 }),
     );
 
-    const geometry = merger.merge();
-    geometry.computeBoundingBox();
-    const bounds = new Box3().copy(geometry.boundingBox!);
-
-    const mesh = new Mesh(geometry, [this.materials.get('plastic')]);
-    const root = new Group();
     const title = `Угол ${params.r1}`;
-    root.name = title;
-    root.add(mesh);
 
     // Торец раструба — конец плеча m1, глубина — длина раструба x_1.
     // В gl2 точка разъёма стояла в центре раструба. ID — по стороне выхода.
@@ -87,18 +79,6 @@ export class PpElbowGenerator implements ModelGenerator<PpElbowParams> {
       { id: 'top', position: { x: 0, y: params.m1, z: 0 }, direction: { x: 0, y: 1, z: 0 }, up: { x: 1, y: 0, z: 0 }, ...common },
     ];
 
-    let disposed = false;
-    return {
-      root,
-      title,
-      connectors,
-      bounds,
-      warnings: [],
-      dispose: () => {
-        if (disposed) return;
-        disposed = true;
-        geometry.dispose();
-      },
-    };
+    return MeshModel.create({ title, ...merger.merge(), connectors }, this.materials);
   }
 }

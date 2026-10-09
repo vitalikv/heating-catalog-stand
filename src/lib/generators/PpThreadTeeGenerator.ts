@@ -8,7 +8,7 @@ import { PpPipeSizes } from '../sizes/PpPipeSizes';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import { ConnectorFrame } from './ConnectorFrame';
 import { MeshModel } from './MeshModel';
-import { PP_THREAD_MATERIALS, PpThreadInsert } from './PpThreadInsert';
+import { PpThreadInsert } from './PpThreadInsert';
 import type { PpThreadAdapterParams } from './PpThreadAdapterGenerator';
 
 /** Длина раструба и резьбы (x_1 в gl2), м. */
@@ -56,21 +56,23 @@ export class PpThreadTeeGenerator implements ModelGenerator<PpThreadAdapterParam
     const merger = new MaterialGroupMerger();
     merger.add(
       // Проход: два раструба и средняя часть
-      ...this.sleeves.build({ ...pipe, length: x1, center: { x: -(x2 + x1) / 2, y: 0, z: 0 } }),
-      ...this.sleeves.build({ ...pipe, length: x2 }),
-      ...this.sleeves.build({ ...pipe, length: x1, center: { x: (x2 + x1) / 2, y: 0, z: 0 } }),
+      ...this.sleeves.build({ material: 'plastic', ...pipe, length: x1, center: { x: -(x2 + x1) / 2, y: 0, z: 0 } }),
+      ...this.sleeves.build({ material: 'plastic', ...pipe, length: x2 }),
+      ...this.sleeves.build({ material: 'plastic', ...pipe, length: x1, center: { x: (x2 + x1) / 2, y: 0, z: 0 } }),
       // Отвод: труба, корпус вставки, резьбовая втулка
-      ...this.sleeves.build({ ...pipe, length: x3, center: { x: 0, y: x3 / 2, z: 0 }, rotation: { x: 0, y: 0, z: -Math.PI / 2 } }),
+      ...this.sleeves.build({ material: 'plastic', ...pipe, length: x3, center: { x: 0, y: x3 / 2, z: 0 }, rotation: { x: 0, y: 0, z: -Math.PI / 2 } }),
       ...this.sleeves.build({
+        material: 'plastic',
         length: x1,
         outerDiameter: insert.body.n,
         innerDiameter: insert.body.v,
         outerSegments: 12,
         rotation: up,
         center: { x: 0, y: bodyCenter, z: 0 },
-        materials: { outer: PP_THREAD_MATERIALS.plasticFlat },
+        materials: { outer: 'plasticFlat' },
       }),
       ...this.sleeves.build({
+        material: 'metal',
         length: x1,
         outerDiameter: insert.thread.n,
         innerDiameter: insert.thread.v,
@@ -86,8 +88,7 @@ export class PpThreadTeeGenerator implements ModelGenerator<PpThreadAdapterParam
     const { left, top, right } = ConnectorFrame;
     return MeshModel.create({
       title: `Тройник ${params.r1}x${params.r2}${insert.suffix}x${params.r1}`,
-      geometry: merger.merge(),
-      materials: [this.materials.get('plastic'), this.materials.get('plasticFlat'), this.materials.get('metal'), this.materials.get('thread')],
+      ...merger.merge(),
       connectors: [
         { id: 'left', position: ConnectorFrame.point(left, m2), ...left, ...socket },
         {
@@ -101,6 +102,6 @@ export class PpThreadTeeGenerator implements ModelGenerator<PpThreadAdapterParam
         },
         { id: 'right', position: ConnectorFrame.point(right, m2), ...right, ...socket },
       ],
-    });
+    }, this.materials);
   }
 }

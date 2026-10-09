@@ -4,11 +4,12 @@ import { ExtrudedShapeBuilder } from '../geometry/ExtrudedShapeBuilder';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import type { GeometryPart } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
+import type { SleeveShape } from '../geometry/SleeveGeometryBuilder';
 import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import type { PartDiameters } from '../sizes/ThreadSizes';
-import { BallValveParts, VALVE_BODY_STEP, VALVE_MATERIALS, VALVE_NUT_SCALE } from './BallValveParts';
+import { BallValveParts, VALVE_BODY_STEP, VALVE_NUT_SCALE } from './BallValveParts';
 import { ConnectorFrame } from './ConnectorFrame';
 import { MeshModel } from './MeshModel';
 
@@ -93,10 +94,9 @@ export class BallValveGenerator implements ModelGenerator<BallValveParams> {
     ];
     return MeshModel.create({
       title: `Шаровой кран ${params.r1}${variant.suffix}`,
-      geometry: merger.merge(),
-      materials: [this.materials.get('metal'), this.materials.get('thread'), this.materials.get('metalFlat'), this.materials.get('red')],
+      ...merger.merge(),
       connectors,
-    });
+    }, this.materials);
   }
 
   /** Диаметры корпуса: у крана н-н — по наружной резьбе, иначе по внутренней. */
@@ -111,22 +111,21 @@ export class BallValveGenerator implements ModelGenerator<BallValveParams> {
 
   /** Конец крана со стороны side (−1 — слева, 1 — справа); гайка — по диаметрам корпуса d. */
   private end(nominal: string, d: PartDiameters, gender: 'internal' | 'external', side: number, half: number): GeometryPart[] {
-    const { thread, metalFlat } = VALVE_MATERIALS;
     const x1 = BallValveParts.threadLength(d);
     const at = (x: number) => ({ x: side * x, y: 0, z: 0 });
-    const nut = { outerDiameter: d.n * VALVE_NUT_SCALE, innerDiameter: d.v + 0.001, outerSegments: 6, materials: { outer: metalFlat } };
+    const nut = { outerDiameter: d.n * VALVE_NUT_SCALE, innerDiameter: d.v + 0.001, outerSegments: 6, materials: { outer: 'metalFlat' } } satisfies Partial<SleeveShape>;
 
     if (gender === 'internal') {
       return [
-        ...this.sleeves.build({ ...nut, length: x1, center: at(half - x1 / 2) }),
-        ...this.sleeves.build({ length: x1, outerDiameter: d.n, innerDiameter: d.v, center: at(half - x1 / 2), materials: { inner: thread } }),
+        ...this.sleeves.build({ material: 'metal', ...nut, length: x1, center: at(half - x1 / 2) }),
+        ...this.sleeves.build({ material: 'metal', length: x1, outerDiameter: d.n, innerDiameter: d.v, center: at(half - x1 / 2), materials: { inner: 'thread' } }),
       ];
     }
     const x2 = 0.01 * d.n * 20;
     const external = ThreadSizes.diameters(nominal, 'external')!;
     return [
-      ...this.sleeves.build({ length: x1, outerDiameter: external.n, innerDiameter: external.v, center: at(half - x1 / 2), materials: { outer: thread } }),
-      ...this.sleeves.build({ ...nut, length: x2, center: at(half - x1 - x2 / 2) }),
+      ...this.sleeves.build({ material: 'metal', length: x1, outerDiameter: external.n, innerDiameter: external.v, center: at(half - x1 / 2), materials: { outer: 'thread' } }),
+      ...this.sleeves.build({ material: 'metal', ...nut, length: x2, center: at(half - x1 - x2 / 2) }),
     ];
   }
 }

@@ -1,4 +1,3 @@
-import { Box3, Group, Mesh } from 'three';
 import type { Connector, GeneratedModel, ModelGenerator, ParamSpec, ValidationError } from '../contracts';
 import { GeneratorParamsError } from '../GeneratorParamsError';
 import { ExtrudedShapeBuilder } from '../geometry/ExtrudedShapeBuilder';
@@ -7,6 +6,7 @@ import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
 import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
+import { MeshModel } from './MeshModel';
 
 /** prh — переходник на трубную резьбу, zgl — заглушка, vsd — воздухоотводчик. */
 export type RadiatorPlugType = 'prh' | 'zgl' | 'vsd';
@@ -27,12 +27,6 @@ const COLLAR = 0.003;
 const HEX_SEGMENTS = 6;
 /** Воздухоотводчик: диск и «бабочка», м. */
 const VENT = { disk: 0.001, diameter: 0.02, height: 0.016, width: 0.007, thickness: 0.004 };
-
-/** Индексы материалов меша. */
-const PLASTIC = 0;
-const THREAD = 1;
-const PLASTIC_FLAT = 2;
-const METAL = 3;
 
 const TITLES: Record<RadiatorPlugType, string> = {
   prh: 'перех.радиаторный',
@@ -83,34 +77,35 @@ export class RadiatorPlugGenerator implements ModelGenerator<RadiatorPlugParams>
     merger.add(
       // Резьба в радиатор (наружная)
       ...this.sleeves.build({
+        material: 'plastic',
         length: RADIATOR_THREAD,
         outerDiameter: d1.n,
         innerDiameter: d1.v,
         center: at(-(COLLAR / 2 + RADIATOR_THREAD / 2)),
-        materials: { outer: THREAD, inner: PLASTIC, start: PLASTIC, end: PLASTIC },
+        materials: { outer: 'thread' },
       }),
       // Буртик; у заглушки и воздухоотводчика сплошной
-      ...this.sleeves.build({ length: COLLAR, outerDiameter: d1.n + 0.003, innerDiameter: d2.v, materials: { outer: PLASTIC } }),
+      ...this.sleeves.build({ material: 'plastic', length: COLLAR, outerDiameter: d1.n + 0.003, innerDiameter: d2.v }),
       // Гайка-шестигранник; у заглушки и воздухоотводчика сплошная
       ...this.sleeves.build({
+        material: 'plastic',
         length: NUT,
         outerDiameter: d1.n,
         innerDiameter: d2.v ? d2.v + 0.001 : 0,
         outerSegments: HEX_SEGMENTS,
         center: at(nutX),
-        materials: { outer: PLASTIC_FLAT },
+        materials: { outer: 'plasticFlat' },
       }),
     );
 
     if (outlet) {
       // Внутренняя трубная резьба выхода внутри гайки
       merger.add(
-        ...this.sleeves.build({ length: NUT, outerDiameter: d2.n, innerDiameter: d2.v, center: at(nutX), materials: { inner: THREAD } }),
+        ...this.sleeves.build({ material: 'plastic', length: NUT, outerDiameter: d2.n, innerDiameter: d2.v, center: at(nutX), materials: { inner: 'thread' } }),
       );
     }
 
     if (params.type === 'vsd') {
-      const metal = { outer: METAL, inner: METAL, start: METAL, end: METAL };
       const p = (x: number, y: number) => ({ x, y });
       merger.add(
         ...this.sleeves.build({
@@ -118,32 +113,19 @@ export class RadiatorPlugGenerator implements ModelGenerator<RadiatorPlugParams>
           outerDiameter: VENT.diameter,
           innerDiameter: 0,
           center: at(COLLAR / 2 + NUT + VENT.disk / 2),
-          materials: metal,
+          material: 'metal',
         }),
         this.shapes.build({
           points: [p(0, -VENT.height / 2), p(0, VENT.height / 2), p(VENT.width, VENT.height / 2), p(VENT.width / 2, 0), p(VENT.width, -VENT.height / 2)],
           depth: VENT.thickness,
           position: { x: COLLAR / 2 + NUT + VENT.disk, y: 0, z: -VENT.thickness / 2 },
-          // В gl2 бабочка сливается со смещением индекса 0 и получает white_1, а не металл.
-          materialIndex: PLASTIC,
+          // В gl2 бабочка получает white_1 (сливается со смещением индекса 0), а не металл, как диск.
+          material: 'plastic',
         }),
       );
     }
 
-    const geometry = merger.merge();
-    geometry.computeBoundingBox();
-    const bounds = new Box3().copy(geometry.boundingBox!);
-
-    const mesh = new Mesh(geometry, [
-      this.materials.get('plastic'),
-      this.materials.get('thread'),
-      this.materials.get('plasticFlat'),
-      this.materials.get('metal'),
-    ]);
-    const root = new Group();
     const title = outlet ? `${TITLES.prh} ${outlet}` : TITLES[params.type];
-    root.name = title;
-    root.add(mesh);
 
     // Торцы — конец резьбы в радиатор и торец гайки выхода; глубина — длина резьбы.
     // В gl2 точки стояли в центрах резьбовых участков.
@@ -172,18 +154,6 @@ export class RadiatorPlugGenerator implements ModelGenerator<RadiatorPlugParams>
       });
     }
 
-    let disposed = false;
-    return {
-      root,
-      title,
-      connectors,
-      bounds,
-      warnings: [],
-      dispose: () => {
-        if (disposed) return;
-        disposed = true;
-        geometry.dispose();
-      },
-    };
+    return MeshModel.create({ title, ...merger.merge(), connectors }, this.materials);
   }
 }

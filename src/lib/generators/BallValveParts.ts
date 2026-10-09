@@ -4,9 +4,6 @@ import type { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
 import type { PartDiameters } from '../sizes/ThreadSizes';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 
-/** Индексы материалов кранов: metal_1, rezba_1, metal_1_edge, red_1 в gl2. */
-export const VALVE_MATERIALS = { metal: 0, thread: 1, metalFlat: 2, red: 3 } as const;
-
 /** Длина конуса корпуса справа от оси (x_1R в gl2), м. */
 export const VALVE_BODY_STEP = 0.002;
 /** Толщина ручки-бабочки (w1 в gl2), м. */
@@ -55,22 +52,20 @@ export class BallValveParts {
     const narrow = { outerDiameter: d.n + 0.01, innerDiameter: d.v };
     const wide = { outerDiameter: d.n + 0.015, innerDiameter: d.v };
     return [
-      ...this.sleeves.build({ ...narrow, length: quarter, center: at(-(quarter + quarter / 2)) }),
-      ...this.sleeves.build({ ...narrow, length: quarter, center: at(-quarter / 2) }),
-      ...this.sleeves.build({ ...wide, length: VALVE_BODY_STEP, outerDiameterStart: d.n + 0.01, innerDiameterStart: d.v, center: at(VALVE_BODY_STEP / 2) }),
-      ...this.sleeves.build({ ...wide, length: right, center: at(VALVE_BODY_STEP + right / 2) }),
+      ...this.sleeves.build({ material: 'metal', ...narrow, length: quarter, center: at(-(quarter + quarter / 2)) }),
+      ...this.sleeves.build({ material: 'metal', ...narrow, length: quarter, center: at(-quarter / 2) }),
+      ...this.sleeves.build({ material: 'metal', ...wide, length: VALVE_BODY_STEP, outerDiameterStart: d.n + 0.01, innerDiameterStart: d.v, center: at(VALVE_BODY_STEP / 2) }),
+      ...this.sleeves.build({ material: 'metal', ...wide, length: right, center: at(VALVE_BODY_STEP + right / 2) }),
     ];
   }
 
   /** Шток над корпусом и ручка-бабочка длиной handleLength (t1 в gl2). */
   stemAndHandle(d: PartDiameters, handleLength: number): GeometryPart[] {
-    const { red } = VALVE_MATERIALS;
     const h1 = BallValveParts.stemHeight(d);
     const base = d.v / 2;
     const up = { x: 0, y: 0, z: -Math.PI / 2 };
     const down = { x: 0, y: 0, z: Math.PI / 2 };
     const at = (y: number) => ({ x: 0, y, z: 0 });
-    const all = { outer: red, inner: red, start: red, end: red };
     const handleY = base + h1 - 0.01 - 0.006 / 2;
 
     // Бабочка: контур в долях половины длины, как в shar_kran_babochka_1.
@@ -78,8 +73,8 @@ export class BallValveParts {
     const outline: [number, number][] = [[0, 0], [1, 0], [1, 0.6], [0.8, 0.6], [0, 0.3], [-0.8, 0.6], [-1, 0.6], [-1, 0]];
 
     return [
-      ...this.sleeves.build({ length: h1 / 2, outerDiameter: 0.015, innerDiameter: 0, rotation: up, center: at(base + h1 / 4) }),
-      ...this.sleeves.build({ length: h1 / 2, outerDiameter: 0.01, innerDiameter: 0, rotation: up, center: at(base + (3 * h1) / 4) }),
+      ...this.sleeves.build({ material: 'metal', length: h1 / 2, outerDiameter: 0.015, innerDiameter: 0, rotation: up, center: at(base + h1 / 4) }),
+      ...this.sleeves.build({ material: 'metal', length: h1 / 2, outerDiameter: 0.01, innerDiameter: 0, rotation: up, center: at(base + (3 * h1) / 4) }),
       ...this.sleeves.build({
         length: 0.01,
         outerDiameter: 0.013,
@@ -88,14 +83,14 @@ export class BallValveParts {
         innerDiameterStart: 0.019,
         rotation: down,
         center: at(base + h1 - 0.01 / 2),
-        materials: all,
+        material: 'red',
       }),
-      ...this.sleeves.build({ length: 0.006, outerDiameter: 0.021, innerDiameter: 0.019, rotation: down, center: at(handleY), materials: all }),
+      ...this.sleeves.build({ length: 0.006, outerDiameter: 0.021, innerDiameter: 0.019, rotation: down, center: at(handleY), material: 'red' }),
       this.shapes.build({
         points: outline.map(([x, y]) => ({ x: x * scale, y: y * scale })),
         depth: HANDLE_THICKNESS,
         position: { x: 0, y: handleY, z: -HANDLE_THICKNESS / 2 },
-        materialIndex: red,
+        material: 'red',
       }),
     ];
   }
@@ -105,7 +100,6 @@ export class BallValveParts {
    * на патрубке с наружной резьбой pipeNominal длиной length (m в gl2). Вызывать для известных номиналов.
    */
   union(nutNominal: string, pipeNominal: string, length: number, offset: number): UnionResult {
-    const { thread, metalFlat } = VALVE_MATERIALS;
     const d1 = ThreadSizes.diameters(nutNominal, 'internal')!;
     const d2 = ThreadSizes.diameters(pipeNominal, 'external')!;
     const x1 = 0.02 * d1.n * 20;
@@ -118,12 +112,12 @@ export class BallValveParts {
     const at = (x: number) => ({ x: offset + x, y: 0, z: 0 });
 
     const parts = [
-      ...this.sleeves.build({ ...nut, length: x1, innerDiameter: d1.v + 0.001, center: at(x1 / 2), materials: { outer: metalFlat, inner: thread } }),
-      ...this.sleeves.build({ ...nut, length: UNION_RING, innerDiameter: d2.n + 0.001, center: at(x1 + UNION_RING / 2), materials: { outer: metalFlat } }),
-      ...this.sleeves.build({ length: UNION_RING, outerDiameter: d1.v, innerDiameter: d2.v - 0.001, center: at(x6 + UNION_RING / 2) }),
-      ...this.sleeves.build({ ...pipe, length: x3R, center: at(x6 + UNION_RING + x3R / 2) }),
-      ...this.sleeves.build({ ...pipe, length: x5 / 2, center: at(x6 + UNION_RING + x3R + x5 / 4), materials: { outer: thread } }),
-      ...this.sleeves.build({ ...pipe, length: x2, center: at(x6 + UNION_RING + x3R + x5 / 2 + x2 / 2), materials: { outer: thread } }),
+      ...this.sleeves.build({ material: 'metal', ...nut, length: x1, innerDiameter: d1.v + 0.001, center: at(x1 / 2), materials: { outer: 'metalFlat', inner: 'thread' } }),
+      ...this.sleeves.build({ material: 'metal', ...nut, length: UNION_RING, innerDiameter: d2.n + 0.001, center: at(x1 + UNION_RING / 2), materials: { outer: 'metalFlat' } }),
+      ...this.sleeves.build({ material: 'metal', length: UNION_RING, outerDiameter: d1.v, innerDiameter: d2.v - 0.001, center: at(x6 + UNION_RING / 2) }),
+      ...this.sleeves.build({ material: 'metal', ...pipe, length: x3R, center: at(x6 + UNION_RING + x3R / 2) }),
+      ...this.sleeves.build({ material: 'metal', ...pipe, length: x5 / 2, center: at(x6 + UNION_RING + x3R + x5 / 4), materials: { outer: 'thread' } }),
+      ...this.sleeves.build({ material: 'metal', ...pipe, length: x2, center: at(x6 + UNION_RING + x3R + x5 / 2 + x2 / 2), materials: { outer: 'thread' } }),
     ];
     return { parts, end: offset + x6 + UNION_RING + x3R + x5 / 2 + x2, threadLength: x5 / 2 + x2 };
   }

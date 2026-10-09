@@ -68,11 +68,11 @@ export class PipeGenerator implements ModelGenerator<PipeParams> {
       // Название как в gl2 ('труба 20 (1м)', длина до 0,01 м) с типом трубы.
       title: `Труба ${TYPE_LABELS[params.type]} ${nominal} (${Math.round(params.length * 100) / 100}м)`,
       geometry,
-      materials: [this.materials.get('pipe')],
+      materials: ['pipe'],
       connectors: [
         { id: 'start', position: { x: -half, y: 0, z: 0 }, ...ConnectorFrame.left, ...common },
         { id: 'end', position: { x: half, y: 0, z: 0 }, ...ConnectorFrame.right, ...common },
       ],
-    });
+    }, this.materials);
   }
 }

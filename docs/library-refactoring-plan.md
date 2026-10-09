@@ -300,8 +300,15 @@ registry.get(id: string): ModelGenerator<unknown> | undefined;   // для да�
 
 Два подшага, каждый с полной проверкой:
 
-- **2a.** `GeometryPart.material`, `SleeveOptions` с ключами, `MaterialGroupMerger` → `{ geometry, materials }`;
-  `MeshModel` пока сам превращает ключи в материалы, `GeneratedModel` не меняется.
+- **2a — сделано.** `MaterialKey` перенесён в `contracts.ts`; `GeometryPart.material`; у `SleeveOptions`,
+  `SphereOptions`, `ExtrudedShapeOptions` обязательное поле `material` (у втулки `materials` — переопределение
+  частей), `SleeveShape` — втулка без материала для заготовок; `MaterialGroupMerger.merge()` →
+  `{ geometry, materials }`, группы в порядке первого появления ключа. `MeshModel.create(options, library)`
+  превращает ключи в материалы. Константы индексов (`THREAD`, `VALVE_MATERIALS`, `MP_MATERIALS`,
+  `PP_THREAD_MATERIALS`, `COLLECTOR_MATERIALS`, `MpPressEnd.meshMaterials`) удалены.
+  Попутно на `MeshModel` переведены `SteelCoupling`, `SteelNipple`, `PpElbow`, `RadiatorPlug` (п. 5);
+  `AluminiumRadiator` остаётся из нескольких мешей с общей геометрией. Тест `materialGroupMerger.test.ts`;
+  тесты групп сверяют материалы по ключам.
 - **2b.** `GeneratedModel` по п. 4, `createModelObject`, `bounds` — простые данные.
 - Генераторы без `MaterialLibrary`; `GeneratorRegistry` без аргументов.
 - Стенд (`main.ts`, `Assembly.ts`, `ModelInspector.ts`) — через `createModelObject`.

@@ -1,23 +1,8 @@
 import { Color, DoubleSide, MathUtils, MeshPhongMaterial, RepeatWrapping, SRGBColorSpace } from 'three';
 import type { Material, Texture } from 'three';
+import type { MaterialKey } from '../contracts';
 
-export type MaterialKey =
-  | 'metal'
-  | 'metalFlat'
-  | 'thread'
-  | 'plastic'
-  | 'plasticFlat'
-  | 'plasticGrey'
-  | 'bronze'
-  | 'bronzeFlat'
-  | 'bronzeThread'
-  | 'red'
-  | 'blue'
-  | 'pipe'
-  | 'redFlat'
-  | 'black'
-  | 'blackFlat'
-  | 'manometer';
+export type { MaterialKey };
 
 // Источник: gl2/sceneParams.js. lightMap_1 не переносится.
 // metal_1, rezba_1, bronz_1 и rezba_2: блик как у металла.

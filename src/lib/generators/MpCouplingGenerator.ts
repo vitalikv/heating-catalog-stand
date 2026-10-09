@@ -59,12 +59,11 @@ export class MpCouplingGenerator implements ModelGenerator<MpCouplingParams> {
     const { left, right } = ConnectorFrame;
     return MeshModel.create({
       title: params.r1 === params.r3 ? `Соединитель ${params.r1}` : `Соединитель ${params.r1}x${params.r3}`,
-      geometry: merger.merge(),
-      materials: MpPressEnd.meshMaterials(this.materials),
+      ...merger.merge(),
       connectors: [
         { id: 'left', position: ConnectorFrame.point(left, params.m1 / 2), ...left, depth: MpPressEnd.pressLength(d1), nominal: params.r1, ...common },
         { id: 'right', position: ConnectorFrame.point(right, params.m1 / 2), ...right, depth: MpPressEnd.pressLength(d3), nominal: params.r3, ...common },
       ],
-    });
+    }, this.materials);
   }
 }

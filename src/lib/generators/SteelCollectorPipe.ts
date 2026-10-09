@@ -13,9 +13,6 @@ export const COLLECTOR_RIGHT_RING = 0.0033;
 /** Зазор колец по внутреннему диаметру (kf в gl2), м. */
 export const COLLECTOR_RING_GAP = 0.0001;
 
-/** Индексы материалов, общие для коллекторов. */
-export const COLLECTOR_MATERIALS = { metal: 0, thread: 1, metalFlat: 2 } as const;
-
 /**
  * Горизонтальная труба стального коллектора (crTubeGorz в st_collector_1 и st_collector_2):
  * слева внутренняя резьба r1 под шестигранной гайкой, справа наружная резьба r1.
@@ -25,33 +22,32 @@ export class SteelCollectorPipe {
 
   /** d1 — левая (внутренняя), d3 — правая (наружная) резьба, dc — наибольший из диаметров коллектора. */
   build(m1: number, d1: PartDiameters, d3: PartDiameters, dc: PartDiameters): GeometryPart[] {
-    const { thread, metalFlat } = COLLECTOR_MATERIALS;
     const w = COLLECTOR_THREAD;
     const s1 = m1 / 2 - w;
     const at = (x: number) => ({ x, y: 0, z: 0 });
-    const flat = { outer: metalFlat, inner: metalFlat, start: metalFlat, end: metalFlat };
 
     return [
       // Слева: резьба, гайка поверх неё, конус к наибольшему диаметру
-      ...this.sleeves.build({ length: w, outerDiameter: d1.n, innerDiameter: d1.v, center: at(-(s1 + w / 2)), materials: { inner: thread } }),
+      ...this.sleeves.build({ length: w, outerDiameter: d1.n, innerDiameter: d1.v, center: at(-(s1 + w / 2)), material: 'metal', materials: { inner: 'thread' } }),
       ...this.sleeves.build({
         length: w,
         outerDiameter: d1.n + 0.236 * d1.n,
         innerDiameter: d1.v + COLLECTOR_RING_GAP,
         outerSegments: 6,
         center: at(-(s1 + w / 2)),
-        materials: flat,
+        material: 'metalFlat',
       }),
-      ...this.sleeves.build({ length: s1, outerDiameter: dc.n, innerDiameter: dc.v, outerDiameterStart: d1.n, innerDiameterStart: d1.v, center: at(-s1 / 2) }),
+      ...this.sleeves.build({ length: s1, outerDiameter: dc.n, innerDiameter: dc.v, outerDiameterStart: d1.n, innerDiameterStart: d1.v, center: at(-s1 / 2), material: 'metal' }),
       // Справа: труба, кольцо, наружная резьба
-      ...this.sleeves.build({ length: s1, outerDiameter: dc.n, innerDiameter: dc.v, center: at(s1 / 2), rotation: { x: 0, y: Math.PI, z: 0 } }),
+      ...this.sleeves.build({ length: s1, outerDiameter: dc.n, innerDiameter: dc.v, center: at(s1 / 2), rotation: { x: 0, y: Math.PI, z: 0 }, material: 'metal' }),
       ...this.sleeves.build({
         length: COLLECTOR_RIGHT_RING,
         outerDiameter: dc.n + d1.n / 10,
         innerDiameter: d3.v + COLLECTOR_RING_GAP,
         center: at(s1 + COLLECTOR_RIGHT_RING / 2),
+        material: 'metal',
       }),
-      ...this.sleeves.build({ length: w, outerDiameter: d3.n, innerDiameter: d3.v, center: at(s1 + w / 2), materials: { outer: thread } }),
+      ...this.sleeves.build({ length: w, outerDiameter: d3.n, innerDiameter: d3.v, center: at(s1 + w / 2), material: 'metal', materials: { outer: 'thread' } }),
     ];
   }
 

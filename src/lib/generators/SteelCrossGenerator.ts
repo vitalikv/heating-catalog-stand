@@ -21,8 +21,6 @@ const THREAD_LENGTH = 0.015;
 /** Зазор кольца по внутреннему диаметру (kf в gl2), м. */
 const RING_GAP = 0.0001;
 
-const THREAD = 1;
-
 /** Стальная крестовина с внутренней резьбой (перенос st_krestovina_1): выходы по ±X и ±Y. */
 export class SteelCrossGenerator implements ModelGenerator<SteelCrossParams> {
   readonly id = 'st_krestovina_1';
@@ -62,15 +60,15 @@ export class SteelCrossGenerator implements ModelGenerator<SteelCrossParams> {
       const at = (offset: number) => (vertical ? { x: 0, y: offset, z: 0 } : { x: offset, y: 0, z: 0 });
       const rotation = vertical ? { x: 0, y: 0, z: Math.PI / 2 } : undefined;
       merger.add(
-        ...this.sleeves.build({ ...pipe, rotation, length: x1, center: at(-threadOffset), materials: { inner: THREAD } }),
-        ...this.sleeves.build({ ...pipe, rotation, length: x2 }),
-        ...this.sleeves.build({ ...pipe, rotation, length: x1, center: at(threadOffset), materials: { inner: THREAD } }),
+        ...this.sleeves.build({ material: 'metal', ...pipe, rotation, length: x1, center: at(-threadOffset), materials: { inner: 'thread' } }),
+        ...this.sleeves.build({ material: 'metal', ...pipe, rotation, length: x2 }),
+        ...this.sleeves.build({ material: 'metal', ...pipe, rotation, length: x1, center: at(threadOffset), materials: { inner: 'thread' } }),
       );
     }
     for (const vertical of [false, true]) {
       const rotation = vertical ? { x: 0, y: 0, z: Math.PI / 2 } : undefined;
       for (const offset of [-ringOffset, ringOffset]) {
-        merger.add(...this.sleeves.build({ ...ringSize, rotation, center: vertical ? { x: 0, y: offset, z: 0 } : { x: offset, y: 0, z: 0 } }));
+        merger.add(...this.sleeves.build({ material: 'metal', ...ringSize, rotation, center: vertical ? { x: 0, y: offset, z: 0 } : { x: offset, y: 0, z: 0 } }));
       }
     }
 
@@ -80,14 +78,13 @@ export class SteelCrossGenerator implements ModelGenerator<SteelCrossParams> {
     const { left, right, bottom, top } = ConnectorFrame;
     return MeshModel.create({
       title: `Крестовина ${params.r1}`,
-      geometry: merger.merge(),
-      materials: [this.materials.get('metal'), this.materials.get('thread')],
+      ...merger.merge(),
       connectors: [
         { id: 'left', position: ConnectorFrame.point(left, half), ...left, ...common },
         { id: 'right', position: ConnectorFrame.point(right, half), ...right, ...common },
         { id: 'bottom', position: ConnectorFrame.point(bottom, half), ...bottom, ...common },
         { id: 'top', position: ConnectorFrame.point(top, half), ...top, ...common },
       ],
-    });
+    }, this.materials);
   }
 }

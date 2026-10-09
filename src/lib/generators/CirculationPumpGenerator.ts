@@ -32,12 +32,6 @@ const SHAPE_SCALE = 0.091;
 const BACK_SHAPE: readonly [number, number][] = [[0.5, -0.35], [0.5, 0.35], [0.35, 0.5], [-0.35, 0.5], [-0.5, 0.35], [-0.5, -0.35], [-0.35, -0.5], [0.35, -0.5]];
 const TOP_SHAPE: readonly [number, number][] = [[0.4, -0.05], [0.4, 0.05], [0.35, 0.1], [-0.35, 0.1], [-0.4, 0.05], [-0.4, -0.05], [-0.15, -0.1], [0.15, -0.1]];
 
-/** Индексы материалов меша. */
-const RED = 0;
-const BLACK = 1;
-const METAL = 2;
-const THREAD = 3;
-
 /** Циркуляционный насос: мотор вдоль Z, корпус с двумя патрубками вдоль X (перенос cr_zr_nasos_1). */
 export class CirculationPumpGenerator implements ModelGenerator<CirculationPumpParams> {
   readonly id = 'cr_zr_nasos_1';
@@ -62,22 +56,21 @@ export class CirculationPumpGenerator implements ModelGenerator<CirculationPumpP
     const coverZ = (MOTOR_LENGTH + COVER) / 2;
     // Ось корпуса — у задней стенки мотора.
     const bodyZ = -MOTOR_LENGTH / 2 - BACK_DEPTH + 0.005;
-    const all = (index: number) => ({ outer: index, inner: index, start: index, end: index });
     const contour = (points: readonly [number, number][]) => points.map(([x, y]) => ({ x: x * SHAPE_SCALE, y: y * SHAPE_SCALE }));
     const port = (x: number) =>
-      this.sleeves.build({ length: PORT, outerDiameter: d1.n, innerDiameter: BODY.inner, center: { x, y: 0, z: bodyZ }, materials: { outer: THREAD, inner: RED, start: RED, end: RED } });
+      this.sleeves.build({ material: 'red', length: PORT, outerDiameter: d1.n, innerDiameter: BODY.inner, center: { x, y: 0, z: bodyZ }, materials: { outer: 'thread' } });
 
     const merger = new MaterialGroupMerger();
     merger.add(
       // Мотор, чёрная крышка и металлический вал
-      ...this.sleeves.build({ length: MOTOR_LENGTH, outerDiameter: MOTOR_DIAMETER, innerDiameter: ALMOST_SOLID, rotation: alongZ }),
-      ...this.sleeves.build({ length: COVER, outerDiameter: 0.077, innerDiameter: 0.02, rotation: alongZ, center: { x: 0, y: 0, z: coverZ }, materials: all(BLACK) }),
-      ...this.sleeves.build({ length: COVER, outerDiameter: 0.02, innerDiameter: ALMOST_SOLID, rotation: alongZ, center: { x: 0, y: 0, z: coverZ - 0.001 }, materials: all(METAL) }),
+      ...this.sleeves.build({ material: 'red', length: MOTOR_LENGTH, outerDiameter: MOTOR_DIAMETER, innerDiameter: ALMOST_SOLID, rotation: alongZ }),
+      ...this.sleeves.build({ material: 'black', length: COVER, outerDiameter: 0.077, innerDiameter: 0.02, rotation: alongZ, center: { x: 0, y: 0, z: coverZ } }),
+      ...this.sleeves.build({ material: 'metal', length: COVER, outerDiameter: 0.02, innerDiameter: ALMOST_SOLID, rotation: alongZ, center: { x: 0, y: 0, z: coverZ - 0.001 } }),
       // Задняя коробка и клеммная коробка сверху
-      this.shapes.build({ points: contour(BACK_SHAPE), depth: BACK_DEPTH, position: { x: 0, y: 0, z: bodyZ }, materialIndex: RED }),
-      this.shapes.build({ points: contour(TOP_SHAPE), depth: MOTOR_LENGTH, position: { x: 0, y: MOTOR_LENGTH / 2 + 0.01, z: -MOTOR_LENGTH / 2 - 0.001 }, materialIndex: BLACK }),
+      this.shapes.build({ material: 'red', points: contour(BACK_SHAPE), depth: BACK_DEPTH, position: { x: 0, y: 0, z: bodyZ } }),
+      this.shapes.build({ material: 'black', points: contour(TOP_SHAPE), depth: MOTOR_LENGTH, position: { x: 0, y: MOTOR_LENGTH / 2 + 0.01, z: -MOTOR_LENGTH / 2 - 0.001 } }),
       // Корпус и патрубки
-      ...this.sleeves.build({ length: BODY.length, outerDiameter: BODY.outer, innerDiameter: BODY.inner, center: { x: 0, y: 0, z: bodyZ } }),
+      ...this.sleeves.build({ material: 'red', length: BODY.length, outerDiameter: BODY.outer, innerDiameter: BODY.inner, center: { x: 0, y: 0, z: bodyZ } }),
       ...port(-BODY.length / 2),
       ...port(BODY.length / 2),
     );
@@ -87,12 +80,11 @@ export class CirculationPumpGenerator implements ModelGenerator<CirculationPumpP
     const common = { depth: PORT, nominal: params.r1, joint: 'thread', gender: 'external' } as const;
     return MeshModel.create({
       title: `цирк. насос ${params.r1}`,
-      geometry: merger.merge(),
-      materials: [this.materials.get('red'), this.materials.get('black'), this.materials.get('metal'), this.materials.get('thread')],
+      ...merger.merge(),
       connectors: [
         { id: 'left', position: { x: -face, y: 0, z: bodyZ }, ...ConnectorFrame.left, ...common },
         { id: 'right', position: { x: face, y: 0, z: bodyZ }, ...ConnectorFrame.right, ...common },
       ],
-    });
+    }, this.materials);
   }
 }
