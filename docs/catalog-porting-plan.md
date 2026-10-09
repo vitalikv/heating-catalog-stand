@@ -283,5 +283,5 @@ await fetch(`http://127.0.0.1:9223/json/close/${target.id}`); ws.close();
 
 ## 7. Открытые вопросы
 
-- **Интерфейс угла стыка на стенде** — сейчас угол задаётся в `stand/assemblies.ts`.
-  План работы — [joint-angle-ui-plan.md](joint-angle-ui-plan.md).
+Нет. Интерфейс угла стыка на стенде сделан 9 октября 2026
+([joint-angle-ui-plan.md](joint-angle-ui-plan.md)).

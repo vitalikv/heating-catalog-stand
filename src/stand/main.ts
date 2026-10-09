@@ -23,7 +23,7 @@ const inspectorOptions = ModelInspector.defaultOptions();
 const inspector = new ModelInspector(viewer.scene, inspectorOptions);
 
 let model: GeneratedModel | null = null;
-let assembly: { value: Assembly; inspectors: ModelInspector[] } | null = null;
+let assembly: { value: Assembly; label: string; inspectors: ModelInspector[]; joints: GUI } | null = null;
 let lastBuild: { generatorId: string; params: StandParams } | null = null;
 let textureWarning = '';
 
@@ -62,6 +62,7 @@ function clearModel(): void {
 function clearAssembly(): void {
   if (!assembly) return;
   for (const partInspector of assembly.inspectors) partInspector.dispose();
+  assembly.joints.destroy();
   assembly.value.dispose();
   assembly = null;
 }
@@ -129,19 +130,25 @@ function showAssembly(index: number): void {
     partInspector.attach(part, mated.get(name));
     return partInspector;
   });
-  assembly = { value, inspectors };
+  assembly = { value, label: definition.label, inspectors, joints: jointsFolder(value) };
 
   const framing = value.bounds();
   for (const partInspector of inspectors) framing.union(partInspector.framingBox());
   viewer.frame(framing);
+  showAssemblyInfo();
+}
 
-  const joints = value.joints.map(({ label, check }) =>
-    check.compatible ? `✓ ${label}: ввод ${(check.engagement * 1000).toFixed(1)} мм` : `✗ ${label}: ${check.message}`,
-  );
+function showAssemblyInfo(): void {
+  if (!assembly) return;
+  const { value, label } = assembly;
+  const joints = value.joints.map(({ label: joint, check, angle }) => {
+    const turn = angle !== 0 ? `, ${angle}°` : '';
+    return check.compatible ? `✓ ${joint}: ввод ${(check.engagement * 1000).toFixed(1)} мм${turn}` : `✗ ${joint}: ${check.message}${turn}`;
+  });
   const failed = value.errors.length > 0 || value.joints.some(({ check }) => !check.compatible);
   showInfo(
     [
-      definition.label,
+      label,
       ...value.parts.map(({ name, model: part }) => `• ${name}: ${part.title}`),
       ...joints,
       ...value.errors.map((error) => `Ошибка: ${error}`),
@@ -150,6 +157,30 @@ function showAssembly(index: number): void {
     ],
     failed,
   );
+}
+
+/** Папка «Стыки»: угол каждого стыка сборки; рамка камеры при повороте не меняется. */
+function jointsFolder(value: Assembly): GUI {
+  const folder = gui.addFolder('Стыки');
+  const angles = Object.fromEntries(value.joints.map(({ part, angle }) => [part, angle]));
+  for (const joint of value.joints) {
+    const controller = folder
+      .add(angles, joint.part, -180, 180, 15)
+      .name(joint.label)
+      .onChange((degrees: number) => {
+        value.setAngle(joint.part, degrees);
+        refreshInspectors();
+        showAssemblyInfo();
+      });
+    // Ползунок и стрелки идут шагом 15°, а введённое число не округляется (закрытое поле lil-gui).
+    (controller as unknown as { _stepExplicit: boolean })._stepExplicit = false;
+  }
+  const copy = () => {
+    const json = JSON.stringify(Object.fromEntries(value.joints.map(({ part, angle }) => [part, angle])), null, 2);
+    navigator.clipboard.writeText(json).catch(() => window.prompt('Углы стыков', json));
+  };
+  folder.add({ copy }, 'copy').name('Скопировать углы');
+  return folder;
 }
 
 function refreshInspectors(): void {

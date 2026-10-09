@@ -1,12 +1,25 @@
 import { Box3, Group, MathUtils } from 'three';
 import { ConnectorMating } from '../lib/index';
-import type { GeneratedModel, GeneratorRegistry, MatingCheck } from '../lib/index';
+import type { Connector, GeneratedModel, GeneratorRegistry, MatingCheck } from '../lib/index';
 import type { AssemblyDefinition } from './assemblies';
 
 export interface AssemblyJoint {
+  /** Имя присоединяемой детали. */
+  part: string;
   /** 'ниппель.left → переходник.outlet' */
   label: string;
   check: MatingCheck;
+  /** Угол стыка, градусы. */
+  angle: number;
+}
+
+/** Как поставлена деталь: к какому разъёму какой детали. */
+interface Placement {
+  model: GeneratedModel;
+  target: GeneratedModel;
+  fixed: Connector;
+  moving: Connector;
+  joint: AssemblyJoint;
 }
 
 export interface AssemblyPartModel {
@@ -25,6 +38,8 @@ export class Assembly {
   readonly joints: AssemblyJoint[] = [];
   /** Ошибки описания: неизвестный генератор, неверные параметры, нет разъёма. */
   readonly errors: string[] = [];
+  /** По порядку описания: детали ставятся после тех, к кому присоединены. */
+  private readonly placements: Placement[] = [];
 
   constructor(registry: GeneratorRegistry, definition: AssemblyDefinition) {
     this.root.name = definition.label;
@@ -55,13 +70,30 @@ export class Assembly {
         continue;
       }
 
-      target.model.root.updateMatrixWorld(true);
-      const matrix = ConnectorMating.place(fixed, target.model.root.matrixWorld, moving, MathUtils.degToRad(angle));
-      matrix.decompose(model.root.position, model.root.quaternion, model.root.scale);
-      model.root.updateMatrixWorld(true);
-
-      this.joints.push({ label: `${part.name}.${connector} → ${to}.${toConnector}`, check: ConnectorMating.check(fixed, moving) });
+      const joint = { part: part.name, label: `${part.name}.${connector} → ${to}.${toConnector}`, check: ConnectorMating.check(fixed, moving), angle };
+      this.joints.push(joint);
+      const placement = { model, target: target.model, fixed, moving, joint };
+      this.placements.push(placement);
+      Assembly.place(placement);
     }
+  }
+
+  /**
+   * Меняет угол стыка детали и переставляет её и все детали после неё по описанию
+   * (среди них — присоединённые к ней дальше по цепочке). Модели не перестраиваются.
+   */
+  setAngle(partName: string, degrees: number): void {
+    const start = this.placements.findIndex(({ joint }) => joint.part === partName);
+    if (start < 0) return;
+    this.placements[start].joint.angle = degrees;
+    for (const placement of this.placements.slice(start)) Assembly.place(placement);
+  }
+
+  private static place({ model, target, fixed, moving, joint }: Placement): void {
+    target.root.updateMatrixWorld(true);
+    const matrix = ConnectorMating.place(fixed, target.root.matrixWorld, moving, MathUtils.degToRad(joint.angle));
+    matrix.decompose(model.root.position, model.root.quaternion, model.root.scale);
+    model.root.updateMatrixWorld(true);
   }
 
   /** Габарит всей сборки в координатах сцены. */

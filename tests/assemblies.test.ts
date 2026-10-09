@@ -61,3 +61,55 @@ describe('доворот на угол стыка', () => {
     assembly.dispose();
   });
 });
+
+describe('Assembly.setAngle', () => {
+  const definition = STAND_ASSEMBLIES.find((assembly) => assembly.label.startsWith('Тройник'))!;
+  const worldConnector = (assembly: Assembly, part: string, id: string) => {
+    const model = assembly.parts.find(({ name }) => name === part)!.model;
+    const connector = model.connectors.find((c) => c.id === id)!;
+    return {
+      connector,
+      position: new Vector3().copy(connector.position).applyMatrix4(model.root.matrixWorld),
+      direction: new Vector3().copy(connector.direction).transformDirection(model.root.matrixWorld),
+      up: new Vector3().copy(connector.up).transformDirection(model.root.matrixWorld),
+    };
+  };
+
+  it('угол 0: второй выход угла смотрит вверх; 90°: вдоль Z', () => {
+    const assembly = new Assembly(registry, definition);
+    assembly.setAngle('угол', 0);
+    expect(worldConnector(assembly, 'угол', 'top').direction.y).toBeCloseTo(1, 9);
+    assembly.setAngle('угол', 90);
+    expect(Math.abs(worldConnector(assembly, 'угол', 'top').direction.z)).toBeCloseTo(1, 9);
+    expect(assembly.joints.find(({ part }) => part === 'угол')!.angle).toBe(90);
+    assembly.dispose();
+  });
+
+  it('поворот ниппеля: стыки сходятся, торцы на месте, угол повернулся вместе с ниппелем', () => {
+    const assembly = new Assembly(registry, definition);
+    const elbowBefore = worldConnector(assembly, 'угол', 'top').direction;
+    const valveBefore = assembly.parts.find(({ name }) => name === 'кран в-в')!.model.root.matrixWorld.clone();
+
+    assembly.setAngle('ниппель слева', 45);
+
+    const angles: Record<string, number> = { 'ниппель слева': 45, угол: 90 };
+    for (const part of definition.parts) {
+      if (!part.attach) continue;
+      const fixed = worldConnector(assembly, part.attach.to, part.attach.toConnector);
+      const moving = worldConnector(assembly, part.name, part.attach.connector);
+      expect(fixed.direction.dot(moving.direction), part.name).toBeCloseTo(-1, 9);
+      expect(fixed.up.dot(moving.up), part.name).toBeCloseTo(Math.cos(MathUtils.degToRad(angles[part.name] ?? part.attach.angle ?? 0)), 9);
+      const engagement = Math.min(fixed.connector.depth, moving.connector.depth);
+      const expected = fixed.position.clone().addScaledVector(fixed.direction, -engagement);
+      expect(moving.position.distanceTo(expected), part.name).toBeLessThan(1e-9);
+    }
+
+    // Ось стыка ниппеля — X: выход угла повернулся вокруг неё на 45°.
+    const elbowAfter = worldConnector(assembly, 'угол', 'top').direction;
+    expect(elbowAfter.x).toBeCloseTo(elbowBefore.x, 9);
+    expect(elbowAfter.angleTo(elbowBefore)).toBeCloseTo(Math.PI / 4, 9);
+    // Детали с другой стороны тройника не сдвинулись.
+    expect(assembly.parts.find(({ name }) => name === 'кран в-в')!.model.root.matrixWorld.equals(valveBefore)).toBe(true);
+    assembly.dispose();
+  });
+});
