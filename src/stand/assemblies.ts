@@ -206,6 +206,115 @@ export const STAND_ASSEMBLIES: AssemblyDefinition[] = [
     ],
   },
   {
+    label: 'Труба ПП: угол, труба, муфта',
+    parts: [
+      { name: 'угол', generatorId: 'pl_ugol_90_1', params: { r1: '20', m1: 0.026 } },
+      {
+        name: 'труба',
+        generatorId: 'createTubeWF_1',
+        params: { type: 'pp', ppSize: '20', length: 0.3 },
+        attach: { connector: 'start', to: 'угол', toConnector: 'right' },
+      },
+      {
+        name: 'муфта',
+        generatorId: 'pl_mufta_1',
+        params: { r1: '20', r2: '20', m1: 0.032 },
+        attach: { connector: 'left', to: 'труба', toConnector: 'end' },
+      },
+    ],
+  },
+  {
+    label: 'Труба МП: угол, труба, соединитель',
+    parts: [
+      { name: 'угол', generatorId: 'mpl_ugol_1', params: { r1: '16', m1: 0.044 } },
+      {
+        name: 'труба',
+        generatorId: 'createTubeWF_1',
+        params: { type: 'mp', mpSize: '16', length: 0.3 },
+        attach: { connector: 'start', to: 'угол', toConnector: 'right' },
+      },
+      {
+        name: 'соединитель',
+        generatorId: 'mpl_perehod_1',
+        params: { r1: '16', r3: '16', m1: 0.06 },
+        attach: { connector: 'left', to: 'труба', toConnector: 'end' },
+      },
+    ],
+  },
+  {
+    // Проверка стыков; перенос crSborka_zr_nasos_1 как сборки — позже (план переноса, п. 6).
+    label: 'Насос: гайки, полусгон',
+    parts: [
+      { name: 'насос', generatorId: 'cr_zr_nasos_1', params: { r1: '1 1/4' } },
+      {
+        name: 'гайка слева',
+        generatorId: 'cr_gaika_nasos_1',
+        params: { r1: '1 1/4', r2: '1' },
+        attach: { connector: 'pump', to: 'насос', toConnector: 'left' },
+      },
+      {
+        name: 'гайка справа',
+        generatorId: 'cr_gaika_nasos_1',
+        params: { r1: '1 1/4', r2: '1' },
+        attach: { connector: 'pump', to: 'насос', toConnector: 'right' },
+      },
+      {
+        name: 'полусгон',
+        generatorId: 'st_pol_sgon_1',
+        params: { r1: '1 1/4', r2: '1', m1: 0.052 },
+        attach: { connector: 'pipe', to: 'гайка справа', toConnector: 'pipe' },
+      },
+    ],
+  },
+  {
+    label: 'Котёл: фильтр, муфта, бак',
+    parts: [
+      { name: 'котёл', generatorId: 'cr_kotel_1', params: { size: { x: 0.4, y: 0.73, z: 0.3 }, r1: '3/4', type: 'bottom' } },
+      {
+        name: 'фильтр',
+        generatorId: 'filtr_kosoy_1',
+        params: { r1: '3/4', m1: 0.065 },
+        attach: { connector: 'left', to: 'котёл', toConnector: 'bottom-right' },
+      },
+      {
+        name: 'муфта',
+        generatorId: 'st_mufta_1',
+        params: { r1: '3/4', r2: '3/4', m1: 0.033 },
+        attach: { connector: 'left', to: 'котёл', toConnector: 'bottom-left' },
+      },
+      {
+        name: 'бак',
+        generatorId: 'cr_rash_bak_1',
+        params: { d: 0.245, h1: 0.25, r1: '3/4', name: '6л' },
+        attach: { connector: 'bottom', to: 'муфта', toConnector: 'right' },
+      },
+    ],
+  },
+  {
+    label: 'Группа безопасности на ниппеле',
+    parts: [
+      { name: 'ниппель', generatorId: 'st_nippel_1', params: { r1: '1', r2: '1', m1: 0.034 } },
+      {
+        name: 'группа',
+        generatorId: 'gr_bez_1',
+        params: { size: { x: 0.18, y: 0.05, z: 0.05 }, r1: '1' },
+        attach: { connector: 'bottom', to: 'ниппель', toConnector: 'right' },
+      },
+    ],
+  },
+  {
+    label: 'Ошибка: труба МП 20 в ПП-раструб 20',
+    parts: [
+      { name: 'муфта ПП', generatorId: 'pl_mufta_1', params: { r1: '20', r2: '20', m1: 0.032 } },
+      {
+        name: 'труба МП',
+        generatorId: 'createTubeWF_1',
+        params: { type: 'mp', mpSize: '20', length: 0.3 },
+        attach: { connector: 'start', to: 'муфта ПП', toConnector: 'right' },
+      },
+    ],
+  },
+  {
     label: 'Ошибка: ниппель 1 прямо в радиатор',
     parts: [
       { name: 'радиатор', generatorId: 'al_radiator_1', params: radiator(1, 0.2) },

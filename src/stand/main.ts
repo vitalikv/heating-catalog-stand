@@ -225,3 +225,8 @@ new TextureLoader()
     if (assembly) showAssembly(assemblyState.index);
     else if (lastBuild) rebuild(lastBuild.generatorId, lastBuild.params, false);
   });
+// Циферблат манометра группы безопасности; без текстуры материал просто белый.
+new TextureLoader()
+  .loadAsync(`${import.meta.env.BASE_URL}textures/manometr.png`)
+  .then((texture) => materials.setManometerTexture(texture))
+  .catch(() => console.warn('Текстура манометра не загружена: textures/manometr.png'));

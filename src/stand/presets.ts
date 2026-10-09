@@ -396,6 +396,42 @@ const ST_RADIATOR_LENGTHS = [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.2, 1.4, 1.6, 1
 
 const mm = (meters: number) => Math.round(meters * 10000) / 10;
 
+/** Наборы cr_gaika_nasos_1: [r1, r2]; m1 в start.js на геометрию не влияет. */
+const PUMP_NUTS: [string, string][] = [
+  ['1', '3/4'],
+  ['1 1/4', '3/4'],
+  ['1 1/4', '1'],
+  ['1 1/2', '1'],
+  ['1 1/2', '1 1/4'],
+  ['2', '1'],
+  ['2', '1 1/4'],
+  ['2', '1 1/2'],
+];
+
+/** Наборы filtr_kosoy_1: [r1, m1]. */
+const STRAINERS: [string, number][] = [
+  ['1/2', 0.053],
+  ['3/4', 0.065],
+  ['1', 0.077],
+  ['1 1/4', 0.091],
+  ['1 1/2', 0.106],
+  ['2', 0.126],
+];
+
+/** Наборы cr_rash_bak_1: [d, h1, name]. */
+const EXPANSION_TANKS: [number, number, string][] = [
+  [0.245, 0.25, '6л'],
+  [0.245, 0.28, '8л'],
+  [0.245, 0.33, '10л'],
+  [0.285, 0.325, '12л'],
+  [0.285, 0.395, '18л'],
+  [0.325, 0.42, '24л'],
+];
+
+/** Номиналы труб: sizeTubePP и sizeTubeMP из gl2/createObj/calculation_2.js. */
+const PP_PIPES = ['20', '25', '32', '40', '50', '63', '75', '90', '110'];
+const MP_PIPES = ['16', '20', '26', '32', '40'];
+
 export const STAND_PRESETS: GeneratorPresets[] = [
   {
     generatorId: 'st_mufta_1',
@@ -575,5 +611,43 @@ export const STAND_PRESETS: GeneratorPresets[] = [
     presets: ST_RADIATOR_HEIGHTS.flatMap((y) =>
       ST_RADIATOR_LENGTHS.map((x) => ({ label: `h${mm(y)}, ${mm(x)} мм`, params: { size: { x, y, z: 0.07 }, r1: '1/2' } })),
     ),
+  },
+  {
+    // В gl2 — отрезки 1 м диаметром 16–50 мм; здесь — все номиналы sizeTubePP и sizeTubeMP.
+    generatorId: 'createTubeWF_1',
+    presets: [
+      ...PP_PIPES.map((ppSize) => ({ label: `ПП ${ppSize}, 1 м`, params: { type: 'pp', ppSize, length: 1 } })),
+      ...MP_PIPES.map((mpSize) => ({ label: `МП ${mpSize}, 1 м`, params: { type: 'mp', mpSize, length: 1 } })),
+      { label: 'ПП 20, 250 мм', params: { type: 'pp', ppSize: '20', length: 0.25 } },
+      { label: 'МП 16, 250 мм', params: { type: 'mp', mpSize: '16', length: 0.25 } },
+    ],
+  },
+  {
+    // Блоки насоса и гайки в start.js выключены (1==2), наборы каталожные — как у коллекторов.
+    generatorId: 'cr_zr_nasos_1',
+    presets: ['1', '1 1/4', '1 1/2', '2'].map((r1) => ({ label: r1, params: { r1 } })),
+  },
+  {
+    generatorId: 'cr_gaika_nasos_1',
+    presets: PUMP_NUTS.map(([r1, r2]) => ({ label: `${r1} × ${r2}`, params: { r1, r2 } })),
+  },
+  {
+    generatorId: 'filtr_kosoy_1',
+    presets: STRAINERS.map(([r1, m1]) => ({ label: `${r1}, ${mm(m1)} мм`, params: { r1, m1 } })),
+  },
+  {
+    generatorId: 'cr_rash_bak_1',
+    presets: EXPANSION_TANKS.map(([d, h1, name]) => ({ label: `${name}: Ø${mm(d)} × ${mm(h1)} мм`, params: { d, h1, r1: '3/4', name } })),
+  },
+  {
+    generatorId: 'cr_kotel_1',
+    presets: (['back', 'bottom', 'top-bottom', 'left-right'] as const).map((type) => ({
+      label: type,
+      params: { size: { x: 0.4, y: 0.73, z: 0.3 }, r1: '3/4', type },
+    })),
+  },
+  {
+    generatorId: 'gr_bez_1',
+    presets: [{ label: '1', params: { size: { x: 0.18, y: 0.05, z: 0.05 }, r1: '1' } }],
   },
 ];

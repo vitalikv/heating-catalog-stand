@@ -10,21 +10,26 @@
 
 ## 1. Где мы сейчас
 
-Шаги 1–3 выполнены 9 октября 2026. Перенесено 33 генератора: 5 пилотных и 28 из
-очередей 1–6 — все фитинги, радиаторы и краны. Котельное оборудование, GLB-файлы и сборки `sborka/` в объём не входят (раздел 6).
+Шаги 1–5 выполнены 9 октября 2026. Перенесён 41 генератор (ID в `GeneratorRegistry`) —
+все 41 функция из `start.js`: 5 пилотных, 29 из очередей 1–6 — фитинги, радиаторы
+и краны, — 6 котельного оборудования (шаг 4) и труба (шаг 5). GLB-файлы не переносятся,
+сборки `sborka/` — позже (раздел 6).
 
 Все наборы стенда (около 400) сверены с `gl2` автоматически (раздел 5): габариты —
 до 1 мкм у всех, число разъёмов и названия — у всех, кроме сознательных отличий
 из журнала. Число треугольников совпадает везде, где в `gl2` нет вырожденных
 треугольников (журнал, п. 12). Снимки рядом: [сталь](img/steel-fittings-gl2-vs-stand.png),
 [ПП](img/pp-fittings-gl2-vs-stand.png), [металлопластик](img/mp-fittings-gl2-vs-stand.png),
-[радиаторы и краны](img/radiators-valves-gl2-vs-stand.png).
+[радиаторы и краны](img/radiators-valves-gl2-vs-stand.png),
+[котельное оборудование](img/boiler-room-gl2-vs-stand.png).
 
 | Семейство | Генераторы и классы |
 | --- | --- |
 | Сталь | `st_mufta_1` `SteelCouplingGenerator`, `st_nippel_1` `SteelNippleGenerator`, `st_zagl_nr` `SteelPlugGenerator`, `st_pol_sgon_1` `SteelHalfUnionGenerator`, `st_ugol_90_1` `SteelElbowGenerator`, `st_ugol_45_1` `SteelElbow45Generator`, `st_troinik_1` `SteelTeeGenerator`, `st_krestovina_1` `SteelCrossGenerator`, `st_collector_1` `SteelCollectorGenerator`, `st_collector_2` `SteelValveCollectorGenerator` |
 | ПП | `pl_ugol_90_1` `PpElbowGenerator`, `pl_ugol_45_1` `PpElbow45Generator`, `pl_ugol_90_rezba_1` `PpThreadElbowGenerator`, `pl_mufta_1` `PpCouplingGenerator`, `pl_perehod_rezba_1` `PpThreadAdapterGenerator`, `pl_troinik_1` `PpTeeGenerator`, `pl_troinik_2` `PpReducingTeeGenerator`, `pl_troinik_rezba_1` `PpThreadTeeGenerator`, `pl_krestovina_1` `PpCrossGenerator` |
 | Металлопластик | `mpl_ugol_1` `MpElbowGenerator`, `mpl_ugol_rezba_1` `MpThreadElbowGenerator`, `mpl_perehod_1` `MpCouplingGenerator`, `mpl_perehod_rezba_1` `MpThreadAdapterGenerator`, `mpl_troinik_1` `MpTeeGenerator`, `mpl_troinik_rezba_1` `MpThreadTeeGenerator` |
+| Трубы | `createTubeWF_1` `PipeGenerator` (ПП и МП) |
+| Котельное | `cr_zr_nasos_1` `CirculationPumpGenerator`, `cr_gaika_nasos_1` `PumpNutGenerator`, `filtr_kosoy_1` `StrainerGenerator`, `cr_rash_bak_1` `ExpansionTankGenerator`, `cr_kotel_1` `BoilerGenerator`, `gr_bez_1` `SafetyGroupGenerator` |
 | Радиаторы | `al_radiator_1` `AluminiumRadiatorGenerator`, `al_zagl_radiator_1` `RadiatorPlugGenerator`, `rad_vozduhotvod_1` `RadiatorVentGenerator`, `st_radiator_1` `SteelRadiatorGenerator` |
 | Краны | `shar_kran_v_1`, `shar_kran_n_1`, `shar_kran_v_n_1` — один класс `BallValveGenerator` с вариантом концов; `shar_kran_sgon_1` `BallValveUnionGenerator`; `reg_kran_primoy_1` `RegulatingValveGenerator` |
 
@@ -51,8 +56,7 @@
 
 Чего не хватает (известно):
 
-- интерфейса угла стыка на стенде — угол задаётся в описании сборки;
-- труб как ответных частей раструба и пресса (`createTubeWF_1` — не деталь каталога).
+- сборок `sborka/` (раздел 6, позже).
 
 ## 2. Порядок работ
 
@@ -61,8 +65,9 @@
 Цель — до переноса знать, что каталог потребует от контракта, и выбрать порядок.
 
 Для каждого генератора из `gl2/createObj/start.js` (список имён — в
-`development-plan.md`, п. 3), кроме котельного оборудования (`kotel/`), записать
-в таблицу (раздел 4 этого файла):
+`development-plan.md`, п. 3) записать в таблицу (раздел 4 этого файла).
+Котельное оборудование (`kotel/`) сначала не входило в объём, его строки
+добавлены позже (шаг 4):
 
 - файл и размер исходника, общие функции, от которых он зависит;
 - параметры `cdm` и наборы из `start.js` (сколько, какие ключи);
@@ -121,11 +126,82 @@
 | 5 | Радиаторы | `rad_vozduhotvod_1`, `st_radiator_1` | `radiator/*.js` | Стальной радиатор — порты обычной резьбой `thread` |
 | 6 | Краны | `reg_kran_primoy_1`, `shar_kran_v_1`, `shar_kran_n_1`, `shar_kran_v_n_1`, `shar_kran_sgon_1` (+ `shar_kran_babochka_1`, `shar_kran_obj_sgon_1`, если есть в `start.js`) | `kran/*.js`, до 713 стр. | Разные концы; ручка — часть геометрии, без поворота |
 
-Не переносятся: котельное оборудование (`kotel/*.js`) и сборки (`sborka/sbr_1.js`) —
-см. раздел 6.
+Котельное оборудование — шаг 4, труба — шаг 5, сборки (`sborka/`) — позже (раздел 6).
 
 После каждого семейства — пересмотр контракта (как в `development-plan.md`,
 п. 9) и запись в журнал п. 12.
+
+### Шаг 4. Котельное оборудование — сделано
+
+Решение 9 октября 2026: переносится всё, кроме GLB-файлов (раздел 6). Генераторы
+`kotel/*.js` строят геометрию кодом, как фитинги, — загрузок `.glb`/`.gltf`
+в `gl2` нет. Строки инвентаризации — в разделе 4. Порядок — по одному генератору
+(раздел 3), от простого к сложному; насос и гайка дают ответную пару.
+
+| Очередь | Генераторы | Исходник | Что проверяет |
+| --- | --- | --- | --- |
+| 7 | `cr_gaika_nasos_1`, `cr_zr_nasos_1` | `kotel/zr_nasos.js`, 377 стр. | Выдавленные контуры корпуса (`ExtrudedShapeBuilder`); пара насос (н) — гайка (в) |
+| 8 | `filtr_kosoy_1` | `kotel/filtr.js`, 132 | Наклонная втулка через `pos1`, как у `st_ugol_45_1` |
+| 9 | `cr_rash_bak_1` | `kotel/rash_bak.js`, 99 | Сжатые полусферы `SphereGeometry`; разъём вниз |
+| 10 | `cr_kotel_1` | `kotel/kotel_1.js`, 213 | Вариант `type` — четыре расположения разъёмов |
+| 11 | `gr_bez_1` | `kotel/gr_bez.js`, 268 | Текстура манометра, 7 материалов |
+
+Новые ключи `MaterialLibrary`: `black` (`black_1`, 0x222222), `blackFlat` (`black_1_edge`),
+`redFlat` (`red_1_edge`), `manometer` — `MeshPhongMaterial` с картой
+`img/obj/manometr.png` (скопировать в `public/textures/`, источник — в README;
+`repeat` 15, поворот −90°, `offset` 0,5, как в `gr_bez.js`).
+
+Как сделано (расхождения — в журнале п. 12):
+
+- `cr_kotel_1` — `BoilerGenerator`: резьба построена по `side: 'n'`, а точка разъёма
+  в `gl2` названа `(в)`; `gender` — по геометрии, `external`. Вариант `type` — выбор
+  с подписями; ID разъёмов по месту: `bottom-left`/`bottom-right`, `back-left`/`back-right`,
+  `top`/`bottom`, `left`/`right`. `console.log(cdm)` не перенесён.
+- `gr_bez_1` — `SafetyGroupGenerator`: один разъём — гайка снизу (`bottom`, в);
+  резьбы приборов — часть корпуса. Название без пробела в конце («Группа безопасности»).
+  Циферблат — материал `manometer`, текстуру грузит стенд (`setManometerTexture`).
+- `cr_zr_nasos_1` — `CirculationPumpGenerator`, `cr_gaika_nasos_1` — `PumpNutGenerator`:
+  блоки в `start.js` под `if(1==2)`, наборы перенесены, как у коллекторов. У гайки
+  `m1` из `cdm` на геометрию не влияет — параметра нет. Разъёмы гайки `pump` и `pipe`.
+- `filtr_kosoy_1` — `StrainerGenerator`, проверка `too_short` для `m1 ≤ 2 × резьба`.
+- `cr_rash_bak_1` — `ExpansionTankGenerator`: объём `name` — выбор из шести значений
+  `start.js` (только для названия); `too_short` для `h1 ≤ d/2`.
+- Сверка с `gl2`: габариты до 1 мкм и число разъёмов совпадают у всех 29 наборов,
+  названия — у всех, кроме группы безопасности. Треугольники отличаются у насоса
+  (диски с отверстием Ø0,01 мм: в `gl2` оно схлопывается при `mergeVertices`),
+  фильтра и группы безопасности (сплошные втулки). Тесты: `boilerRoom`, `gl2Reference`.
+- Сборки стенда для проверки стыков: «Насос: гайки, полусгон», «Котёл: фильтр, муфта, бак»,
+  «Группа безопасности на ниппеле».
+
+Перенос сборки «насос + две гайки» (`crSborka_zr_nasos_1`) — позже, вместе
+с остальными сборками (раздел 6).
+
+### Шаг 5. Труба `createTubeWF_1` — сделано
+
+В `gl2` это не генератор, а объект редактора `TubeN` (`crTube.js`, 578 стр.):
+`TubeBufferGeometry` по сплайну через точки, диаметр; точки редактируются мышью,
+разъёмов нет. Наборы в `start.js`: горизонтальные и вертикальные отрезки 1 м,
+диаметры 16–50 мм.
+
+Решение 9 октября 2026: обычная прямая труба произвольной длины. Типа два —
+полипропилен и металлопластик; номиналы — из `gl2` (`sizeTubePP`, `sizeTubeMP`),
+строятся одинаково. Редактирование точек, меню и смена цвета — дело редактора, не переносятся.
+
+Как сделано (`PipeGenerator`, ID `createTubeWF_1`):
+
+- Параметры: `type` (`pp`, `mp`), номинал `ppSize` или `mpSize` (поле по типу, `when`),
+  `length` — 10 мм…10 м.
+- Геометрия как у `TubeN`: открытый цилиндр по наружному диаметру = номиналу,
+  12 граней по окружности, вдоль X, центр в начале координат. Материал `pipe` —
+  цвет `TubeN` 0x0252f2.
+- Разъёмы `start` (−X) и `end` (+X) на концах: `joint` `pp-socket` или `mp-press`,
+  `gender: 'external'`, номинал — диаметр трубы, `depth` — половина длины
+  (глубину ввода ограничивает раструб или гильза фитинга: `min(depth)`).
+- Название как в `gl2` с типом: «Труба ПП 20 (1м)», длина до 0,01 м.
+- Тесты: `pipe` (габарит, разъёмы, название, проверки, ввод в муфты ПП и МП),
+  общие `catalogModels`. Эталона `gl2Reference` нет — исключение `NOT_IN_GL2`.
+- Сборки стенда: «Труба ПП: угол, труба, муфта», «Труба МП: угол, труба, соединитель»,
+  «Ошибка: труба МП 20 в ПП-раструб 20».
 
 ## 3. Как переносить один генератор
 
@@ -194,6 +270,12 @@
 | `shar_kran_v_n_1` | `kran/shar_kran.js` | 6 | `thread` в + н | — | то же | |
 | `shar_kran_sgon_1` | `kran/shar_kran.js` | 4 | `thread` в + н (на сгоне) | — | `shar_kran_obj_sgon_1` | Сгон — r2 на кране, r1 на конце |
 | `reg_kran_primoy_1` | `kran/reg_kran.js`, 195 | 4 (2 + 2 с `termoreg`) | `thread` в + н (сгон) | Булев `termoreg` в `cdm` — у нас выбор `head` (`cap`, `termo`) | `shar_kran_obj_sgon_1`, `white_1_edge` | Одна модель, разная головка: колпачок или терморегулятор |
+| `cr_zr_nasos_1` | `kotel/zr_nasos.js`, 377 | 4 (`1`, `1 1/4`, `1 1/2`, `2`) | 2 по оси X, `thread`, н | — | `ExtrudeGeometry` (`crForm`), `red_1`, `black_1` | Блок под `1==2`; корпус — втулки и два выдавленных контура |
+| `cr_gaika_nasos_1` | `kotel/zr_nasos.js` | 8 | 2, `thread`, в (r1 и r2) | — | `metal_1_edge` | Ответная к насосу; блок под `1==2` |
+| `filtr_kosoy_1` | `kotel/filtr.js`, 132 | 6 | 2, `thread`, в | — | `metal_1_edge` | Наклонная труба 45° с крышкой и гайкой — сдвиг до поворота `pos1` |
+| `cr_rash_bak_1` | `kotel/rash_bak.js`, 99 | 6 (6–24 л) | 1 вниз, `thread`, н | Ключ `name` (объём) — в название | `SphereGeometry`, `red_1` | Полусферы сжаты по Y вдвое |
+| `cr_kotel_1` | `kotel/kotel_1.js`, 213 | 4 (`type`: `back`, `bottom`, `top-bottom`, `left-right`) | 2, `thread`, н по геометрии (в gl2 названы «в») | Выбор `type` | `BoxGeometry`, `white_2` | `console.log` в коде |
+| `gr_bez_1` | `kotel/gr_bez.js`, 268 | 1 | 1 вниз, `thread`, в | — | `BoxGeometry`, `bronz_1`, `rezba_2`, `black_1_edge`, `red_1_edge`, текстура `manometr.png` | Манометр, воздухоотводчик, клапан — часть меша |
 
 `shar_kran_babochka_1` и `shar_kran_obj_sgon_1` — вспомогательные функции кранов, не позиции
 каталога; перенесены в `BallValveParts`. `crRing_2` в переносимых файлах не используется;
@@ -276,12 +358,19 @@ await fetch(`http://127.0.0.1:9223/json/close/${target.id}`); ws.close();
 - **Краны.** Ручка — часть геометрии крана, в общем меше; без поворота,
   без параметра «открыт/закрыт».
 - **Котельное оборудование** (`kotel/*.js`: котёл, фильтр, группа безопасности,
-  бак, насос) — не переносится. GLB-файлы тоже не трогаем.
-- **Сборки** `sborka/` — пока не используются и не переносятся. Понадобятся
-  позже: для проверки стыков и как примеры для тестирования; тогда же решить,
-  данные это (как `stand/assemblies.ts`) или генераторы.
+  бак, насос и гайка) — перенесено (шаг 4). Сначала было решено не переносить;
+  уточнено 9 октября 2026: не переносятся только GLB-файлы.
+- **GLB-файлы** не трогаем: не переносим, не конвертируем, в `public/` не копируем.
+- **Труба** `createTubeWF_1` — прямая, произвольной длины, ПП или МП с номиналами `gl2`;
+  только геометрия, без редактирования точек (шаг 5).
+- **Сборки** делаем позже, после шагов 4–5: `sborka/radiator/*` (9 схем подключения
+  радиатора: одно- и двухтрубные, боковое, нижнее, верхнее, с байпасом и без;
+  `rad_1.js` — меню и пересчёт), `sborka/sbr_1.js` (трубы между деталями сборки)
+  и `crSborka_zr_nasos_1` (насос с двумя гайками). Понадобятся для проверки
+  стыков и как примеры для тестирования; тогда же решить, данные это
+  (как `stand/assemblies.ts`) или генераторы. Для радиаторных схем нужна труба (шаг 5).
 
 ## 7. Открытые вопросы
 
-Нет. Интерфейс угла стыка на стенде сделан 9 октября 2026
+Нет. Труба (шаг 5) решена и сделана 9 октября 2026. Интерфейс угла стыка на стенде сделан 9 октября 2026
 ([joint-angle-ui-plan.md](joint-angle-ui-plan.md)).

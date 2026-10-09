@@ -41,3 +41,4 @@ npm run build      # проверка типов и сборка в dist/
 | Файл | Источник |
 | --- | --- |
 | `public/textures/rezba_1.png` | `3d-stroyka/gl2/img/obj/rezba_1.png` — текстура резьбы (материал `thread`) |
+| `public/textures/manometr.png` | `3d-stroyka/gl2/img/obj/manometr.png` — циферблат манометра (материал `manometer`) |

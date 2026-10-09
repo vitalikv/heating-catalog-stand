@@ -3,12 +3,16 @@ import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { AluminiumRadiatorGenerator } from './AluminiumRadiatorGenerator';
 import { BallValveGenerator } from './BallValveGenerator';
 import { BallValveUnionGenerator } from './BallValveUnionGenerator';
+import { BoilerGenerator } from './BoilerGenerator';
+import { CirculationPumpGenerator } from './CirculationPumpGenerator';
+import { ExpansionTankGenerator } from './ExpansionTankGenerator';
 import { MpCouplingGenerator } from './MpCouplingGenerator';
 import { MpElbowGenerator } from './MpElbowGenerator';
 import { MpTeeGenerator } from './MpTeeGenerator';
 import { MpThreadAdapterGenerator } from './MpThreadAdapterGenerator';
 import { MpThreadElbowGenerator } from './MpThreadElbowGenerator';
 import { MpThreadTeeGenerator } from './MpThreadTeeGenerator';
+import { PipeGenerator } from './PipeGenerator';
 import { PpCouplingGenerator } from './PpCouplingGenerator';
 import { PpCrossGenerator } from './PpCrossGenerator';
 import { PpElbow45Generator } from './PpElbow45Generator';
@@ -18,9 +22,11 @@ import { PpTeeGenerator } from './PpTeeGenerator';
 import { PpThreadAdapterGenerator } from './PpThreadAdapterGenerator';
 import { PpThreadElbowGenerator } from './PpThreadElbowGenerator';
 import { PpThreadTeeGenerator } from './PpThreadTeeGenerator';
+import { PumpNutGenerator } from './PumpNutGenerator';
 import { RadiatorPlugGenerator } from './RadiatorPlugGenerator';
 import { RadiatorVentGenerator } from './RadiatorVentGenerator';
 import { RegulatingValveGenerator } from './RegulatingValveGenerator';
+import { SafetyGroupGenerator } from './SafetyGroupGenerator';
 import { SteelCollectorGenerator } from './SteelCollectorGenerator';
 import { SteelCouplingGenerator } from './SteelCouplingGenerator';
 import { SteelCrossGenerator } from './SteelCrossGenerator';
@@ -32,6 +38,7 @@ import { SteelPlugGenerator } from './SteelPlugGenerator';
 import { SteelRadiatorGenerator } from './SteelRadiatorGenerator';
 import { SteelTeeGenerator } from './SteelTeeGenerator';
 import { SteelValveCollectorGenerator } from './SteelValveCollectorGenerator';
+import { StrainerGenerator } from './StrainerGenerator';
 
 /**
  * Явный список генераторов вместо window[funcName] из gl2.
@@ -77,6 +84,13 @@ export class GeneratorRegistry {
       new BallValveGenerator(materials, 'v_n'),
       new BallValveUnionGenerator(materials),
       new RegulatingValveGenerator(materials),
+      new PipeGenerator(materials),
+      new CirculationPumpGenerator(materials),
+      new PumpNutGenerator(materials),
+      new StrainerGenerator(materials),
+      new ExpansionTankGenerator(materials),
+      new BoilerGenerator(materials),
+      new SafetyGroupGenerator(materials),
     ];
     this.generators = new Map(list.map((generator) => [generator.id, generator]));
   }

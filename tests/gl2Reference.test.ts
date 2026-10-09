@@ -42,10 +42,22 @@ const TRIANGLES_DIFFER: Record<string, string> = {
   shar_kran_sgon_1: 'сплошной шток',
   reg_kran_primoy_1: 'сплошные шток и головка',
   st_collector_2: 'шток крана Ø0,1 мм',
+  filtr_kosoy_1: 'сплошные крышка и гайка отстойника',
+  gr_bez_1: 'сплошные детали приборов',
+  // Отверстие Ø0,01 мм в gl2 схлопывается: нет внутреннего цилиндра и половины треугольников колец.
+  cr_zr_nasos_1: 'мотор и вал с отверстием Ø0,01 мм',
+};
+
+/**
+ * Генераторы без эталона: в gl2 это не функция-генератор (журнал, п. 12).
+ * createTubeWF_1 создаёт объект редактора TubeN по точкам пути, без типа трубы и разъёмов.
+ */
+const NOT_IN_GL2: Record<string, string> = {
+  createTubeWF_1: 'объект редактора TubeN',
 };
 
 /** Названия, которые сознательно отличаются от gl2 (журнал, п. 12). */
-const TITLE_DIFFERS = new Set(['al_zagl_radiator_1']);
+const TITLE_DIFFERS = new Set(['al_zagl_radiator_1', 'gr_bez_1']);
 
 const registry = new GeneratorRegistry(new MaterialLibrary());
 const rows = (reference as ReferenceRow[]).map((row) => ({ ...row, name: `${row.id} ${JSON.stringify(row.params)}` }));
@@ -79,6 +91,6 @@ describe.each(rows)('$name', (row) => {
 describe('эталон gl2', () => {
   it('покрывает все генераторы реестра', () => {
     const covered = new Set(rows.map((row) => row.id));
-    expect(registry.list().filter((generator) => !covered.has(generator.id)).map((generator) => generator.id)).toEqual([]);
+    expect(registry.list().filter((generator) => !covered.has(generator.id) && !(generator.id in NOT_IN_GL2)).map((generator) => generator.id)).toEqual([]);
   });
 });

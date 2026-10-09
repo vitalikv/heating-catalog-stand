@@ -25,7 +25,8 @@
 угол ПП 90° `pl_ugol_90_1`, алюминиевый радиатор `al_radiator_1` и радиаторные
 переходник, заглушка и воздухоотводчик `al_zagl_radiator_1`. В тот же день перенесён
 остальной каталог `gl2` — сталь, ПП, металлопластик, радиаторы и шаровые краны, всего
-33 генератора ([catalog-porting-plan.md](catalog-porting-plan.md)).
+33 генератора, затем труба `createTubeWF_1` и котельное оборудование — всего 41 ID, весь `start.js`
+([catalog-porting-plan.md](catalog-porting-plan.md)).
 Стенд показывает их наборы и сборки для проверки стыковки (п. 9).
 
 | Команда | Назначение |
@@ -50,7 +51,7 @@ src/
     geometry/                 # BoxProjectionUv, MaterialGroupMerger, SleeveGeometryBuilder,
                               # SphereGeometryBuilder, ExtrudedShapeBuilder
     materials/MaterialLibrary.ts
-    generators/               # Steel*, Pp*, Mp*, *Radiator*, BallValve* — по классу на генератор gl2;
+    generators/               # Steel*, Pp*, Mp*, *Radiator*, BallValve*, Pipe, котельное — по классу на генератор gl2;
                               # общие части: ConnectorFrame, MeshModel, SteelCollectorPipe,
                               # PpThreadInsert, MpPressEnd, BallValveParts; GeneratorRegistry
   stand/
@@ -66,7 +67,7 @@ scripts/                      # gl2-compare.mjs, gl2-snapshot.mjs — сверк
 tests/                        # setup, threadSizes, boxProjectionUv, paramSchema, steelCoupling, steelNipple,
                               # ppElbow, aluminiumRadiator, radiatorPlug, connectorMating, assemblies,
                               # catalogModels и gl2Reference (все генераторы, все наборы),
-                              # steelFittings, ppFittings, mpFittings, radiatorsAndValves
+                              # steelFittings, ppFittings, mpFittings, radiatorsAndValves, pipe, boilerRoom
   fixtures/gl2-reference.json # Эталон gl2: габарит, треугольники, разъёмы, название каждого набора
 ```
 
@@ -97,8 +98,8 @@ tests/                        # setup, threadSizes, boxProjectionUv, paramSchema
 | `mpl/` | Металлопластик: `ugol`, `troinik`, `perehod` |
 | `kran/` | `shar_kran` (шаровые краны, ~700 строк), `reg_kran` |
 | `radiator/` | `al_radiator` (+ заглушка и воздухоотводчик), `st_radiator` |
-| `kotel/` | `kotel_1`, `filtr`, `gr_bez`, `rash_bak`, `zr_nasos` — не переносятся |
-| `sborka/` | Сборки радиаторных узлов — пока не переносятся, позже для проверки стыков |
+| `kotel/` | `kotel_1`, `filtr`, `gr_bez`, `rash_bak`, `zr_nasos` — перенесены ([catalog-porting-plan.md](catalog-porting-plan.md), шаг 4) |
+| `sborka/` | Сборки радиаторных узлов — позже, после котельного оборудования и трубы; для проверки стыков |
 | `start.js` | Наборы параметров для всех генераторов (`cr_obj_cat`) |
 | `test.js` | Экспериментальный код — не переносить без разбора |
 
@@ -139,7 +140,8 @@ tests/                        # setup, threadSizes, boxProjectionUv, paramSchema
 `shar_kran_n_1`, `shar_kran_sgon_1`, `shar_kran_v_1`, `shar_kran_v_n_1`,
 `st_collector_1`, `st_collector_2`, `st_krestovina_1`, `st_mufta_1`,
 `st_nippel_1`, `st_pol_sgon_1`, `st_radiator_1`, `st_troinik_1`,
-`st_ugol_45_1`, `st_ugol_90_1`, `st_zagl_nr`. `createTubeWF_1` — труба, не деталь.
+`st_ugol_45_1`, `st_ugol_90_1`, `st_zagl_nr`. `createTubeWF_1` — труба, объект редактора `TubeN`;
+перенесена только геометрия — `PipeGenerator` (план переноса, шаг 5).
 
 ### Материалы (`gl2/sceneParams.js`)
 
@@ -528,7 +530,8 @@ pixel ratio в `worker/messages.ts`. Менеджеры редактора не 
   (`ImageBitmapLoader`, проверить `flipY` — от него зависит резьба).
 - Профиль эффектов редактора.
 - Версии определений моделей, сохранение наборов параметров, миграции.
-- Сборки из `sborka/` (для проверки стыков и примеров).
+- Сборки из `sborka/` (для проверки стыков и примеров) — после котельного
+  оборудования и трубы ([catalog-porting-plan.md](catalog-porting-plan.md), п. 6).
 - Сверка каталога с БД старого проекта (инвентаризация `start.js` сделана —
   [catalog-porting-plan.md](catalog-porting-plan.md), п. 4).
 - Выделение `src/lib` в пакет, проверка через `npm pack`.
@@ -543,7 +546,7 @@ pixel ratio в `worker/messages.ts`. Менеджеры редактора не 
 - номинал резьбы хранится отдельно от геометрического диаметра;
 - совместимость разъёмов — по данным, а не по разбору названия;
 - одинаковые параметры дают одинаковый результат;
-- Котельное оборудование и GLB-файлы не трогаем (решение 9 октября 2026,
+- GLB-файлы не трогаем; котельное оборудование перенесено (решение 9 октября 2026,
   [catalog-porting-plan.md](catalog-porting-plan.md), п. 6).
 
 ## 12. Журнал расхождений со старым проектом
@@ -590,4 +593,11 @@ pixel ratio в `worker/messages.ts`. Менеджеры редактора не 
 | 2026-10-09 | `shar_kran_*`, `st_collector_2` | Ручка крана — часть меша, без поворота и параметра «открыт/закрыт» | Решение 9 октября 2026 (план переноса, п. 6) |
 | 2026-10-09 | все новые | Связи длин — ошибка `too_short` (гладкий участок, плечо, корпус, сгон нулевой длины) | В `gl2` проверок не было, получались вывернутые куски |
 | 2026-10-09 | все новые | Сверка всех наборов с `gl2` ([сталь](img/steel-fittings-gl2-vs-stand.png), [ПП](img/pp-fittings-gl2-vs-stand.png), [металлопластик](img/mp-fittings-gl2-vs-stand.png), [радиаторы и краны](img/radiators-valves-gl2-vs-stand.png)): габариты до 1 мкм, разъёмы и названия совпадают | Эталон — `tests/fixtures/gl2-reference.json`, тест `gl2Reference` |
+| 2026-10-09 | `cr_kotel_1` | Разъёмы `gender: 'external'`, хотя в `gl2` точки названы «(в)»; ID по месту (`bottom-left` и т. п.) | Резьба построена по `side: 'n'` (наружная) — совместимость по геометрии |
+| 2026-10-09 | `gr_bez_1` | Название «Группа безопасности» без пробела в конце; меньше треугольников (сплошные втулки) | Пробел — опечатка `gl2`; сплошные втулки — как у других генераторов |
+| 2026-10-09 | `cr_zr_nasos_1` | На 256 треугольников больше: у мотора и вала есть внутренний цилиндр Ø0,01 мм и полные кольца | В r116 `mergeVertices` (0,1 мм) схлопывает такое отверстие; вид тот же — торцы закрыты |
+| 2026-10-09 | `filtr_kosoy_1` | Меньше треугольников: крышка и гайка отстойника без вырожденного внутреннего цилиндра | Сплошные втулки, как у других генераторов |
+| 2026-10-09 | `cr_gaika_nasos_1`, `cr_rash_bak_1` | У гайки нет параметра `m1` (в `gl2` не влияет на геометрию); объём бака `name` — выбор из значений `start.js` | Свободной строки в `ParamSpec` нет; `name` нужен только для названия |
+| 2026-10-09 | `gr_bez_1` | Циферблат: текстура `manometr.png` грузится стендом и передаётся в `MaterialLibrary.setManometerTexture`, без `lightMap_1` | Как текстура резьбы: загрузка зависит от среды |
+| 2026-10-09 | `createTubeWF_1` | Прямая труба `PipeGenerator` по типу (ПП, МП), номиналу и длине вместо `TubeN` по точкам пути; разъёмы на концах; название с типом: «Труба ПП 20 (1м)» вместо «труба 20 (1м)»; материал Phong вместо Standard; один сегмент по длине вместо `length × 50` | Решение 9 октября 2026 (план переноса, шаг 5): редактирование точек — дело редактора; тип и разъёмы нужны для стыковки с фитингами. Эталона в `gl2Reference` нет |
 | 2026-10-09 | `reg_kran_primoy_1` | Головка — параметр `head`: `cap` (колпачок, «Кран регулировочный») или `termo` (терморегулятор, «Клапан с терморегулятором»); в `cdm` gl2 — `termoreg: true` или его нет | Одна модель с вариантом головки; выбор строкой укладывается в виды `ParamSpec`, булев вид в контракт не добавлялся. Скрипты сверки переводят `head` обратно в `termoreg` |

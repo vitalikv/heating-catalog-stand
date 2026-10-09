@@ -12,7 +12,12 @@ export type MaterialKey =
   | 'bronzeFlat'
   | 'bronzeThread'
   | 'red'
-  | 'blue';
+  | 'blue'
+  | 'pipe'
+  | 'redFlat'
+  | 'black'
+  | 'blackFlat'
+  | 'manometer';
 
 // Источник: gl2/sceneParams.js. lightMap_1 не переносится.
 // metal_1, rezba_1, bronz_1 и rezba_2: блик как у металла.
@@ -27,6 +32,14 @@ const PLASTIC_COLOR = 0xf0f0f0;
 const PLASTIC_GREY_COLOR = 0xd1d1d1;
 const RED_COLOR = 0xbf2502;
 const BLUE_COLOR = 0x3e65f0;
+// Труба TubeN (crTube.js): MeshStandardMaterial 0x0252f2 — здесь Phong, как остальные.
+const PIPE_COLOR = 0x0252f2;
+const BLACK_COLOR = 0x222222;
+// manometr_1 (gr_bez.js): белый с картой циферблата.
+const MANOMETER_COLOR = 0xffffff;
+const MANOMETER_REPEAT = 15;
+const MANOMETER_ROTATION_DEG = -90;
+const MANOMETER_OFFSET = 0.5;
 const DEFAULT_SPECULAR = 0x111111;
 const DEFAULT_SHININESS = 30;
 
@@ -42,6 +55,7 @@ const THREADED: readonly MaterialKey[] = ['thread', 'bronzeThread'];
 export class MaterialLibrary {
   private readonly materials: Record<MaterialKey, MeshPhongMaterial>;
   private threadTexture: Texture | null = null;
+  private manometerTexture: Texture | null = null;
 
   constructor(threadTexture: Texture | null = null) {
     const metal = () => this.create(METAL_COLOR, METAL_SPECULAR, METAL_SHININESS);
@@ -62,6 +76,11 @@ export class MaterialLibrary {
       bronzeThread: bronze(),
       red: this.create(RED_COLOR, DEFAULT_SPECULAR, DEFAULT_SHININESS),
       blue: this.create(BLUE_COLOR, DEFAULT_SPECULAR, DEFAULT_SHININESS),
+      pipe: this.create(PIPE_COLOR, DEFAULT_SPECULAR, DEFAULT_SHININESS),
+      redFlat: flat(this.create(RED_COLOR, DEFAULT_SPECULAR, DEFAULT_SHININESS)),
+      black: this.create(BLACK_COLOR, DEFAULT_SPECULAR, DEFAULT_SHININESS),
+      blackFlat: flat(this.create(BLACK_COLOR, DEFAULT_SPECULAR, DEFAULT_SHININESS)),
+      manometer: this.create(MANOMETER_COLOR, DEFAULT_SPECULAR, DEFAULT_SHININESS),
     };
     this.setThreadTexture(threadTexture);
   }
@@ -91,10 +110,31 @@ export class MaterialLibrary {
     }
   }
 
+  /** Циферблат манометра группы безопасности; без текстуры материал просто белый. */
+  setManometerTexture(texture: Texture | null): void {
+    if (texture === this.manometerTexture) return;
+    this.manometerTexture?.dispose();
+    this.manometerTexture = texture;
+
+    if (texture) {
+      texture.wrapS = RepeatWrapping;
+      texture.wrapT = RepeatWrapping;
+      texture.repeat.set(MANOMETER_REPEAT, MANOMETER_REPEAT);
+      texture.rotation = MathUtils.degToRad(MANOMETER_ROTATION_DEG);
+      texture.offset.set(MANOMETER_OFFSET, MANOMETER_OFFSET);
+      texture.colorSpace = SRGBColorSpace;
+      texture.needsUpdate = true;
+    }
+    this.materials.manometer.map = texture;
+    this.materials.manometer.needsUpdate = true;
+  }
+
   dispose(): void {
     for (const material of Object.values(this.materials)) material.dispose();
     this.threadTexture?.dispose();
     this.threadTexture = null;
+    this.manometerTexture?.dispose();
+    this.manometerTexture = null;
   }
 
   private create(color: number, specular: number, shininess: number): MeshPhongMaterial {
