@@ -1,11 +1,12 @@
-import { Box3, Mesh, Vector3 } from 'three';
-import type { BufferGeometry } from 'three';
+import { Box3, Vector3 } from 'three';
+import type { BufferAttribute } from 'three';
 import { describe, expect, it } from 'vitest';
-import { GeneratorRegistry, MaterialLibrary } from '../src/lib/index';
+import { GeneratorRegistry } from '../src/lib/index';
 import { STAND_PRESETS } from '../src/stand/presets';
+import { boundsBox } from './modelHelpers';
 
 // Общие проверки всех генераторов на всех наборах стенда; размеры — в тестах генераторов.
-const registry = new GeneratorRegistry(new MaterialLibrary());
+const registry = new GeneratorRegistry();
 const cases = registry.list().flatMap((generator) =>
   (STAND_PRESETS.find((entry) => entry.generatorId === generator.id)?.presets ?? []).map((preset) => ({
     name: `${generator.id}: ${preset.label}`,
@@ -15,28 +16,25 @@ const cases = registry.list().flatMap((generator) =>
 );
 
 describe.each(cases)('$name', ({ generator, params }) => {
-  it('буферы без NaN, группы покрывают геометрию, bounds — габарит корня', () => {
+  it('буферы без NaN, группы покрывают геометрию, bounds — габарит геометрии', () => {
     const model = generator.build(params);
-    model.root.updateMatrixWorld(true);
-    model.root.traverse((object) => {
-      if (!(object instanceof Mesh)) return;
-      const geometry: BufferGeometry = object.geometry;
-      const position = geometry.getAttribute('position');
-      expect(geometry.index).toBeNull();
-      for (const name of ['position', 'normal', 'uv']) {
-        const attribute = geometry.getAttribute(name);
-        expect(attribute.count, name).toBe(position.count);
-        expect(Array.from(attribute.array).every(Number.isFinite), name).toBe(true);
-      }
-      expect(geometry.groups.reduce((sum, group) => sum + group.count, 0)).toBe(position.count);
-      const materials = Array.isArray(object.material) ? object.material : [object.material];
-      for (const group of geometry.groups) expect(materials[group.materialIndex!]).toBeDefined();
-    });
+    const geometry = model.geometry;
+    const position = geometry.getAttribute('position');
+    expect(geometry.index).toBeNull();
+    for (const name of ['position', 'normal', 'uv']) {
+      const attribute = geometry.getAttribute(name);
+      expect(attribute.count, name).toBe(position.count);
+      expect(Array.from(attribute.array).every(Number.isFinite), name).toBe(true);
+    }
+    expect(geometry.groups.reduce((sum, group) => sum + group.count, 0)).toBe(position.count);
+    // Каждой группе — свой ключ материала, без лишних ключей.
+    expect(geometry.groups.map((group) => group.materialIndex)).toEqual(model.materials.map((_, i) => i));
 
-    const actual = new Box3().setFromObject(model.root);
-    expect(actual.min.distanceTo(model.bounds.min)).toBeLessThan(1e-9);
-    expect(actual.max.distanceTo(model.bounds.max)).toBeLessThan(1e-9);
-    expect(model.root.name).toBe(model.title);
+    const actual = new Box3().setFromBufferAttribute(position as BufferAttribute);
+    expect(actual.min.distanceTo(boundsBox(model.bounds).min)).toBeLessThan(1e-9);
+    expect(actual.max.distanceTo(boundsBox(model.bounds).max)).toBeLessThan(1e-9);
+    // Результат — простые данные: передаётся из воркера без классов.
+    expect(structuredClone({ ...model, geometry: undefined, dispose: undefined })).toEqual({ ...model, geometry: undefined, dispose: undefined });
     model.dispose();
     expect(() => model.dispose()).not.toThrow();
   });
@@ -46,7 +44,7 @@ describe.each(cases)('$name', ({ generator, params }) => {
     const ids = model.connectors.map((connector) => connector.id);
     expect(new Set(ids).size).toBe(ids.length);
     // Торец лежит на грани габарита или внутри, но не дальше 1 мкм от неё по направлению выхода.
-    const bounds = model.bounds.clone().expandByScalar(1e-6);
+    const bounds = boundsBox(model.bounds).clone().expandByScalar(1e-6);
 
     for (const connector of model.connectors) {
       const direction = new Vector3().copy(connector.direction);

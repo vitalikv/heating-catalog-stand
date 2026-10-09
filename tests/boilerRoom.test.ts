@@ -3,7 +3,6 @@ import {
   BoilerGenerator,
   CirculationPumpGenerator,
   ExpansionTankGenerator,
-  MaterialLibrary,
   PumpNutGenerator,
   SafetyGroupGenerator,
   StrainerGenerator,
@@ -12,7 +11,6 @@ import type { Connector, GeneratedModel, ModelGenerator } from '../src/lib/index
 
 // Габариты всех наборов сверяются с gl2 в gl2Reference.test.ts; здесь — разъёмы и проверки параметров.
 // Наружный диаметр резьбы по sizeRezba, м: внутренняя — d, наружная — d − t.
-const materials = new MaterialLibrary();
 const byId = (model: GeneratedModel, id: string): Connector => model.connectors.find((c) => c.id === id)!;
 const codes = <T>(generator: ModelGenerator<T>, params: T) => generator.validate(params).map(({ code, param }) => `${code}:${param}`);
 const expectPosition = (connector: Connector, x: number, y: number, z: number) => {
@@ -23,7 +21,7 @@ const expectPosition = (connector: Connector, x: number, y: number, z: number) =
 
 describe('циркуляционный насос cr_zr_nasos_1', () => {
   it('патрубки с наружной резьбой по оси X у задней стенки мотора', () => {
-    const model = new CirculationPumpGenerator(materials).build({ r1: '1' });
+    const model = new CirculationPumpGenerator().build({ r1: '1' });
     // Ось корпуса: −z1/2 − z3 + 0.005; торцы — концы патрубков 0.09 + 0.005.
     expectPosition(byId(model, 'left'), -0.095, 0, -0.0625);
     expectPosition(byId(model, 'right'), 0.095, 0, -0.0625);
@@ -34,7 +32,7 @@ describe('циркуляционный насос cr_zr_nasos_1', () => {
 
 describe('гайка для насоса cr_gaika_nasos_1', () => {
   it('две внутренние резьбы, длина гайки 0,3 n, не меньше 12 мм', () => {
-    const model = new PumpNutGenerator(materials).build({ r1: '1 1/4', r2: '1' });
+    const model = new PumpNutGenerator().build({ r1: '1 1/4', r2: '1' });
     const pump = byId(model, 'pump');
     expect(pump).toMatchObject({ nominal: '1 1/4', joint: 'thread', gender: 'internal' });
     expect(pump.depth).toBeCloseTo(0.015 * 0.0423 * 20, 9);
@@ -44,15 +42,15 @@ describe('гайка для насоса cr_gaika_nasos_1', () => {
   });
 
   it('ответная к патрубку насоса', () => {
-    const pump = byId(new CirculationPumpGenerator(materials).build({ r1: '1 1/4' }), 'right');
-    const nut = byId(new PumpNutGenerator(materials).build({ r1: '1 1/4', r2: '1' }), 'pump');
+    const pump = byId(new CirculationPumpGenerator().build({ r1: '1 1/4' }), 'right');
+    const nut = byId(new PumpNutGenerator().build({ r1: '1 1/4', r2: '1' }), 'pump');
     expect([pump.joint, pump.nominal]).toEqual([nut.joint, nut.nominal]);
     expect(pump.gender).not.toBe(nut.gender);
   });
 });
 
 describe('фильтр косой filtr_kosoy_1', () => {
-  const generator = new StrainerGenerator(materials);
+  const generator = new StrainerGenerator();
 
   it('внутренняя резьба на концах, торцы на ±m1/2', () => {
     const model = generator.build({ r1: '3/4', m1: 0.065 });
@@ -68,7 +66,7 @@ describe('фильтр косой filtr_kosoy_1', () => {
 });
 
 describe('расширительный бак cr_rash_bak_1', () => {
-  const generator = new ExpansionTankGenerator(materials);
+  const generator = new ExpansionTankGenerator();
 
   it('штуцер с наружной резьбой вниз под нижним днищем', () => {
     const model = generator.build({ d: 0.245, h1: 0.25, r1: '3/4', name: '6л' });
@@ -85,7 +83,7 @@ describe('расширительный бак cr_rash_bak_1', () => {
 });
 
 describe('котёл cr_kotel_1', () => {
-  const generator = new BoilerGenerator(materials);
+  const generator = new BoilerGenerator();
   const size = { x: 0.4, y: 0.73, z: 0.3 };
   // 3/4 наружная: n = 26.8 − 2.8 = 24 мм; удлинитель и резьба — по 0,4 n.
   const x1 = 0.0096;
@@ -118,7 +116,7 @@ describe('котёл cr_kotel_1', () => {
 
 describe('группа безопасности gr_bez_1', () => {
   it('один разъём — гайка с внутренней резьбой снизу', () => {
-    const model = new SafetyGroupGenerator(materials).build({ size: { x: 0.18, y: 0.05, z: 0.05 }, r1: '1' });
+    const model = new SafetyGroupGenerator().build({ size: { x: 0.18, y: 0.05, z: 0.05 }, r1: '1' });
     expect(model.connectors).toHaveLength(1);
     // 1 внутренняя: n = 33.5 мм, высота гайки 0,4 n.
     const bottom = byId(model, 'bottom');

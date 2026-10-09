@@ -3,7 +3,6 @@ import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
 import type { SleeveShape } from '../geometry/SleeveGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import { MeshModel } from './MeshModel';
@@ -35,8 +34,6 @@ export class SteelNippleGenerator implements ModelGenerator<SteelNippleParams> {
   ];
 
   private readonly sleeves = new SleeveGeometryBuilder();
-
-  constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: SteelNippleParams): ValidationError[] {
     const errors = ParamSchema.validate(this.paramSpecs, params);
@@ -94,7 +91,7 @@ export class SteelNippleGenerator implements ModelGenerator<SteelNippleParams> {
       { id: 'right', position: at(params.m1 / 2), direction: { x: 1, y: 0, z: 0 }, depth: x2, nominal: params.r2, ...common },
     ];
 
-    return MeshModel.create({ title, ...merger.merge(), connectors }, this.materials);
+    return MeshModel.create({ title, ...merger.merge(), connectors });
   }
 
   /** Длины резьбовых участков; вызывать только для известных номиналов. */

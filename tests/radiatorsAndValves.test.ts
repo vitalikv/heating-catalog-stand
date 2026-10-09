@@ -3,20 +3,19 @@ import { describe, expect, it } from 'vitest';
 import {
   BallValveGenerator,
   BallValveUnionGenerator,
-  MaterialLibrary,
   RadiatorVentGenerator,
   RegulatingValveGenerator,
   SteelRadiatorGenerator,
 } from '../src/lib/index';
 import type { Connector, GeneratedModel, ModelGenerator } from '../src/lib/index';
+import { boundsBox } from './modelHelpers';
 
 // Габариты всех наборов сверяются с gl2 в gl2Reference.test.ts; здесь — разъёмы и проверки параметров.
-const materials = new MaterialLibrary();
 const byId = (model: GeneratedModel, id: string): Connector => model.connectors.find((c) => c.id === id)!;
 const codes = <T>(generator: ModelGenerator<T>, params: T) => generator.validate(params).map(({ code, param }) => `${code}:${param}`);
 
 describe('стальной радиатор st_radiator_1', () => {
-  const generator = new SteelRadiatorGenerator(materials);
+  const generator = new SteelRadiatorGenerator();
 
   it('четыре порта с обычной трубной резьбой на межосевом расстоянии', () => {
     const model = generator.build({ size: { x: 0.8, y: 0.5, z: 0.07 }, r1: '1/2' });
@@ -27,7 +26,7 @@ describe('стальной радиатор st_radiator_1', () => {
       expect(Math.abs(connector.position.y)).toBeCloseTo(0.25, 9);
     }
     // Высота корпуса — межосевое + 2 × 20 мм окантовки + диаметр порта (21,3 мм).
-    const size = model.bounds.getSize(new Vector3());
+    const size = boundsBox(model.bounds).getSize(new Vector3());
     expect(size.y).toBeCloseTo(0.5 + 0.04 + 0.0213, 6);
     expect(size.z).toBeCloseTo(0.07, 6);
     expect(model.title).toBe('Ст.радиатор h500 (0.8м)');
@@ -41,7 +40,7 @@ describe('стальной радиатор st_radiator_1', () => {
 
 describe('воздухоотводчик rad_vozduhotvod_1', () => {
   it('наружная резьба 8 мм слева; без воздухоотводчика — пробка', () => {
-    const generator = new RadiatorVentGenerator(materials);
+    const generator = new RadiatorVentGenerator();
     const vent = generator.build({ r1: '1/2', type: 'vsd' });
     expect(vent.connectors).toEqual([
       expect.objectContaining({ id: 'left', joint: 'thread', gender: 'external', nominal: '1/2', depth: 0.008, position: { x: -0.008, y: 0, z: 0 } }),
@@ -62,7 +61,7 @@ describe('шаровые краны shar_kran_*', () => {
   ] as const;
 
   it.each(variants)('%s: концы на ±m1/2, глубина — резьба, ручка сверху', (ends, id, left, right, suffix) => {
-    const generator = new BallValveGenerator(materials, ends);
+    const generator = new BallValveGenerator(ends);
     const model = generator.build({ r1: '3/4', m1: 0.07, t1: 0.053 });
     // Резьба крана — 0,4 n корпуса (у н-н n = d − t, иначе n = d), не меньше 12 мм.
     const thread = Math.max(0.4 * (ends === 'n' ? 0.024 : 0.0268), 0.012);
@@ -78,7 +77,7 @@ describe('шаровые краны shar_kran_*', () => {
   });
 
   it('корпус справа нулевой длины — ошибка', () => {
-    const generator = new BallValveGenerator(materials, 'v');
+    const generator = new BallValveGenerator('v');
     // 1 1/2(в): резьба 0,4 × 48 мм = 19,2 мм; нужно m1 > 2 × (2 мм + резьба).
     const minimum = 2 * (0.002 + 0.4 * 0.048);
     expect(codes(generator, { r1: '1 1/2', m1: minimum - 0.0001, t1: 0.05 })).toEqual(['too_short:m1']);
@@ -86,7 +85,7 @@ describe('шаровые краны shar_kran_*', () => {
   });
 
   it('с полусгоном: справа наружная резьба r1 на конце сгона', () => {
-    const generator = new BallValveUnionGenerator(materials);
+    const generator = new BallValveUnionGenerator();
     const params = { r1: '1/2', r2: '3/4', m1: 0.055, m2: 0.026, t1: 0.053 };
     const model = generator.build(params);
     const right = byId(model, 'right');
@@ -103,7 +102,7 @@ describe('шаровые краны shar_kran_*', () => {
 });
 
 describe('кран регулировочный reg_kran_primoy_1', () => {
-  const generator = new RegulatingValveGenerator(materials);
+  const generator = new RegulatingValveGenerator();
   const params = { r1: '1/2', r2: '3/4', m1: 0.055, m2: 0.02, head: 'cap' } as const;
 
   it('головка — колпачок или терморегулятор, разъёмы одинаковые', () => {

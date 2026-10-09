@@ -4,7 +4,6 @@ import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import type { GeometryPart } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import { ConnectorFrame } from './ConnectorFrame';
@@ -50,8 +49,6 @@ export class SteelValveCollectorGenerator implements ModelGenerator<SteelValveCo
 
   private readonly sleeves = new SleeveGeometryBuilder();
   private readonly pipe = new SteelCollectorPipe(this.sleeves);
-
-  constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: SteelValveCollectorParams): ValidationError[] {
     const errors = ParamSchema.validate(this.paramSpecs, params);
@@ -115,7 +112,7 @@ export class SteelValveCollectorGenerator implements ModelGenerator<SteelValveCo
           }),
         ),
       ),
-    }, this.materials);
+    });
   }
 
   /** Шток вдоль Z и ручка-флажок цвета color с конусной втулкой; position — центр штока. */

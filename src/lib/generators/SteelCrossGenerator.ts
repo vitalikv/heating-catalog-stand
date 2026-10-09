@@ -2,7 +2,6 @@ import type { GeneratedModel, ModelGenerator, ParamSpec, ValidationError } from 
 import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import { ConnectorFrame } from './ConnectorFrame';
@@ -31,8 +30,6 @@ export class SteelCrossGenerator implements ModelGenerator<SteelCrossParams> {
   ];
 
   private readonly sleeves = new SleeveGeometryBuilder();
-
-  constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: SteelCrossParams): ValidationError[] {
     const errors = ParamSchema.validate(this.paramSpecs, params);
@@ -85,6 +82,6 @@ export class SteelCrossGenerator implements ModelGenerator<SteelCrossParams> {
         { id: 'bottom', position: ConnectorFrame.point(bottom, half), ...bottom, ...common },
         { id: 'top', position: ConnectorFrame.point(top, half), ...top, ...common },
       ],
-    }, this.materials);
+    });
   }
 }

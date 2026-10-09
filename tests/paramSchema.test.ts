@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GeneratorRegistry, MaterialLibrary, ParamSchema } from '../src/lib/index';
+import { GeneratorRegistry, ParamSchema } from '../src/lib/index';
 import type { ParamSpec } from '../src/lib/index';
 import { STAND_PRESETS } from '../src/stand/presets';
 
@@ -37,7 +37,7 @@ describe('ParamSchema', () => {
 });
 
 describe('схемы генераторов и наборы стенда', () => {
-  const registry = new GeneratorRegistry(new MaterialLibrary());
+  const registry = new GeneratorRegistry();
 
   it('у каждого генератора есть наборы, и все они проходят его схему', () => {
     for (const generator of registry.list()) {

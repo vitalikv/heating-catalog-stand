@@ -4,13 +4,14 @@ import { GeneratorRegistry, MaterialLibrary } from '../src/lib/index';
 import { Assembly } from '../src/stand/Assembly';
 import { STAND_ASSEMBLIES } from '../src/stand/assemblies';
 
-const registry = new GeneratorRegistry(new MaterialLibrary());
+const registry = new GeneratorRegistry();
+const library = new MaterialLibrary();
 
 describe.each(STAND_ASSEMBLIES)('сборка «$label»', (definition) => {
   const expectFailure = definition.label.startsWith('Ошибка');
 
   it(expectFailure ? 'строится, стык помечен несовместимым' : 'строится, все стыки совместимы', () => {
-    const assembly = new Assembly(registry, definition);
+    const assembly = new Assembly(registry, library, definition);
     expect(assembly.errors).toEqual([]);
     expect(assembly.parts).toHaveLength(definition.parts.length);
     expect(assembly.joints).toHaveLength(definition.parts.filter((part) => part.attach).length);
@@ -19,13 +20,13 @@ describe.each(STAND_ASSEMBLIES)('сборка «$label»', (definition) => {
   });
 
   it('разъёмы каждого стыка смотрят навстречу, up — с доворотом на угол стыка', () => {
-    const assembly = new Assembly(registry, definition);
+    const assembly = new Assembly(registry, library, definition);
     for (const part of definition.parts) {
       if (!part.attach) continue;
-      const moving = assembly.parts.find((placed) => placed.name === part.name)!.model;
-      const fixed = assembly.parts.find((placed) => placed.name === part.attach!.to)!.model;
-      const a = fixed.connectors.find((c) => c.id === part.attach!.toConnector)!;
-      const b = moving.connectors.find((c) => c.id === part.attach!.connector)!;
+      const moving = assembly.parts.find((placed) => placed.name === part.name)!;
+      const fixed = assembly.parts.find((placed) => placed.name === part.attach!.to)!;
+      const a = fixed.model.connectors.find((c) => c.id === part.attach!.toConnector)!;
+      const b = moving.model.connectors.find((c) => c.id === part.attach!.connector)!;
       const da = new Vector3().copy(a.direction).transformDirection(fixed.root.matrixWorld);
       const db = new Vector3().copy(b.direction).transformDirection(moving.root.matrixWorld);
       expect(da.dot(db), part.name).toBeCloseTo(-1, 9);
@@ -39,12 +40,12 @@ describe.each(STAND_ASSEMBLIES)('сборка «$label»', (definition) => {
 
 describe('цепочка радиатор → переходник → ниппель → муфта', () => {
   it('детали идут по +X без зазоров и с вводом резьбы', () => {
-    const assembly = new Assembly(registry, STAND_ASSEMBLIES[0]);
+    const assembly = new Assembly(registry, library, STAND_ASSEMBLIES[0]);
     const engagements = assembly.joints.map(({ check }) => (check.compatible ? Math.round(check.engagement * 1e6) / 1e3 : NaN));
     // Переходник в радиатор — 8 мм; ниппель в переходник — 5 мм (резьба гайки); муфта на ниппель — 8 мм.
     expect(engagements).toEqual([8, 5, 8]);
 
-    const xs = assembly.parts.map(({ model }) => model.root.position.x);
+    const xs = assembly.parts.map(({ root }) => root.position.x);
     expect(xs).toEqual([...xs].sort((a, b) => a - b));
     assembly.dispose();
   });
@@ -53,9 +54,9 @@ describe('цепочка радиатор → переходник → нипп�
 describe('доворот на угол стыка', () => {
   it('угол на ниппеле повёрнут на 90°: второй выход смотрит вдоль Z', () => {
     const definition = STAND_ASSEMBLIES.find((assembly) => assembly.label.startsWith('Тройник'))!;
-    const assembly = new Assembly(registry, definition);
-    const elbow = assembly.parts.find(({ name }) => name === 'угол')!.model;
-    const top = elbow.connectors.find((c) => c.id === 'top')!;
+    const assembly = new Assembly(registry, library, definition);
+    const elbow = assembly.parts.find(({ name }) => name === 'угол')!;
+    const top = elbow.model.connectors.find((c) => c.id === 'top')!;
     const direction = new Vector3().copy(top.direction).transformDirection(elbow.root.matrixWorld);
     expect(Math.abs(direction.z)).toBeCloseTo(1, 9);
     assembly.dispose();
@@ -65,18 +66,18 @@ describe('доворот на угол стыка', () => {
 describe('Assembly.setAngle', () => {
   const definition = STAND_ASSEMBLIES.find((assembly) => assembly.label.startsWith('Тройник'))!;
   const worldConnector = (assembly: Assembly, part: string, id: string) => {
-    const model = assembly.parts.find(({ name }) => name === part)!.model;
+    const { model, root } = assembly.parts.find(({ name }) => name === part)!;
     const connector = model.connectors.find((c) => c.id === id)!;
     return {
       connector,
-      position: new Vector3().copy(connector.position).applyMatrix4(model.root.matrixWorld),
-      direction: new Vector3().copy(connector.direction).transformDirection(model.root.matrixWorld),
-      up: new Vector3().copy(connector.up).transformDirection(model.root.matrixWorld),
+      position: new Vector3().copy(connector.position).applyMatrix4(root.matrixWorld),
+      direction: new Vector3().copy(connector.direction).transformDirection(root.matrixWorld),
+      up: new Vector3().copy(connector.up).transformDirection(root.matrixWorld),
     };
   };
 
   it('угол 0: второй выход угла смотрит вверх; 90°: вдоль Z', () => {
-    const assembly = new Assembly(registry, definition);
+    const assembly = new Assembly(registry, library, definition);
     assembly.setAngle('угол', 0);
     expect(worldConnector(assembly, 'угол', 'top').direction.y).toBeCloseTo(1, 9);
     assembly.setAngle('угол', 90);
@@ -86,9 +87,9 @@ describe('Assembly.setAngle', () => {
   });
 
   it('поворот ниппеля: стыки сходятся, торцы на месте, угол повернулся вместе с ниппелем', () => {
-    const assembly = new Assembly(registry, definition);
+    const assembly = new Assembly(registry, library, definition);
     const elbowBefore = worldConnector(assembly, 'угол', 'top').direction;
-    const valveBefore = assembly.parts.find(({ name }) => name === 'кран в-в')!.model.root.matrixWorld.clone();
+    const valveBefore = assembly.parts.find(({ name }) => name === 'кран в-в')!.root.matrixWorld.clone();
 
     assembly.setAngle('ниппель слева', 45);
 
@@ -109,7 +110,7 @@ describe('Assembly.setAngle', () => {
     expect(elbowAfter.x).toBeCloseTo(elbowBefore.x, 9);
     expect(elbowAfter.angleTo(elbowBefore)).toBeCloseTo(Math.PI / 4, 9);
     // Детали с другой стороны тройника не сдвинулись.
-    expect(assembly.parts.find(({ name }) => name === 'кран в-в')!.model.root.matrixWorld.equals(valveBefore)).toBe(true);
+    expect(assembly.parts.find(({ name }) => name === 'кран в-в')!.root.matrixWorld.equals(valveBefore)).toBe(true);
     assembly.dispose();
   });
 });

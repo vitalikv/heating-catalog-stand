@@ -3,7 +3,6 @@ import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
 import { SphereGeometryBuilder } from '../geometry/SphereGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { MpPipeSizes } from '../sizes/MpPipeSizes';
 import { ConnectorFrame } from './ConnectorFrame';
@@ -33,8 +32,6 @@ export class MpElbowGenerator implements ModelGenerator<MpElbowParams> {
   private readonly sleeves = new SleeveGeometryBuilder();
   private readonly spheres = new SphereGeometryBuilder();
   private readonly ends = new MpPressEnd(this.sleeves);
-
-  constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: MpElbowParams): ValidationError[] {
     const errors = ParamSchema.validate(this.paramSpecs, params);
@@ -75,7 +72,7 @@ export class MpElbowGenerator implements ModelGenerator<MpElbowParams> {
         { id: 'right', position: ConnectorFrame.point(ConnectorFrame.right, params.m1), ...ConnectorFrame.right, ...common },
         { id: 'top', position: ConnectorFrame.point(ConnectorFrame.top, params.m1), ...ConnectorFrame.top, ...common },
       ],
-    }, this.materials);
+    });
   }
 
 }

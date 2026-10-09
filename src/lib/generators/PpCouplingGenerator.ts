@@ -2,7 +2,6 @@ import type { GeneratedModel, ModelGenerator, ParamSpec, ValidationError } from 
 import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { PpPipeSizes } from '../sizes/PpPipeSizes';
 import { ConnectorFrame } from './ConnectorFrame';
@@ -31,8 +30,6 @@ export class PpCouplingGenerator implements ModelGenerator<PpCouplingParams> {
   ];
 
   private readonly sleeves = new SleeveGeometryBuilder();
-
-  constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: PpCouplingParams): ValidationError[] {
     const errors = ParamSchema.validate(this.paramSpecs, params);
@@ -77,7 +74,7 @@ export class PpCouplingGenerator implements ModelGenerator<PpCouplingParams> {
         { id: 'left', position: at(-params.m1 / 2), ...ConnectorFrame.left, depth: x1, nominal: params.r1, ...common },
         { id: 'right', position: at(params.m1 / 2), ...ConnectorFrame.right, depth: x2, nominal: params.r2, ...common },
       ],
-    }, this.materials);
+    });
   }
 
   /** Вызывать только для известного номинала. */

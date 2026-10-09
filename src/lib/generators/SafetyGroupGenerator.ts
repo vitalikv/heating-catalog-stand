@@ -5,7 +5,6 @@ import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import type { GeometryPart } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
 import type { SleeveShape } from '../geometry/SleeveGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import { ConnectorFrame } from './ConnectorFrame';
@@ -50,8 +49,6 @@ export class SafetyGroupGenerator implements ModelGenerator<SafetyGroupParams> {
   ];
 
   private readonly sleeves = new SleeveGeometryBuilder();
-
-  constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: SafetyGroupParams): ValidationError[] {
     return ParamSchema.validate(this.paramSpecs, params);
@@ -104,7 +101,7 @@ export class SafetyGroupGenerator implements ModelGenerator<SafetyGroupParams> {
           gender: 'internal',
         },
       ],
-    }, this.materials);
+    });
   }
 
   /** Манометр на левой гайке: резьба, гайка, корпус с циферблатом. */

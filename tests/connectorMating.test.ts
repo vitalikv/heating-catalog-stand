@@ -3,18 +3,16 @@ import { describe, expect, it } from 'vitest';
 import {
   AluminiumRadiatorGenerator,
   ConnectorMating,
-  MaterialLibrary,
   RadiatorPlugGenerator,
   SteelCouplingGenerator,
   SteelNippleGenerator,
 } from '../src/lib/index';
 import type { Connector } from '../src/lib/index';
 
-const materials = new MaterialLibrary();
-const coupling = new SteelCouplingGenerator(materials);
-const nipple = new SteelNippleGenerator(materials);
-const radiator = new AluminiumRadiatorGenerator(materials);
-const plug = new RadiatorPlugGenerator(materials);
+const coupling = new SteelCouplingGenerator();
+const nipple = new SteelNippleGenerator();
+const radiator = new AluminiumRadiatorGenerator();
+const plug = new RadiatorPlugGenerator();
 
 const byId = (connectors: Connector[], id: string) => connectors.find((c) => c.id === id)!;
 

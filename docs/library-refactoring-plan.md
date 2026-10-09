@@ -309,10 +309,14 @@ registry.get(id: string): ModelGenerator<unknown> | undefined;   // для да�
   Попутно на `MeshModel` переведены `SteelCoupling`, `SteelNipple`, `PpElbow`, `RadiatorPlug` (п. 5);
   `AluminiumRadiator` остаётся из нескольких мешей с общей геометрией. Тест `materialGroupMerger.test.ts`;
   тесты групп сверяют материалы по ключам.
-- **2b.** `GeneratedModel` по п. 4, `createModelObject`, `bounds` — простые данные.
+- **2b — сделано.** `GeneratedModel` по п. 4 (`geometry`, `materials`, `bounds: BoundsData`), без `root`;
+  `src/lib/scene/ModelObject.ts` — `createModelObject(model, library)`. `AluminiumRadiator` сливает секции
+  в одну геометрию (копии со сдвигом на шаг; треугольники и габарит как в `gl2`).
 - Генераторы без `MaterialLibrary`; `GeneratorRegistry` без аргументов.
-- Стенд (`main.ts`, `Assembly.ts`, `ModelInspector.ts`) — через `createModelObject`.
-- Тесты групп материалов проверяют ключи, а не индексы.
+- Стенд (`main.ts`, `Assembly.ts`, `ModelInspector.ts`) — через `createModelObject`; деталь в сцене —
+  `SceneModel { model, root }`, `Assembly` получает библиотеку материалов.
+- Тесты групп материалов проверяют ключи, а не индексы; `scripts/gl2-compare.mjs` и `gl2-snapshot.mjs`
+  читают данные модели (снимок — через `fromGl2` и `createModelObject`).
 
 ### Шаг 3. `BaseGenerator`, помощники, фабрики параметров
 

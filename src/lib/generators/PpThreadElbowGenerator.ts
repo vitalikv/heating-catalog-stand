@@ -3,7 +3,6 @@ import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
 import { SphereGeometryBuilder } from '../geometry/SphereGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { PpPipeSizes } from '../sizes/PpPipeSizes';
 import { ThreadSizes } from '../sizes/ThreadSizes';
@@ -43,8 +42,6 @@ export class PpThreadElbowGenerator implements ModelGenerator<PpThreadElbowParam
 
   private readonly sleeves = new SleeveGeometryBuilder();
   private readonly spheres = new SphereGeometryBuilder();
-
-  constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: PpThreadElbowParams): ValidationError[] {
     const errors = ParamSchema.validate(this.paramSpecs, params);
@@ -119,6 +116,6 @@ export class PpThreadElbowGenerator implements ModelGenerator<PpThreadElbowParam
           gender: 'internal',
         },
       ],
-    }, this.materials);
+    });
   }
 }

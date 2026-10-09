@@ -2,7 +2,6 @@ import type { GeneratedModel, ModelGenerator, ParamSpec, ValidationError } from 
 import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import { ConnectorFrame } from './ConnectorFrame';
@@ -49,8 +48,6 @@ export class SteelHalfUnionGenerator implements ModelGenerator<SteelHalfUnionPar
 
   private readonly sleeves = new SleeveGeometryBuilder();
 
-  constructor(private readonly materials: MaterialLibrary) {}
-
   validate(params: SteelHalfUnionParams): ValidationError[] {
     const errors = ParamSchema.validate(this.paramSpecs, params);
     if (errors.length === 0) {
@@ -96,7 +93,7 @@ export class SteelHalfUnionGenerator implements ModelGenerator<SteelHalfUnionPar
         { id: 'nut', position: at(nutEnd - 1.5 * x1), ...ConnectorFrame.left, depth: x1, nominal: params.r1, joint: 'thread', gender: 'internal' },
         { id: 'pipe', position: at(params.m1), ...ConnectorFrame.right, depth: x5 + x2, nominal: params.r2, joint: 'thread', gender: 'external' },
       ],
-    }, this.materials);
+    });
   }
 
   /** Вызывать только для известных номиналов. */

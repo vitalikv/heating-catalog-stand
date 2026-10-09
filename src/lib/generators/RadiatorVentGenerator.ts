@@ -3,7 +3,6 @@ import { GeneratorParamsError } from '../GeneratorParamsError';
 import { ExtrudedShapeBuilder } from '../geometry/ExtrudedShapeBuilder';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import { ConnectorFrame } from './ConnectorFrame';
@@ -41,8 +40,6 @@ export class RadiatorVentGenerator implements ModelGenerator<RadiatorVentParams>
 
   private readonly sleeves = new SleeveGeometryBuilder();
   private readonly shapes = new ExtrudedShapeBuilder();
-
-  constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: RadiatorVentParams): ValidationError[] {
     return ParamSchema.validate(this.paramSpecs, params);
@@ -105,6 +102,6 @@ export class RadiatorVentGenerator implements ModelGenerator<RadiatorVentParams>
           gender: 'external',
         },
       ],
-    }, this.materials);
+    });
   }
 }

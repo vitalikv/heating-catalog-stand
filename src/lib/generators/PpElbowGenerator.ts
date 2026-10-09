@@ -3,7 +3,6 @@ import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
 import { SphereGeometryBuilder } from '../geometry/SphereGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { PpPipeSizes } from '../sizes/PpPipeSizes';
 import { MeshModel } from './MeshModel';
@@ -33,8 +32,6 @@ export class PpElbowGenerator implements ModelGenerator<PpElbowParams> {
 
   private readonly sleeves = new SleeveGeometryBuilder();
   private readonly spheres = new SphereGeometryBuilder();
-
-  constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: PpElbowParams): ValidationError[] {
     const errors = ParamSchema.validate(this.paramSpecs, params);
@@ -79,6 +76,6 @@ export class PpElbowGenerator implements ModelGenerator<PpElbowParams> {
       { id: 'top', position: { x: 0, y: params.m1, z: 0 }, direction: { x: 0, y: 1, z: 0 }, up: { x: 1, y: 0, z: 0 }, ...common },
     ];
 
-    return MeshModel.create({ title, ...merger.merge(), connectors }, this.materials);
+    return MeshModel.create({ title, ...merger.merge(), connectors });
   }
 }

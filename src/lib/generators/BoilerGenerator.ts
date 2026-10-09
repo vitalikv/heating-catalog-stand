@@ -3,7 +3,6 @@ import type { Connector, GeneratedModel, ModelGenerator, ParamSpec, ValidationEr
 import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import { ConnectorFrame } from './ConnectorFrame';
@@ -60,8 +59,6 @@ export class BoilerGenerator implements ModelGenerator<BoilerParams> {
 
   private readonly sleeves = new SleeveGeometryBuilder();
 
-  constructor(private readonly materials: MaterialLibrary) {}
-
   validate(params: BoilerParams): ValidationError[] {
     return ParamSchema.validate(this.paramSpecs, params);
   }
@@ -102,7 +99,7 @@ export class BoilerGenerator implements ModelGenerator<BoilerParams> {
       title: `Котел (разъемы ${CONNECTION_LABELS[params.type]})`,
       ...merger.merge(),
       connectors,
-    }, this.materials);
+    });
   }
 
   /** Расположение патрубков по cr_kotel_1. */

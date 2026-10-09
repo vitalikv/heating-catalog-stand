@@ -2,7 +2,6 @@ import type { GeneratedModel, ModelGenerator, ParamSpec, ValidationError } from 
 import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { PpPipeSizes } from '../sizes/PpPipeSizes';
 import type { PartDiameters } from '../sizes/ThreadSizes';
@@ -40,8 +39,6 @@ export class PpReducingTeeGenerator implements ModelGenerator<PpReducingTeeParam
   ];
 
   private readonly sleeves = new SleeveGeometryBuilder();
-
-  constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: PpReducingTeeParams): ValidationError[] {
     const errors = ParamSchema.validate(this.paramSpecs, params);
@@ -89,7 +86,7 @@ export class PpReducingTeeGenerator implements ModelGenerator<PpReducingTeeParam
         { id: 'top', position: ConnectorFrame.point(top, height), ...top, nominal: params.r2, ...common },
         { id: 'right', position: ConnectorFrame.point(right, params.m1 / 2), ...right, nominal: params.r3, ...common },
       ],
-    }, this.materials);
+    });
   }
 
   /** Диаметры выхода с наибольшим наружным диаметром; вызывать только для известных номиналов. */

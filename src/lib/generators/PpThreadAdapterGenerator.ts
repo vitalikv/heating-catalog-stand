@@ -2,7 +2,6 @@ import type { GeneratedModel, ModelGenerator, ParamSpec, ValidationError } from 
 import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { PpPipeSizes } from '../sizes/PpPipeSizes';
 import { ThreadSizes } from '../sizes/ThreadSizes';
@@ -41,8 +40,6 @@ export class PpThreadAdapterGenerator implements ModelGenerator<PpThreadAdapterP
   ];
 
   private readonly sleeves = new SleeveGeometryBuilder();
-
-  constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: PpThreadAdapterParams): ValidationError[] {
     const errors = ParamSchema.validate(this.paramSpecs, params);
@@ -104,7 +101,7 @@ export class PpThreadAdapterGenerator implements ModelGenerator<PpThreadAdapterP
           gender: insert.gender,
         },
       ],
-    }, this.materials);
+    });
   }
 
   /** Длины раструба (x_1) и резьбы (x_2); вызывать только для известных номиналов. */

@@ -3,7 +3,6 @@ import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
 import type { SleeveMaterials } from '../geometry/SleeveGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { MpPipeSizes } from '../sizes/MpPipeSizes';
 import { ThreadSizes } from '../sizes/ThreadSizes';
@@ -46,8 +45,6 @@ export class MpThreadAdapterGenerator implements ModelGenerator<MpThreadAdapterP
 
   private readonly sleeves = new SleeveGeometryBuilder();
   private readonly ends = new MpPressEnd(this.sleeves);
-
-  constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: MpThreadAdapterParams): ValidationError[] {
     const errors = ParamSchema.validate(this.paramSpecs, params);
@@ -111,6 +108,6 @@ export class MpThreadAdapterGenerator implements ModelGenerator<MpThreadAdapterP
           gender: internal ? 'internal' : 'external',
         },
       ],
-    }, this.materials);
+    });
   }
 }

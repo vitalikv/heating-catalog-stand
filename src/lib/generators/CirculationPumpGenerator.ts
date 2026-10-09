@@ -3,7 +3,6 @@ import { GeneratorParamsError } from '../GeneratorParamsError';
 import { ExtrudedShapeBuilder } from '../geometry/ExtrudedShapeBuilder';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import { ConnectorFrame } from './ConnectorFrame';
@@ -40,8 +39,6 @@ export class CirculationPumpGenerator implements ModelGenerator<CirculationPumpP
 
   private readonly sleeves = new SleeveGeometryBuilder();
   private readonly shapes = new ExtrudedShapeBuilder();
-
-  constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: CirculationPumpParams): ValidationError[] {
     return ParamSchema.validate(this.paramSpecs, params);
@@ -85,6 +82,6 @@ export class CirculationPumpGenerator implements ModelGenerator<CirculationPumpP
         { id: 'left', position: { x: -face, y: 0, z: bodyZ }, ...ConnectorFrame.left, ...common },
         { id: 'right', position: { x: face, y: 0, z: bodyZ }, ...ConnectorFrame.right, ...common },
       ],
-    }, this.materials);
+    });
   }
 }

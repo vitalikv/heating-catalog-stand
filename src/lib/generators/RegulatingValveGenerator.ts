@@ -3,7 +3,6 @@ import { GeneratorParamsError } from '../GeneratorParamsError';
 import { ExtrudedShapeBuilder } from '../geometry/ExtrudedShapeBuilder';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import { BallValveParts, VALVE_NUT_SCALE } from './BallValveParts';
@@ -48,8 +47,6 @@ export class RegulatingValveGenerator implements ModelGenerator<RegulatingValveP
 
   private readonly sleeves = new SleeveGeometryBuilder();
   private readonly parts = new BallValveParts(this.sleeves, new ExtrudedShapeBuilder());
-
-  constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: RegulatingValveParams): ValidationError[] {
     const errors = ParamSchema.validate(this.paramSpecs, params);
@@ -130,7 +127,7 @@ export class RegulatingValveGenerator implements ModelGenerator<RegulatingValveP
         { id: 'left', position: at(-params.m1 / 2), ...ConnectorFrame.left, depth: x1, gender: 'internal', ...common },
         { id: 'right', position: at(union.end), ...ConnectorFrame.right, depth: union.threadLength, gender: 'external', ...common },
       ],
-    }, this.materials);
+    });
   }
 
   /** Шток над корпусом и головка: колпачок или терморегулятор (16 граней). */

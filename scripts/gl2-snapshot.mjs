@@ -106,15 +106,19 @@ const standExpression = `(async () => {
   const url = performance.getEntriesByType('resource').map((entry) => entry.name).find((name) => name.includes('/deps/three.js'));
   const THREE = await import(url);
   const lib = await import('/src/lib/index.ts');
+  const { fromGl2 } = await import('/src/lib/legacy/gl2.ts');
   const texture = await new THREE.TextureLoader().loadAsync('/textures/rezba_1.png');
-  const registry = new lib.GeneratorRegistry(new lib.MaterialLibrary(texture));
+  const registry = new lib.GeneratorRegistry();
+  const library = new lib.MaterialLibrary(texture);
   ${shoot}
   return ${JSON.stringify(cases)}.map(({ id, params }) => {
-    const model = registry.get(id).build(params);
+    const converted = fromGl2(id, params);
+    const model = registry.get(converted.generatorId).build(converted.params);
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x8a9099);
-    scene.add(model.root);
-    const camera = frame(THREE, model.bounds);
+    scene.add(lib.createModelObject(model, library));
+    const { min, max } = model.bounds;
+    const camera = frame(THREE, new THREE.Box3(new THREE.Vector3(min.x, min.y, min.z), new THREE.Vector3(max.x, max.y, max.z)));
     // Свет стенда и редактора: Viewer.ts.
     scene.add(new THREE.AmbientLight(0xffffff, 0.5 * Math.PI));
     const light = new THREE.DirectionalLight(0xffffff, 1.5);

@@ -61,7 +61,7 @@ const standExpression = `(async () => {
   const lib = await import('/src/lib/index.ts');
   const { fromGl2 } = await import('/src/lib/legacy/gl2.ts');
   const { GL2_PRESETS } = await import('/src/stand/presets.ts');
-  const registry = new lib.GeneratorRegistry(new lib.MaterialLibrary());
+  const registry = new lib.GeneratorRegistry();
   const only = ${JSON.stringify(ONLY)};
   const cases = [];
   for (const entry of GL2_PRESETS) {
@@ -69,11 +69,11 @@ const standExpression = `(async () => {
     for (const preset of entry.presets) {
       const converted = fromGl2(entry.generatorId, preset.params);
       const model = registry.get(converted.generatorId).build(converted.params);
-      let triangles = 0;
-      model.root.traverse((object) => { if (object.isMesh) triangles += object.geometry.getAttribute('position').count / 3; });
+      const triangles = model.geometry.getAttribute('position').count / 3;
+      const { min, max } = model.bounds;
       cases.push({
         id: entry.generatorId, label: preset.label, params: preset.params, title: model.title, triangles,
-        bounds: { min: model.bounds.min.toArray(), max: model.bounds.max.toArray() },
+        bounds: { min: [min.x, min.y, min.z], max: [max.x, max.y, max.z] },
         connectors: model.connectors.map((c) => ({ id: c.id, position: [c.position.x, c.position.y, c.position.z] })),
       });
       model.dispose();

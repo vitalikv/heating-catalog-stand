@@ -1,6 +1,6 @@
 import { Box3, Group, MathUtils } from 'three';
-import { ConnectorMating } from '../lib/index';
-import type { Connector, GeneratedModel, GeneratorRegistry, MatingCheck } from '../lib/index';
+import { ConnectorMating, createModelObject } from '../lib/index';
+import type { Connector, GeneratedModel, GeneratorRegistry, MaterialLibrary, MatingCheck } from '../lib/index';
 import type { AssemblyDefinition } from './assemblies';
 
 export interface AssemblyJoint {
@@ -15,8 +15,8 @@ export interface AssemblyJoint {
 
 /** Как поставлена деталь: к какому разъёму какой детали. */
 interface Placement {
-  model: GeneratedModel;
-  target: GeneratedModel;
+  part: AssemblyPartModel;
+  target: AssemblyPartModel;
   fixed: Connector;
   moving: Connector;
   joint: AssemblyJoint;
@@ -25,6 +25,8 @@ interface Placement {
 export interface AssemblyPartModel {
   name: string;
   model: GeneratedModel;
+  /** Объект детали в сцене; его матрица ставит деталь по разъёмам. */
+  root: Group;
 }
 
 /**
@@ -41,7 +43,7 @@ export class Assembly {
   /** По порядку описания: детали ставятся после тех, к кому присоединены. */
   private readonly placements: Placement[] = [];
 
-  constructor(registry: GeneratorRegistry, definition: AssemblyDefinition) {
+  constructor(registry: GeneratorRegistry, library: MaterialLibrary, definition: AssemblyDefinition) {
     this.root.name = definition.label;
 
     for (const part of definition.parts) {
@@ -57,8 +59,9 @@ export class Assembly {
       }
 
       const model = generator.build(part.params);
-      this.root.add(model.root);
-      this.parts.push({ name: part.name, model });
+      const placed = { name: part.name, model, root: createModelObject(model, library) };
+      this.root.add(placed.root);
+      this.parts.push(placed);
 
       if (!part.attach) continue;
       const { connector, to, toConnector, angle = 0 } = part.attach;
@@ -72,7 +75,7 @@ export class Assembly {
 
       const joint = { part: part.name, label: `${part.name}.${connector} → ${to}.${toConnector}`, check: ConnectorMating.check(fixed, moving), angle };
       this.joints.push(joint);
-      const placement = { model, target: target.model, fixed, moving, joint };
+      const placement = { part: placed, target, fixed, moving, joint };
       this.placements.push(placement);
       Assembly.place(placement);
     }
@@ -89,11 +92,11 @@ export class Assembly {
     for (const placement of this.placements.slice(start)) Assembly.place(placement);
   }
 
-  private static place({ model, target, fixed, moving, joint }: Placement): void {
+  private static place({ part, target, fixed, moving, joint }: Placement): void {
     target.root.updateMatrixWorld(true);
     const matrix = ConnectorMating.place(fixed, target.root.matrixWorld, moving, MathUtils.degToRad(joint.angle));
-    matrix.decompose(model.root.position, model.root.quaternion, model.root.scale);
-    model.root.updateMatrixWorld(true);
+    matrix.decompose(part.root.position, part.root.quaternion, part.root.scale);
+    part.root.updateMatrixWorld(true);
   }
 
   /** Габарит всей сборки в координатах сцены. */

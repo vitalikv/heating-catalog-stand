@@ -3,7 +3,6 @@ import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
 import type { SleeveShape } from '../geometry/SleeveGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import { ConnectorFrame } from './ConnectorFrame';
@@ -35,8 +34,6 @@ export class PumpNutGenerator implements ModelGenerator<PumpNutParams> {
   ];
 
   private readonly sleeves = new SleeveGeometryBuilder();
-
-  constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: PumpNutParams): ValidationError[] {
     return ParamSchema.validate(this.paramSpecs, params);
@@ -70,6 +67,6 @@ export class PumpNutGenerator implements ModelGenerator<PumpNutParams> {
         { id: 'pump', position: at(-x1), ...ConnectorFrame.left, depth: x1, nominal: params.r1, ...common },
         { id: 'pipe', position: at(x2), ...ConnectorFrame.right, depth: x2, nominal: params.r2, ...common },
       ],
-    }, this.materials);
+    });
   }
 }

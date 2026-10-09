@@ -1,7 +1,8 @@
-import { Mesh, Vector3 } from 'three';
+import { Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
-import { GeneratorParamsError, MaterialLibrary, PpElbowGenerator, PpPipeSizes } from '../src/lib/index';
+import { GeneratorParamsError, PpElbowGenerator, PpPipeSizes } from '../src/lib/index';
 import type { PpElbowParams } from '../src/lib/index';
+import { boundsBox } from './modelHelpers';
 
 // Наборы pl_ugol_90 из gl2/createObj/start.js.
 const PRESETS: PpElbowParams[] = [
@@ -22,8 +23,7 @@ function expected({ r1, m1 }: PpElbowParams) {
   return { size: new Vector3(m1 + n / 2, m1 + n / 2, n) };
 }
 
-const library = new MaterialLibrary();
-const generator = new PpElbowGenerator(library);
+const generator = new PpElbowGenerator();
 
 describe('PpPipeSizes', () => {
   // Посчитано вручную: n = d + 1.4t с округлением до 0,1 мм, v = d.
@@ -40,9 +40,7 @@ describe.each(PRESETS)('угол ПП $r1, m1 = $m1', (params) => {
   it('строится, буферы согласованы, одна группа пластика', () => {
     expect(generator.validate(params)).toEqual([]);
     const model = generator.build(params);
-    const mesh = model.root.children[0];
-    if (!(mesh instanceof Mesh)) throw new Error('Нет меша в корне модели');
-    const geometry = mesh.geometry;
+    const geometry = model.geometry;
     const position = geometry.getAttribute('position');
 
     expect(geometry.index).toBeNull();
@@ -51,13 +49,13 @@ describe.each(PRESETS)('угол ПП $r1, m1 = $m1', (params) => {
       expect(Array.from(geometry.getAttribute(name).array).every(Number.isFinite)).toBe(true);
     }
     expect(geometry.groups).toEqual([{ start: 0, count: position.count, materialIndex: 0 }]);
-    expect(mesh.material).toEqual([library.get('plastic')]);
+    expect(model.materials).toEqual(['plastic']);
     model.dispose();
   });
 
   it('габариты: плечи по +X и +Y, скругление в −X/−Y', () => {
     const model = generator.build(params);
-    const size = model.bounds.getSize(new Vector3());
+    const size = boundsBox(model.bounds).getSize(new Vector3());
     expect(size.x).toBeCloseTo(exp.size.x, 6);
     expect(size.y).toBeCloseTo(exp.size.y, 6);
     expect(size.z).toBeCloseTo(exp.size.z, 6);

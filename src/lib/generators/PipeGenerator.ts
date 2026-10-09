@@ -1,7 +1,6 @@
 import { CylinderGeometry } from 'three';
 import type { ConnectorJoint, GeneratedModel, ModelGenerator, ParamSpec, ValidationError } from '../contracts';
 import { GeneratorParamsError } from '../GeneratorParamsError';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { MpPipeSizes } from '../sizes/MpPipeSizes';
 import { PpPipeSizes } from '../sizes/PpPipeSizes';
@@ -42,8 +41,6 @@ export class PipeGenerator implements ModelGenerator<PipeParams> {
     { kind: 'length', key: 'length', label: 'Длина', min: 0.01, max: 10, step: 0.001 },
   ];
 
-  constructor(private readonly materials: MaterialLibrary) {}
-
   validate(params: PipeParams): ValidationError[] {
     return ParamSchema.validate(this.paramSpecs, params);
   }
@@ -73,6 +70,6 @@ export class PipeGenerator implements ModelGenerator<PipeParams> {
         { id: 'start', position: { x: -half, y: 0, z: 0 }, ...ConnectorFrame.left, ...common },
         { id: 'end', position: { x: half, y: 0, z: 0 }, ...ConnectorFrame.right, ...common },
       ],
-    }, this.materials);
+    });
   }
 }

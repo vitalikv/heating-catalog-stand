@@ -1,8 +1,9 @@
-import { Box3, Mesh, Vector3 } from 'three';
-import type { BufferGeometry } from 'three';
+import { Box3, Vector3 } from 'three';
+import type { BufferAttribute } from 'three';
 import { describe, expect, it } from 'vitest';
-import { GeneratorParamsError, MaterialLibrary, SteelCouplingGenerator } from '../src/lib/index';
+import { GeneratorParamsError, SteelCouplingGenerator } from '../src/lib/index';
 import type { SteelCouplingParams } from '../src/lib/index';
+import { boundsBox } from './modelHelpers';
 
 // Наборы из gl2/createObj/start.js, блок st_mufta.
 const PRESETS: SteelCouplingParams[] = [
@@ -53,14 +54,7 @@ function expected({ r1, r2, m1 }: SteelCouplingParams) {
   };
 }
 
-function geometryOf(root: { children: unknown[] }): BufferGeometry {
-  const mesh = root.children[0];
-  if (!(mesh instanceof Mesh)) throw new Error('Нет меша в корне модели');
-  return mesh.geometry;
-}
-
-const library = new MaterialLibrary();
-const generator = new SteelCouplingGenerator(library);
+const generator = new SteelCouplingGenerator();
 
 describe.each(PRESETS)('муфта $r1 × $r2, m1 = $m1', (params) => {
   const exp = expected(params);
@@ -71,7 +65,7 @@ describe.each(PRESETS)('муфта $r1 × $r2, m1 = $m1', (params) => {
 
   it('буферы согласованы, без NaN, есть группы обоих материалов', () => {
     const model = generator.build(params);
-    const geometry = geometryOf(model.root);
+    const geometry = model.geometry;
     const position = geometry.getAttribute('position');
     const normal = geometry.getAttribute('normal');
     const uv = geometry.getAttribute('uv');
@@ -85,22 +79,22 @@ describe.each(PRESETS)('муфта $r1 × $r2, m1 = $m1', (params) => {
     }
 
     expect(geometry.groups).toHaveLength(2);
-    expect((model.root.children[0] as Mesh).material).toEqual([library.get('metal'), library.get('thread')]);
+    expect(model.materials).toEqual(['metal', 'thread']);
     expect(geometry.groups.reduce((sum, group) => sum + group.count, 0)).toBe(position.count);
     model.dispose();
   });
 
   it('габариты', () => {
     const model = generator.build(params);
-    const size = model.bounds.getSize(new Vector3());
+    const size = boundsBox(model.bounds).getSize(new Vector3());
     expect(size.x).toBeCloseTo(exp.size.x, 6);
     expect(size.y).toBeCloseTo(exp.size.y, 6);
     expect(size.z).toBeCloseTo(exp.size.z, 6);
 
-    // bounds совпадает с фактическим габаритом корня.
-    const actual = new Box3().setFromObject(model.root);
-    expect(actual.min.distanceTo(model.bounds.min)).toBeLessThan(1e-9);
-    expect(actual.max.distanceTo(model.bounds.max)).toBeLessThan(1e-9);
+    // bounds совпадает с фактическим габаритом геометрии.
+    const actual = new Box3().setFromBufferAttribute(model.geometry.getAttribute('position') as BufferAttribute);
+    expect(actual.min.distanceTo(boundsBox(model.bounds).min)).toBeLessThan(1e-9);
+    expect(actual.max.distanceTo(boundsBox(model.bounds).max)).toBeLessThan(1e-9);
     model.dispose();
   });
 
@@ -157,18 +151,15 @@ describe('муфта: параметры и ресурсы', () => {
   it('название как в gl2', () => {
     const single = generator.build({ r1: '1/2', r2: '1/2', m1: 0.03 });
     expect(single.title).toBe('Муфта 1/2(в)');
-    expect(single.root.name).toBe(single.title);
     expect(generator.build({ r1: '1', r2: '1/2', m1: 0.034 }).title).toBe('Муфта 1(в)х1/2(в)');
   });
 
-  it('повторный dispose безопасен и не трогает общие материалы', () => {
-    const materials = new MaterialLibrary();
-    const model = new SteelCouplingGenerator(materials).build(PRESETS[0]);
-    let materialDisposed = false;
-    materials.get('metal').addEventListener('dispose', () => (materialDisposed = true));
-
+  it('dispose освобождает геометрию, повторный вызов безопасен', () => {
+    const model = generator.build(PRESETS[0]);
+    let disposals = 0;
+    model.geometry.addEventListener('dispose', () => disposals++);
     model.dispose();
     expect(() => model.dispose()).not.toThrow();
-    expect(materialDisposed).toBe(false);
+    expect(disposals).toBe(1);
   });
 });

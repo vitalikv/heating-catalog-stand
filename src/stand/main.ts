@@ -1,11 +1,11 @@
 import GUI from 'lil-gui';
 import { Box3, Mesh, TextureLoader, Vector3 } from 'three';
 import type { Object3D } from 'three';
-import { GeneratorRegistry, MaterialLibrary } from '../lib/index';
-import type { GeneratedModel } from '../lib/index';
+import { createModelObject, GeneratorRegistry, MaterialLibrary } from '../lib/index';
 import { Assembly } from './Assembly';
 import { STAND_ASSEMBLIES } from './assemblies';
-import { ModelInspector } from './ModelInspector';
+import { boundsBox, ModelInspector } from './ModelInspector';
+import type { SceneModel } from './ModelInspector';
 import { STAND_PRESETS } from './presets';
 import type { StandParams } from './presets';
 import { StandPanel } from './StandPanel';
@@ -17,12 +17,12 @@ if (!viewport || !info) throw new Error('Не найдена разметка с
 
 const viewer = new Viewer(viewport);
 const materials = new MaterialLibrary();
-const registry = new GeneratorRegistry(materials);
+const registry = new GeneratorRegistry();
 // Переключатели общие для одиночной модели и всех деталей сборки.
 const inspectorOptions = ModelInspector.defaultOptions();
 const inspector = new ModelInspector(viewer.scene, inspectorOptions);
 
-let model: GeneratedModel | null = null;
+let current: SceneModel | null = null;
 let assembly: { value: Assembly; label: string; inspectors: ModelInspector[]; joints: GUI } | null = null;
 let lastBuild: { generatorId: string; params: StandParams } | null = null;
 let textureWarning = '';
@@ -51,10 +51,10 @@ function showInfo(lines: string[], hasErrors: boolean): void {
 
 function clearModel(): void {
   // Старая модель освобождается при каждом перестроении.
-  if (model) {
-    model.root.removeFromParent();
-    model.dispose();
-    model = null;
+  if (current) {
+    current.root.removeFromParent();
+    current.model.dispose();
+    current = null;
   }
   inspector.attach(null);
 }
@@ -85,18 +85,19 @@ function rebuild(generatorId: string, params: StandParams, reframe: boolean): vo
   }
 
   const started = performance.now();
-  model = generator.build(params);
+  const model = generator.build(params);
   const elapsed = performance.now() - started;
 
-  viewer.scene.add(model.root);
-  inspector.attach(model);
+  current = { model, root: createModelObject(model, materials) };
+  viewer.scene.add(current.root);
+  inspector.attach(current);
   if (reframe) viewer.frame(inspector.framingBox());
 
   showInfo(
     [
       model.title,
-      `Треугольников: ${triangleCount(model.root).toLocaleString('ru-RU')}`,
-      formatSize(model.bounds),
+      `Треугольников: ${triangleCount(current.root).toLocaleString('ru-RU')}`,
+      formatSize(boundsBox(model.bounds)),
       `Построение: ${elapsed.toFixed(2)} мс`,
       ...model.warnings.map((warning) => `Предупреждение: ${warning}`),
     ],
@@ -115,7 +116,7 @@ function showAssembly(index: number): void {
 
   panel.setVisible(false);
   clearModel();
-  const value = new Assembly(registry, definition);
+  const value = new Assembly(registry, materials, definition);
   viewer.scene.add(value.root);
   // Состыкованные разъёмы не рисуются: их подписи легли бы друг на друга, стыки — в сведениях.
   const mated = new Map<string, Set<string>>();
@@ -125,9 +126,9 @@ function showAssembly(index: number): void {
     mark(part.name, part.attach.connector);
     mark(part.attach.to, part.attach.toConnector);
   }
-  const inspectors = value.parts.map(({ name, model: part }) => {
+  const inspectors = value.parts.map((part) => {
     const partInspector = new ModelInspector(viewer.scene, inspectorOptions);
-    partInspector.attach(part, mated.get(name));
+    partInspector.attach(part, mated.get(part.name));
     return partInspector;
   });
   assembly = { value, label: definition.label, inspectors, joints: jointsFolder(value) };
@@ -193,7 +194,7 @@ function frameCurrent(): void {
     const framing = assembly.value.bounds();
     for (const partInspector of assembly.inspectors) framing.union(partInspector.framingBox());
     viewer.frame(framing);
-  } else if (model) {
+  } else if (current) {
     viewer.frame(inspector.framingBox());
   }
 }

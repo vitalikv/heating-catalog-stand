@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GeneratorRegistry, MaterialLibrary } from '../src/lib/index';
+import { GeneratorRegistry } from '../src/lib/index';
 import { fromGl2, GL2_IDS, gl2TargetId } from '../src/lib/legacy/gl2';
 import { GL2_PRESETS } from '../src/stand/presets';
 import reference from './fixtures/gl2-reference.json';
@@ -14,7 +14,7 @@ const targets = Object.entries(GL2_IDS).flatMap(([id, target]) =>
 describe('legacy/gl2', () => {
   it('таблица покрывает ID реестра, наборов стенда и эталона', () => {
     const ids = [
-      ...new GeneratorRegistry(new MaterialLibrary()).list().map((generator) => generator.id),
+      ...new GeneratorRegistry().list().map((generator) => generator.id),
       ...GL2_PRESETS.map((entry) => entry.generatorId),
       ...(reference as { id: string }[]).map((row) => row.id),
     ];

@@ -3,7 +3,6 @@ import { GeneratorParamsError } from '../GeneratorParamsError';
 import { ExtrudedShapeBuilder } from '../geometry/ExtrudedShapeBuilder';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import { BallValveParts, VALVE_BODY_STEP, VALVE_NUT_SCALE } from './BallValveParts';
@@ -41,8 +40,6 @@ export class BallValveUnionGenerator implements ModelGenerator<BallValveUnionPar
 
   private readonly sleeves = new SleeveGeometryBuilder();
   private readonly parts = new BallValveParts(this.sleeves, new ExtrudedShapeBuilder());
-
-  constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: BallValveUnionParams): ValidationError[] {
     const errors = ParamSchema.validate(this.paramSpecs, params);
@@ -100,6 +97,6 @@ export class BallValveUnionGenerator implements ModelGenerator<BallValveUnionPar
         { id: 'left', position: at(-half), ...ConnectorFrame.left, depth: x1, gender: 'internal', ...common },
         { id: 'right', position: at(union.end), ...ConnectorFrame.right, depth: union.threadLength, gender: 'external', ...common },
       ],
-    }, this.materials);
+    });
   }
 }

@@ -1,8 +1,8 @@
-import { Mesh } from 'three';
 import { describe, expect, it } from 'vitest';
-import { GeneratorRegistry, MaterialLibrary } from '../src/lib/index';
+import { GeneratorRegistry } from '../src/lib/index';
 import { fromGl2 } from '../src/lib/legacy/gl2';
 import reference from './fixtures/gl2-reference.json';
+import { boundsBox, triangleCount } from './modelHelpers';
 
 /**
  * Эталон gl2 для всех наборов стенда: название, число треугольников и точек разъёмов, габарит.
@@ -61,7 +61,7 @@ const NOT_IN_GL2: Record<string, string> = {
 /** Названия, которые сознательно отличаются от gl2 (журнал, п. 12). */
 const TITLE_DIFFERS = new Set(['al_zagl_radiator_1', 'gr_bez_1']);
 
-const registry = new GeneratorRegistry(new MaterialLibrary());
+const registry = new GeneratorRegistry();
 const rows = (reference as ReferenceRow[]).map((row) => ({
   ...row,
   name: `${row.id} ${JSON.stringify(row.params)}`,
@@ -74,8 +74,8 @@ describe.each(rows)('$name', (row) => {
     expect(generator, row.converted.generatorId).toBeDefined();
     const model = generator!.build(row.converted.params);
 
-    const min = model.bounds.min.toArray();
-    const max = model.bounds.max.toArray();
+    const min = boundsBox(model.bounds).min.toArray();
+    const max = boundsBox(model.bounds).max.toArray();
     for (let axis = 0; axis < 3; axis++) {
       expect(Math.abs(min[axis] - row.bounds.min[axis]), `min[${axis}]`).toBeLessThan(TOLERANCE);
       expect(Math.abs(max[axis] - row.bounds.max[axis]), `max[${axis}]`).toBeLessThan(TOLERANCE);
@@ -83,13 +83,7 @@ describe.each(rows)('$name', (row) => {
     expect(model.connectors).toHaveLength(row.connectors);
     if (!TITLE_DIFFERS.has(row.id)) expect(model.title).toBe(row.title);
 
-    if (!(row.id in TRIANGLES_DIFFER)) {
-      let triangles = 0;
-      model.root.traverse((object) => {
-        if (object instanceof Mesh) triangles += object.geometry.getAttribute('position').count / 3;
-      });
-      expect(triangles).toBe(row.triangles);
-    }
+    if (!(row.id in TRIANGLES_DIFFER)) expect(triangleCount(model)).toBe(row.triangles);
     model.dispose();
   });
 });

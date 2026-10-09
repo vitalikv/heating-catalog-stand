@@ -4,7 +4,6 @@ import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import type { GeometryPart } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import { ConnectorFrame } from './ConnectorFrame';
@@ -52,8 +51,6 @@ export class SteelRadiatorGenerator implements ModelGenerator<SteelRadiatorParam
   ];
 
   private readonly sleeves = new SleeveGeometryBuilder();
-
-  constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: SteelRadiatorParams): ValidationError[] {
     return ParamSchema.validate(this.paramSpecs, params);
@@ -116,7 +113,7 @@ export class SteelRadiatorGenerator implements ModelGenerator<SteelRadiatorParam
       title: `Ст.радиатор h${Math.round(params.size.y * 1000)} (${params.size.x}м)`,
       ...merger.merge(),
       connectors,
-    }, this.materials);
+    });
   }
 
   /** Короб без боковых стенок и окантовка спереди и сзади. */

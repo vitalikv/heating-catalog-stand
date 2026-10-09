@@ -1,7 +1,5 @@
-import { Box3, Group, Mesh } from 'three';
 import type { BufferGeometry } from 'three';
 import type { Connector, GeneratedModel, MaterialKey } from '../contracts';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 
 export interface MeshModelOptions {
   title: string;
@@ -12,24 +10,20 @@ export interface MeshModelOptions {
   connectors: Connector[];
 }
 
-/** Модель из одного меша: корень с названием, габарит и dispose() геометрии. */
+/** Модель из слитой геометрии: габарит по геометрии и dispose() геометрии. */
 export class MeshModel {
-  /** Материалы library общие, модель их не освобождает. */
-  static create(options: MeshModelOptions, library: MaterialLibrary): GeneratedModel {
+  static create(options: MeshModelOptions): GeneratedModel {
     const { title, geometry, materials, connectors } = options;
     geometry.computeBoundingBox();
-    const bounds = new Box3().copy(geometry.boundingBox!);
-
-    const root = new Group();
-    root.name = title;
-    root.add(new Mesh(geometry, materials.map((key) => library.get(key))));
+    const { min, max } = geometry.boundingBox!;
 
     let disposed = false;
     return {
-      root,
       title,
+      geometry,
+      materials,
       connectors,
-      bounds,
+      bounds: { min: { x: min.x, y: min.y, z: min.z }, max: { x: max.x, y: max.y, z: max.z } },
       warnings: [],
       dispose: () => {
         if (disposed) return;

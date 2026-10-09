@@ -1,4 +1,4 @@
-import type { Box3, Group } from 'three';
+import type { BufferGeometry } from 'three';
 
 /** Вектор как простые данные: сериализуется и не зависит от классов Three.js. */
 export interface Vector3Data {
@@ -96,14 +96,26 @@ export interface ParamSpecBase {
   when?: { key: string; values: readonly string[] };
 }
 
+/** Габарит как простые данные, в локальных координатах модели, м. */
+export interface BoundsData {
+  min: Vector3Data;
+  max: Vector3Data;
+}
+
+/**
+ * Результат генератора — данные без материалов и объектов сцены: переносится из воркера
+ * (атрибуты геометрии — transferable-буферы). Объект сцены собирает createModelObject.
+ */
 export interface GeneratedModel {
-  root: Group;
-  /** Название для интерфейса: 'Муфта 1/2(в)'. Совпадает с root.name. */
+  /** Название для интерфейса: 'Муфта 1/2(в)'. */
   title: string;
+  /** Неиндексированная геометрия; группа i рисуется материалом materials[i]. */
+  geometry: BufferGeometry;
+  materials: readonly MaterialKey[];
   connectors: Connector[];
-  bounds: Box3;
+  bounds: BoundsData;
   warnings: string[];
-  /** Освобождает собственные ресурсы модели; повторный вызов безопасен. */
+  /** Освобождает геометрию модели; повторный вызов безопасен. */
   dispose(): void;
 }
 

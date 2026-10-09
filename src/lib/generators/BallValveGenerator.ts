@@ -5,7 +5,6 @@ import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import type { GeometryPart } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
 import type { SleeveShape } from '../geometry/SleeveGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import type { PartDiameters } from '../sizes/ThreadSizes';
@@ -50,10 +49,7 @@ export class BallValveGenerator implements ModelGenerator<BallValveParams> {
   private readonly sleeves = new SleeveGeometryBuilder();
   private readonly parts = new BallValveParts(this.sleeves, new ExtrudedShapeBuilder());
 
-  constructor(
-    private readonly materials: MaterialLibrary,
-    private readonly ends: BallValveEnds,
-  ) {
+  constructor(private readonly ends: BallValveEnds) {
     this.id = VARIANTS[ends].id;
     this.title = VARIANTS[ends].title;
   }
@@ -96,7 +92,7 @@ export class BallValveGenerator implements ModelGenerator<BallValveParams> {
       title: `Шаровой кран ${params.r1}${variant.suffix}`,
       ...merger.merge(),
       connectors,
-    }, this.materials);
+    });
   }
 
   /** Диаметры корпуса: у крана н-н — по наружной резьбе, иначе по внутренней. */

@@ -2,7 +2,6 @@ import type { GeneratedModel, ModelGenerator, ParamSpec, ValidationError } from 
 import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { MpPipeSizes } from '../sizes/MpPipeSizes';
 import { ConnectorFrame } from './ConnectorFrame';
@@ -30,8 +29,6 @@ export class MpCouplingGenerator implements ModelGenerator<MpCouplingParams> {
 
   private readonly sleeves = new SleeveGeometryBuilder();
   private readonly ends = new MpPressEnd(this.sleeves);
-
-  constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: MpCouplingParams): ValidationError[] {
     const errors = ParamSchema.validate(this.paramSpecs, params);
@@ -64,6 +61,6 @@ export class MpCouplingGenerator implements ModelGenerator<MpCouplingParams> {
         { id: 'left', position: ConnectorFrame.point(left, params.m1 / 2), ...left, depth: MpPressEnd.pressLength(d1), nominal: params.r1, ...common },
         { id: 'right', position: ConnectorFrame.point(right, params.m1 / 2), ...right, depth: MpPressEnd.pressLength(d3), nominal: params.r3, ...common },
       ],
-    }, this.materials);
+    });
   }
 }

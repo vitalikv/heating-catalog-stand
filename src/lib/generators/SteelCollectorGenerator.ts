@@ -2,7 +2,6 @@ import type { Connector, GeneratedModel, ModelGenerator, ParamSpec, ValidationEr
 import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import { ConnectorFrame } from './ConnectorFrame';
@@ -44,8 +43,6 @@ export class SteelCollectorGenerator implements ModelGenerator<SteelCollectorPar
 
   private readonly sleeves = new SleeveGeometryBuilder();
   private readonly pipe = new SteelCollectorPipe(this.sleeves);
-
-  constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: SteelCollectorParams): ValidationError[] {
     const errors = ParamSchema.validate(this.paramSpecs, params);
@@ -120,6 +117,6 @@ export class SteelCollectorGenerator implements ModelGenerator<SteelCollectorPar
           }),
         ),
       ),
-    }, this.materials);
+    });
   }
 }

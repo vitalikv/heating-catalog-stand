@@ -3,7 +3,6 @@ import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
 import type { SleeveMaterials, SleeveShape } from '../geometry/SleeveGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import type { PartDiameters } from '../sizes/ThreadSizes';
@@ -46,8 +45,6 @@ export class SteelTeeGenerator implements ModelGenerator<SteelTeeParams> {
   ];
 
   private readonly sleeves = new SleeveGeometryBuilder();
-
-  constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: SteelTeeParams): ValidationError[] {
     const errors = ParamSchema.validate(this.paramSpecs, params);
@@ -110,6 +107,6 @@ export class SteelTeeGenerator implements ModelGenerator<SteelTeeParams> {
         { id: 'top', position: ConnectorFrame.point(top, params.m2), ...top, nominal: params.r2, ...common },
         { id: 'right', position: ConnectorFrame.point(right, params.m1 / 2), ...right, nominal: params.r3, ...common },
       ],
-    }, this.materials);
+    });
   }
 }

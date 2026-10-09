@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  MaterialLibrary,
   PpCouplingGenerator,
   PpCrossGenerator,
   PpElbow45Generator,
@@ -17,26 +16,25 @@ import type { Connector, GeneratedModel, ModelGenerator } from '../src/lib/index
 const WALL: Record<string, number> = { '20': 4.2, '25': 5.4, '32': 6.7, '40': 8.3, '50': 10.5, '63': 12.5 };
 const ppN = (nominal: string) => Math.round((Number(nominal) + 1.4 * WALL[nominal]) * 10) / 10000;
 
-const materials = new MaterialLibrary();
 const byId = (model: GeneratedModel, id: string): Connector => model.connectors.find((c) => c.id === id)!;
 const codes = <T>(generator: ModelGenerator<T>, params: T) => generator.validate(params).map(({ code, param }) => `${code}:${param}`);
 const socket = { joint: 'pp-socket', gender: 'internal' };
 
 describe('отвод ПП 45° pl_ugol_45_1', () => {
   it('раструбы на концах плеч, второй — под 45°', () => {
-    const model = new PpElbow45Generator(materials).build({ r1: '25', m1: 0.024 });
+    const model = new PpElbow45Generator().build({ r1: '25', m1: 0.024 });
     const left = byId(model, 'left');
     expect(byId(model, 'right')).toMatchObject({ ...socket, depth: 0.015, nominal: '25', position: { x: 0.024, y: 0, z: 0 } });
     expect(left).toMatchObject({ ...socket, depth: 0.015 });
     expect(left.position.x).toBeCloseTo(-0.024 * Math.SQRT1_2, 9);
     expect(left.position.y).toBeCloseTo(0.024 * Math.SQRT1_2, 9);
     expect(model.title).toBe('Отвод_45 25');
-    expect(codes(new PpElbow45Generator(materials), { r1: '25', m1: 0.015 })).toEqual(['too_short:m1']);
+    expect(codes(new PpElbow45Generator(), { r1: '25', m1: 0.015 })).toEqual(['too_short:m1']);
   });
 });
 
 describe('угол ПП с резьбой pl_ugol_90_rezba_1', () => {
-  const generator = new PpThreadElbowGenerator(materials);
+  const generator = new PpThreadElbowGenerator();
 
   it('внутренняя резьба: втулка выступает на 0,5 мм; наружная — торец за корпусом', () => {
     const inner = generator.build({ side: 'v', r1: '20', r2: '1/2', m1: 0.026 });
@@ -53,7 +51,7 @@ describe('угол ПП с резьбой pl_ugol_90_rezba_1', () => {
 });
 
 describe('муфта ПП pl_mufta_1', () => {
-  const generator = new PpCouplingGenerator(materials);
+  const generator = new PpCouplingGenerator();
 
   it('глубина раструба — 0,3 n, не меньше 12 мм', () => {
     const model = generator.build({ r1: '63', r2: '25', m1: 0.065 });
@@ -73,7 +71,7 @@ describe('муфта ПП pl_mufta_1', () => {
 
 describe('соединитель ПП с резьбой pl_perehod_rezba_1', () => {
   it('слева раструб, справа резьба', () => {
-    const generator = new PpThreadAdapterGenerator(materials);
+    const generator = new PpThreadAdapterGenerator();
     const inner = generator.build({ side: 'v', r1: '25', r2: '3/4', m1: 0.041 });
     expect(byId(inner, 'left')).toMatchObject({ ...socket, nominal: '25' });
     expect(byId(inner, 'right')).toMatchObject({ joint: 'thread', gender: 'internal', nominal: '3/4' });
@@ -90,7 +88,7 @@ describe('соединитель ПП с резьбой pl_perehod_rezba_1', () 
 
 describe('тройники ПП', () => {
   it('pl_troinik_1: отвод высотой m1/2', () => {
-    const model = new PpTeeGenerator(materials).build({ r1: '32', m1: 0.08 });
+    const model = new PpTeeGenerator().build({ r1: '32', m1: 0.08 });
     expect(model.connectors.map((c) => c.id)).toEqual(['left', 'top', 'right']);
     expect(byId(model, 'top').position.y).toBeCloseTo(0.04, 9);
     expect(byId(model, 'left').position.x).toBeCloseTo(-0.04, 9);
@@ -98,15 +96,15 @@ describe('тройники ПП', () => {
   });
 
   it('pl_troinik_2: торец отвода на m2 + dc/2, раструбы 20 мм', () => {
-    const model = new PpReducingTeeGenerator(materials).build({ r1: '40', r2: '25', r3: '40', m1: 0.075, m2: 0.016 });
+    const model = new PpReducingTeeGenerator().build({ r1: '40', r2: '25', r3: '40', m1: 0.075, m2: 0.016 });
     expect(byId(model, 'top')).toMatchObject({ ...socket, nominal: '25', depth: 0.02 });
     expect(byId(model, 'top').position.y).toBeCloseTo(0.016 + ppN('40') / 2, 9);
     expect(model.title).toBe('Тройник 40x25x40');
-    expect(codes(new PpReducingTeeGenerator(materials), { r1: '40', r2: '25', r3: '40', m1: 0.04, m2: 0.016 })).toEqual(['too_short:m1']);
+    expect(codes(new PpReducingTeeGenerator(), { r1: '40', r2: '25', r3: '40', m1: 0.04, m2: 0.016 })).toEqual(['too_short:m1']);
   });
 
   it('pl_troinik_rezba_1: резьба на отводе', () => {
-    const model = new PpThreadTeeGenerator(materials).build({ side: 'n', r1: '20', r2: '3/4', m1: 0.07 });
+    const model = new PpThreadTeeGenerator().build({ side: 'n', r1: '20', r2: '3/4', m1: 0.07 });
     expect(byId(model, 'top')).toMatchObject({ joint: 'thread', gender: 'external', nominal: '3/4', depth: 0.015 });
     expect(byId(model, 'top').position.y).toBeCloseTo(0.035 + 0.015, 9);
     expect(byId(model, 'right')).toMatchObject({ ...socket, nominal: '20' });
@@ -116,7 +114,7 @@ describe('тройники ПП', () => {
 
 describe('крестовина ПП pl_krestovina_1', () => {
   it('четыре раструба', () => {
-    const model = new PpCrossGenerator(materials).build({ r1: '20', m1: 0.052 });
+    const model = new PpCrossGenerator().build({ r1: '20', m1: 0.052 });
     expect(model.connectors.map((c) => c.id)).toEqual(['left', 'right', 'bottom', 'top']);
     expect(byId(model, 'bottom').position.y).toBeCloseTo(-0.026, 9);
     expect(model.title).toBe('Крестовина 20');

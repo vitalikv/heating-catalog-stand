@@ -3,7 +3,6 @@ import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
 import type { SleeveShape } from '../geometry/SleeveGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import { ConnectorFrame } from './ConnectorFrame';
@@ -35,8 +34,6 @@ export class StrainerGenerator implements ModelGenerator<StrainerParams> {
   ];
 
   private readonly sleeves = new SleeveGeometryBuilder();
-
-  constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: StrainerParams): ValidationError[] {
     const errors = ParamSchema.validate(this.paramSpecs, params);
@@ -88,7 +85,7 @@ export class StrainerGenerator implements ModelGenerator<StrainerParams> {
         { id: 'left', position: at(-(s1 / 2 + x1)), ...ConnectorFrame.left, ...common },
         { id: 'right', position: at(s1 / 2 + x1), ...ConnectorFrame.right, ...common },
       ],
-    }, this.materials);
+    });
   }
 
   /** Вызывать только для известного номинала. */

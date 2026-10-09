@@ -2,7 +2,6 @@ import type { GeneratedModel, ModelGenerator, ParamSpec, ValidationError } from 
 import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { MpPipeSizes } from '../sizes/MpPipeSizes';
 import { ThreadSizes } from '../sizes/ThreadSizes';
@@ -40,8 +39,6 @@ export class MpThreadTeeGenerator implements ModelGenerator<MpThreadTeeParams> {
 
   private readonly sleeves = new SleeveGeometryBuilder();
   private readonly ends = new MpPressEnd(this.sleeves);
-
-  constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: MpThreadTeeParams): ValidationError[] {
     const errors = ParamSchema.validate(this.paramSpecs, params);
@@ -125,6 +122,6 @@ export class MpThreadTeeGenerator implements ModelGenerator<MpThreadTeeParams> {
         },
         { id: 'right', position: ConnectorFrame.point(right, params.m1 / 2), ...right, depth: MpPressEnd.pressLength(d3), nominal: params.r3, ...press },
       ],
-    }, this.materials);
+    });
   }
 }

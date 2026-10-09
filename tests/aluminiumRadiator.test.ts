@@ -1,8 +1,7 @@
-import { Mesh } from 'three';
-import type { Material } from 'three';
 import { describe, expect, it } from 'vitest';
-import { AluminiumRadiatorGenerator, GeneratorParamsError, MaterialLibrary } from '../src/lib/index';
+import { AluminiumRadiatorGenerator, GeneratorParamsError } from '../src/lib/index';
 import type { AluminiumRadiatorParams } from '../src/lib/index';
+import { boundsBox } from './modelHelpers';
 
 // Наборы al_radiator_1 из gl2/createObj/start.js: 6 высот × 1…10 секций.
 const PRESETS: AluminiumRadiatorParams[] = [0.2, 0.35, 0.5, 0.6, 0.7, 0.8].flatMap((y) =>
@@ -22,7 +21,6 @@ function expected({ count, size }: AluminiumRadiatorParams) {
   const faceX = 0.02 + x2;
   return {
     depth: x2,
-    step,
     min: [-step / 2, -size.y / 2 - 0.025, -(n / 2 + 0.025)],
     max: [step / 2 + step * (count - 1), size.y / 2 + 0.03, n / 2 + 0.025 + 0.003],
     leftX: -faceX,
@@ -30,46 +28,32 @@ function expected({ count, size }: AluminiumRadiatorParams) {
   };
 }
 
-const library = new MaterialLibrary();
-const generator = new AluminiumRadiatorGenerator(library);
-
-/** Материалы групп меша по порядку групп. */
-const groupMaterials = (mesh: Mesh) => mesh.geometry.groups.map((group) => (mesh.material as Material[])[group.materialIndex!]);
-
+const generator = new AluminiumRadiatorGenerator();
 
 describe.each(PRESETS)('радиатор $count шт., h = $size.y', (params) => {
   const exp = expected(params);
 
-  it('секции — меши с общей геометрией, буферы согласованы', () => {
+  it('секции слиты в одну геометрию, буферы согласованы', () => {
     expect(generator.validate(params)).toEqual([]);
     const model = generator.build(params);
-    const sections = model.root.children;
-    expect(sections).toHaveLength(params.count);
-
-    const geometry = (sections[0] as Mesh).geometry;
-    sections.forEach((section, i) => {
-      expect(section).toBeInstanceOf(Mesh);
-      expect((section as Mesh).geometry).toBe(geometry);
-      expect(section.position.x).toBeCloseTo(exp.step * i, 6);
-    });
-
+    const geometry = model.geometry;
     const position = geometry.getAttribute('position');
     expect(geometry.index).toBeNull();
-    // В gl2 у секции 2036 треугольников.
-    expect(position.count / 3).toBe(2036);
+    // В gl2 у секции 2036 треугольников; секции — копии со сдвигом на шаг.
+    expect(position.count / 3).toBe(2036 * params.count);
     for (const name of ['position', 'normal', 'uv']) {
       const attribute = geometry.getAttribute(name);
       expect(attribute.count).toBe(position.count);
       expect(Array.from(attribute.array).every(Number.isFinite)).toBe(true);
     }
-    expect(groupMaterials(sections[0] as Mesh)).toEqual([library.get('plastic'), library.get('thread')]);
+    expect(model.materials).toEqual(['plastic', 'thread']);
     model.dispose();
   });
 
   it('габариты', () => {
     const model = generator.build(params);
-    expect(model.bounds.min.toArray().map((v, i) => v - exp.min[i]).every((d) => Math.abs(d) < 1e-6)).toBe(true);
-    expect(model.bounds.max.toArray().map((v, i) => v - exp.max[i]).every((d) => Math.abs(d) < 1e-6)).toBe(true);
+    expect(boundsBox(model.bounds).min.toArray().map((v, i) => v - exp.min[i]).every((d) => Math.abs(d) < 1e-6)).toBe(true);
+    expect(boundsBox(model.bounds).max.toArray().map((v, i) => v - exp.max[i]).every((d) => Math.abs(d) < 1e-6)).toBe(true);
     model.dispose();
   });
 
@@ -115,10 +99,10 @@ describe('радиатор: параметры и ресурсы', () => {
     expect(generator.build(base).title).toBe('Ал.радиатор h500 (3шт.)');
   });
 
-  it('общая геометрия освобождается один раз, повторный dispose безопасен', () => {
+  it('геометрия освобождается один раз, повторный dispose безопасен', () => {
     const model = generator.build(base);
     let disposals = 0;
-    (model.root.children[0] as Mesh).geometry.addEventListener('dispose', () => disposals++);
+    model.geometry.addEventListener('dispose', () => disposals++);
 
     model.dispose();
     model.dispose();

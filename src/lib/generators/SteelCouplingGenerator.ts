@@ -3,7 +3,6 @@ import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
 import type { SleeveMaterials } from '../geometry/SleeveGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import type { PartDiameters } from '../sizes/ThreadSizes';
@@ -50,8 +49,6 @@ export class SteelCouplingGenerator implements ModelGenerator<SteelCouplingParam
   ];
 
   private readonly sleeves = new SleeveGeometryBuilder();
-
-  constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: SteelCouplingParams): ValidationError[] {
     const errors = ParamSchema.validate(this.paramSpecs, params);
@@ -103,7 +100,7 @@ export class SteelCouplingGenerator implements ModelGenerator<SteelCouplingParam
       { id: 'right', position: at(face), direction: { x: 1, y: 0, z: 0 }, depth: face - x3R, nominal: params.r2, ...common },
     ];
 
-    return MeshModel.create({ title, ...merger.merge(), connectors }, this.materials);
+    return MeshModel.create({ title, ...merger.merge(), connectors });
   }
 
   /** Вызывать только для параметров с известными номиналами. */

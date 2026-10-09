@@ -1,8 +1,6 @@
-import { Mesh } from 'three';
 import { describe, expect, it } from 'vitest';
 import {
   GeneratorParamsError,
-  MaterialLibrary,
   SteelCollectorGenerator,
   SteelCrossGenerator,
   SteelElbow45Generator,
@@ -23,7 +21,6 @@ const PIPE: Record<string, [number, number]> = {
 /** Наружный диаметр детали, м: внутренняя резьба — d, наружная — d − t. */
 const n = (nominal: string, side: 'v' | 'n') => Math.round((PIPE[nominal][0] - (side === 'n' ? PIPE[nominal][1] : 0)) * 10) / 10000;
 
-const materials = new MaterialLibrary();
 const byId = (model: GeneratedModel, id: string): Connector => model.connectors.find((c) => c.id === id)!;
 const codes = <T>(generator: ModelGenerator<T>, params: T) => generator.validate(params).map(({ code, param }) => `${code}:${param}`);
 const X = { x: 1, y: 0, z: 0 };
@@ -31,7 +28,7 @@ const Y = { x: 0, y: 1, z: 0 };
 const minusX = { x: -1, y: 0, z: 0 };
 
 describe('заглушка st_zagl_nr', () => {
-  const generator = new SteelPlugGenerator(materials);
+  const generator = new SteelPlugGenerator();
 
   it('разъём на конце резьбы, глубина — резьба 8…12 мм', () => {
     for (const [r1, m1] of [['1/2', 0.022], ['2', 0.039]] as const) {
@@ -56,7 +53,7 @@ describe('заглушка st_zagl_nr', () => {
 });
 
 describe('полусгон st_pol_sgon_1', () => {
-  const generator = new SteelHalfUnionGenerator(materials);
+  const generator = new SteelHalfUnionGenerator();
 
   it('гайка слева с внутренней резьбой r1, патрубок справа с наружной r2', () => {
     const params = { r1: '3/4', r2: '1/2', m1: 0.04 };
@@ -81,7 +78,7 @@ describe('полусгон st_pol_sgon_1', () => {
 });
 
 describe('угол стальной 90° st_ugol_90_1', () => {
-  const generator = new SteelElbowGenerator(materials);
+  const generator = new SteelElbowGenerator();
 
   it('внутренняя резьба: торец за кольцом, глубина — резьба и кольцо', () => {
     const model = generator.build({ side: 'v', r1: '1/2', m1: 0.023 });
@@ -112,7 +109,7 @@ describe('угол стальной 90° st_ugol_90_1', () => {
 
 describe('угол стальной 45° st_ugol_45_1', () => {
   it('второй выход — левый, повёрнутый на 45° вверх', () => {
-    const model = new SteelElbow45Generator(materials).build({ r1: '3/4', m1: 0.022 });
+    const model = new SteelElbow45Generator().build({ r1: '3/4', m1: 0.022 });
     const face = 0.022 + n('3/4', 'v') / 10;
     const left = byId(model, 'left');
     expect(left.direction.x).toBeCloseTo(-Math.SQRT1_2, 12);
@@ -127,7 +124,7 @@ describe('угол стальной 45° st_ugol_45_1', () => {
 });
 
 describe('тройник st_troinik_1', () => {
-  const generator = new SteelTeeGenerator(materials);
+  const generator = new SteelTeeGenerator();
 
   it('выходы слева, вверх и справа со своими номиналами', () => {
     const model = generator.build({ side: 'v', r1: '1', r2: '1/2', r3: '1', m1: 0.056, m2: 0.03 });
@@ -147,20 +144,20 @@ describe('тройник st_troinik_1', () => {
 
 describe('крестовина st_krestovina_1', () => {
   it('четыре выхода на ±m1/2', () => {
-    const model = new SteelCrossGenerator(materials).build({ r1: '1/2', m1: 0.046 });
+    const model = new SteelCrossGenerator().build({ r1: '1/2', m1: 0.046 });
     const expected = { left: [-0.023, 0], right: [0.023, 0], bottom: [0, -0.023], top: [0, 0.023] };
     for (const [id, [x, y]] of Object.entries(expected)) {
       expect(byId(model, id).position.x, id).toBeCloseTo(x, 9);
       expect(byId(model, id).position.y, id).toBeCloseTo(y, 9);
     }
     expect(byId(model, 'bottom').up).toEqual({ x: -1, y: 0, z: 0 });
-    expect(codes(new SteelCrossGenerator(materials), { r1: '1/2', m1: 0.03 })).toEqual(['too_short:m1']);
+    expect(codes(new SteelCrossGenerator(), { r1: '1/2', m1: 0.03 })).toEqual(['too_short:m1']);
   });
 });
 
 describe('коллекторы st_collector_1 и st_collector_2', () => {
-  const plain = new SteelCollectorGenerator(materials);
-  const valves = new SteelValveCollectorGenerator(materials);
+  const plain = new SteelCollectorGenerator();
+  const valves = new SteelValveCollectorGenerator();
   const params = { r1: '1', r2: '1/2', count: 3, m1: 0.132, m2: 0.036 };
 
   it('выходы с шагом 36 мм по центру трубы, концы — в и н резьба r1', () => {
@@ -179,8 +176,8 @@ describe('коллекторы st_collector_1 и st_collector_2', () => {
   it('с кранами: выход выше на 10 мм, ручки нужного цвета', () => {
     const model = valves.build({ ...params, color: 'blue' });
     expect(byId(model, 'outlet-1').position.y).toBeCloseTo(0.046, 9);
-    const mesh = model.root.children[0] as Mesh;
-    expect((mesh.material as unknown[])[3]).toBe(materials.get('blue'));
+    expect(model.materials).toContain('blue');
+    expect(model.materials).not.toContain('red');
     expect(model.title).toBe('коллектор с кранами 1x1/2(н) [3 вых.]');
     expect(codes(valves, { ...params, color: 'green' as 'red' })).toEqual(['unknown_option:color']);
   });

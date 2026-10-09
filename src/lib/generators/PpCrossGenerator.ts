@@ -2,7 +2,6 @@ import type { GeneratedModel, ModelGenerator, ParamSpec, ValidationError } from 
 import { GeneratorParamsError } from '../GeneratorParamsError';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { PpPipeSizes } from '../sizes/PpPipeSizes';
 import { ConnectorFrame } from './ConnectorFrame';
@@ -22,8 +21,6 @@ export class PpCrossGenerator implements ModelGenerator<PpElbowParams> {
   ];
 
   private readonly sleeves = new SleeveGeometryBuilder();
-
-  constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: PpElbowParams): ValidationError[] {
     const errors = ParamSchema.validate(this.paramSpecs, params);
@@ -67,6 +64,6 @@ export class PpCrossGenerator implements ModelGenerator<PpElbowParams> {
         { id: 'bottom', position: ConnectorFrame.point(bottom, half), ...bottom, ...common },
         { id: 'top', position: ConnectorFrame.point(top, half), ...top, ...common },
       ],
-    }, this.materials);
+    });
   }
 }

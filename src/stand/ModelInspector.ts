@@ -16,7 +16,18 @@ import {
 import type { Material, Object3D } from 'three';
 import { CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { VertexNormalsHelper } from 'three/examples/jsm/helpers/VertexNormalsHelper.js';
-import type { GeneratedModel } from '../lib/index';
+import type { BoundsData, GeneratedModel } from '../lib/index';
+
+/** Модель в сцене: данные генератора и её объект (createModelObject). */
+export interface SceneModel {
+  model: GeneratedModel;
+  root: Object3D;
+}
+
+/** Габарит модели как Box3. */
+export function boundsBox(bounds: BoundsData): Box3 {
+  return new Box3(new Vector3().copy(bounds.min), new Vector3().copy(bounds.max));
+}
 
 /** Переключатели диагностики. */
 export interface InspectorOptions {
@@ -45,7 +56,7 @@ export class ModelInspector {
   /** Опорное направление разъёма up: от него считается поворот вокруг оси при стыковке. */
   private readonly upMaterial = new LineBasicMaterial({ color: new Color(0x2050d0), depthTest: false });
   private readonly originalMaterials = new Map<Mesh, Material | Material[]>();
-  private model: GeneratedModel | null = null;
+  private part: SceneModel | null = null;
   /** Разъёмы, которые не рисуются: в сборке — уже состыкованные. */
   private hidden: ReadonlySet<string> = new Set();
 
@@ -59,16 +70,16 @@ export class ModelInspector {
   }
 
   /** Показывает оверлеи для модели; null — убирает их. */
-  attach(model: GeneratedModel | null, hiddenConnectors: ReadonlySet<string> = new Set()): void {
+  attach(part: SceneModel | null, hiddenConnectors: ReadonlySet<string> = new Set()): void {
     this.hidden = hiddenConnectors;
     this.restoreMaterials();
-    this.model = model;
+    this.part = part;
     this.update();
   }
 
   /** Габарит модели вместе с оверлеями (стрелки разъёмов); подписи учитываются запасом. */
   framingBox(): Box3 {
-    const box = this.model ? this.model.bounds.clone().applyMatrix4(this.model.root.matrixWorld) : new Box3();
+    const box = this.part ? boundsBox(this.part.model.bounds).applyMatrix4(this.part.root.matrixWorld) : new Box3();
     for (const overlay of this.overlays.children) {
       if (overlay instanceof ArrowHelper) {
         // Остриё стрелки — cone.position.y; подпись стоит выше него на 15 % длины.
@@ -83,14 +94,15 @@ export class ModelInspector {
   update(): void {
     this.clearOverlays();
     this.restoreMaterials();
-    const model = this.model;
-    if (!model) return;
+    if (!this.part) return;
+    const { model, root } = this.part;
 
-    model.root.updateMatrixWorld(true);
-    const meshes = this.meshesOf(model.root);
+    root.updateMatrixWorld(true);
+    const meshes = this.meshesOf(root);
     // bounds и разъёмы модели — в её локальных координатах; деталь сборки может стоять со сдвигом и поворотом.
-    const worldBounds = model.bounds.clone().applyMatrix4(model.root.matrixWorld);
-    const size = model.bounds.getSize(new Vector3());
+    const localBounds = boundsBox(model.bounds);
+    const worldBounds = localBounds.clone().applyMatrix4(root.matrixWorld);
+    const size = localBounds.getSize(new Vector3());
     const scale = Math.max(size.x, size.y, size.z);
 
     if (this.options.neutral) {
@@ -120,8 +132,8 @@ export class ModelInspector {
     if (this.options.connectors) {
       for (const connector of model.connectors) {
         if (this.hidden.has(connector.id)) continue;
-        const origin = new Vector3().copy(connector.position).applyMatrix4(model.root.matrixWorld);
-        const direction = new Vector3().copy(connector.direction).transformDirection(model.root.matrixWorld);
+        const origin = new Vector3().copy(connector.position).applyMatrix4(root.matrixWorld);
+        const direction = new Vector3().copy(connector.direction).transformDirection(root.matrixWorld);
         // От габарита, но не длиннее 6 см: у радиатора иначе стрелки на полметра.
         const length = Math.min(scale * 0.6, 0.06);
         const arrow = new ArrowHelper(direction, origin, length, 0x18a058, length * 0.25, length * 0.12);
@@ -143,7 +155,7 @@ export class ModelInspector {
         depth.renderOrder = 1;
         this.overlays.add(depth);
 
-        const up = new Vector3().copy(connector.up).transformDirection(model.root.matrixWorld);
+        const up = new Vector3().copy(connector.up).transformDirection(root.matrixWorld);
         const upLine = new LineSegments(new BufferGeometry().setFromPoints([origin, origin.clone().addScaledVector(up, length * 0.4)]), this.upMaterial);
         upLine.renderOrder = 1;
         this.overlays.add(upLine);

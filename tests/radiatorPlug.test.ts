@@ -1,9 +1,9 @@
-import { Mesh } from 'three';
 import { describe, expect, it } from 'vitest';
-import { MaterialLibrary, RadiatorPlugGenerator } from '../src/lib/index';
+import { RadiatorPlugGenerator } from '../src/lib/index';
 import type { RadiatorPlugParams } from '../src/lib/index';
+import { boundsBox } from './modelHelpers';
 
-const generator = new RadiatorPlugGenerator(new MaterialLibrary());
+const generator = new RadiatorPlugGenerator();
 
 /**
  * Габариты по формулам al_zagl_radiator_1 для r1 = '1' (d = 33.5 мм): буртик Ø d + 3 мм,
@@ -21,12 +21,12 @@ describe.each(CASES)('радиаторный %o', (params, maxX, title) => {
   it('строится без NaN, габариты и название', () => {
     expect(generator.validate(params)).toEqual([]);
     const model = generator.build(params);
-    const geometry = (model.root.children[0] as Mesh).geometry;
+    const geometry = model.geometry;
     for (const name of ['position', 'normal', 'uv']) {
       expect(Array.from(geometry.getAttribute(name).array).every(Number.isFinite)).toBe(true);
     }
-    expect(model.bounds.min.toArray().map((v) => Math.round(v * 1e6) / 1e6)).toEqual([-0.0095, -0.01825, -0.01825]);
-    expect(model.bounds.max.toArray().map((v) => Math.round(v * 1e6) / 1e6)).toEqual([maxX, 0.01825, 0.01825]);
+    expect(boundsBox(model.bounds).min.toArray().map((v) => Math.round(v * 1e6) / 1e6)).toEqual([-0.0095, -0.01825, -0.01825]);
+    expect(boundsBox(model.bounds).max.toArray().map((v) => Math.round(v * 1e6) / 1e6)).toEqual([maxX, 0.01825, 0.01825]);
     expect(model.title).toBe(title);
     model.dispose();
   });
@@ -59,7 +59,7 @@ describe('радиаторный переходник', () => {
       gender: 'internal',
     });
     // В gl2 у переходника 920 треугольников.
-    expect((adapter.root.children[0] as Mesh).geometry.getAttribute('position').count / 3).toBe(920);
+    expect(adapter.geometry.getAttribute('position').count / 3).toBe(920);
     expect(generator.build({ type: 'zgl', r1: '1' }).connectors).toHaveLength(1);
   });
 

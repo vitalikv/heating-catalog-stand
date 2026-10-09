@@ -1,5 +1,6 @@
 // Единственная точка импорта библиотеки для стенда и будущих потребителей.
 export type {
+  BoundsData,
   Connector,
   ConnectorJoint,
   GeneratedModel,
@@ -95,6 +96,7 @@ export type { SteelNippleParams } from './generators/SteelNippleGenerator';
 export { MaterialLibrary } from './materials/MaterialLibrary';
 export type { MaterialKey } from './materials/MaterialLibrary';
 export { ParamSchema } from './params/ParamSchema';
+export { createModelObject } from './scene/ModelObject';
 export { MpPipeSizes } from './sizes/MpPipeSizes';
 export { PpPipeSizes } from './sizes/PpPipeSizes';
 export { ThreadSizes } from './sizes/ThreadSizes';

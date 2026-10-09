@@ -1,11 +1,10 @@
 import { Matrix4, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
-import { ConnectorMating, MaterialLibrary, MpCouplingGenerator, PipeGenerator, PpCouplingGenerator } from '../src/lib/index';
+import { ConnectorMating, MpCouplingGenerator, PipeGenerator, PpCouplingGenerator } from '../src/lib/index';
 import type { Connector, GeneratedModel } from '../src/lib/index';
 
 // В gl2 труба — объект редактора TubeN, эталона gl2Reference нет: габарит, разъёмы и название — здесь.
-const materials = new MaterialLibrary();
-const generator = new PipeGenerator(materials);
+const generator = new PipeGenerator();
 const byId = (model: GeneratedModel, id: string): Connector => model.connectors.find((c) => c.id === id)!;
 const codes = (params: Parameters<PipeGenerator['validate']>[0]) => generator.validate(params).map(({ code, param }) => `${code}:${param}`);
 
@@ -47,8 +46,8 @@ describe('труба createTubeWF_1', () => {
 
   it('входит в муфту ПП и МП на глубину раструба или гильзы', () => {
     const cases = [
-      { fitting: new PpCouplingGenerator(materials).build({ r1: '20', r2: '20', m1: 0.04 }), pipe: generator.build({ type: 'pp', ppSize: '20', length: 1 }) },
-      { fitting: new MpCouplingGenerator(materials).build({ r1: '16', r3: '16', m1: 0.06 }), pipe: generator.build({ type: 'mp', mpSize: '16', length: 1 }) },
+      { fitting: new PpCouplingGenerator().build({ r1: '20', r2: '20', m1: 0.04 }), pipe: generator.build({ type: 'pp', ppSize: '20', length: 1 }) },
+      { fitting: new MpCouplingGenerator().build({ r1: '16', r3: '16', m1: 0.06 }), pipe: generator.build({ type: 'mp', mpSize: '16', length: 1 }) },
     ];
     for (const { fitting, pipe } of cases) {
       const socket = byId(fitting, 'right');

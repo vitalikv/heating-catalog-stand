@@ -4,7 +4,6 @@ import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
 import type { SleeveMaterials, SleeveShape } from '../geometry/SleeveGeometryBuilder';
 import { SphereGeometryBuilder } from '../geometry/SphereGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import { ConnectorFrame } from './ConnectorFrame';
@@ -37,8 +36,6 @@ export class SteelElbow45Generator implements ModelGenerator<SteelElbow45Params>
 
   private readonly sleeves = new SleeveGeometryBuilder();
   private readonly spheres = new SphereGeometryBuilder();
-
-  constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: SteelElbow45Params): ValidationError[] {
     const errors = ParamSchema.validate(this.paramSpecs, params);
@@ -87,6 +84,6 @@ export class SteelElbow45Generator implements ModelGenerator<SteelElbow45Params>
         { id: 'right', position: ConnectorFrame.point(ConnectorFrame.right, face), ...ConnectorFrame.right, ...common },
         { id: 'left', position: ConnectorFrame.point(angled, face), ...angled, ...common },
       ],
-    }, this.materials);
+    });
   }
 }

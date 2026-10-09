@@ -1,15 +1,15 @@
-import { Box3, Group, Mesh } from 'three';
+import { Box3 } from 'three';
 import type { Connector, GeneratedModel, ModelGenerator, ParamSpec, ValidationError, Vector3Data } from '../contracts';
 import { GeneratorParamsError } from '../GeneratorParamsError';
 import { ExtrudedShapeBuilder } from '../geometry/ExtrudedShapeBuilder';
 import type { ExtrudedShapeOptions } from '../geometry/ExtrudedShapeBuilder';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
-import type { MergedGeometry } from '../geometry/MaterialGroupMerger';
+import type { GeometryPart } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
 import type { SleeveShape } from '../geometry/SleeveGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
+import { MeshModel } from './MeshModel';
 
 /** Параметры в формате cdm из gl2. */
 export interface AluminiumRadiatorParams {
@@ -44,8 +44,6 @@ export class AluminiumRadiatorGenerator implements ModelGenerator<AluminiumRadia
   private readonly sleeves = new SleeveGeometryBuilder();
   private readonly shapes = new ExtrudedShapeBuilder();
 
-  constructor(private readonly materials: MaterialLibrary) {}
-
   validate(params: AluminiumRadiatorParams): ValidationError[] {
     return ParamSchema.validate(this.paramSpecs, params);
   }
@@ -63,23 +61,20 @@ export class AluminiumRadiatorGenerator implements ModelGenerator<AluminiumRadia
     // Торец резьбового участка коллектора — край секции.
     const threadEnd = x1 / 2 + x2;
 
-    const { geometry, materials } = this.buildSection(params.size.x, h, n, v);
-    geometry.computeBoundingBox();
-    // Шаг секций — ширина габарита секции, как в gl2.
-    const step = geometry.boundingBox!.max.x - geometry.boundingBox!.min.x;
-
-    // Секции — меши с общей геометрией, как в gl2.
-    const meshMaterials = materials.map((key) => this.materials.get(key));
-    const root = new Group();
-    const title = `Ал.радиатор h${Math.round(h * 1000)} (${params.count}шт.)`;
-    root.name = title;
-    for (let i = 0; i < params.count; i++) {
-      const section = new Mesh(geometry, meshMaterials);
-      section.position.x = step * i;
-      root.add(section);
+    // Секции — одинаковые куски со сдвигом на шаг; шаг — ширина габарита секции, как в gl2.
+    const sections = Array.from({ length: params.count }, () => this.buildSection(params.size.x, h, n, v));
+    const sectionBox = new Box3();
+    for (const part of sections[0]) {
+      part.geometry.computeBoundingBox();
+      sectionBox.union(part.geometry.boundingBox!);
     }
-    root.updateMatrixWorld(true);
-    const bounds = new Box3().setFromObject(root);
+    const step = sectionBox.max.x - sectionBox.min.x;
+    const merger = new MaterialGroupMerger();
+    sections.forEach((parts, i) => {
+      for (const part of parts) part.geometry.translate(step * i, 0, 0);
+      merger.add(...parts);
+    });
+    const title = `Ал.радиатор h${Math.round(h * 1000)} (${params.count}шт.)`;
 
     // Разъёмы на торцах коллекторов, глубина — резьбовой участок x_2.
     // В gl2 точка стояла в центре резьбового участка со сдвигом наружу на 7 мм.
@@ -96,23 +91,11 @@ export class AluminiumRadiatorGenerator implements ModelGenerator<AluminiumRadia
       { id: 'bottom-right', position: { x: rightX, y: -h / 2, z: 0 }, direction: right, ...common },
     ];
 
-    let disposed = false;
-    return {
-      root,
-      title,
-      connectors,
-      bounds,
-      warnings: [],
-      dispose: () => {
-        if (disposed) return;
-        disposed = true;
-        geometry.dispose();
-      },
-    };
+    return MeshModel.create({ title, ...merger.merge(), connectors });
   }
 
-  /** Одна секция с центром в начале координат: коллекторы, вертикальная труба и рёбра. */
-  private buildSection(width: number, h: number, n: number, v: number): MergedGeometry {
+  /** Куски одной секции с центром в начале координат: коллекторы, вертикальная труба и рёбра. */
+  private buildSection(width: number, h: number, n: number, v: number): GeometryPart[] {
     const x1 = COLLECTOR_CENTER;
     const x2 = (width - x1) / 2 + 0.001;
     const t1 = FIN;
@@ -185,9 +168,9 @@ export class AluminiumRadiatorGenerator implements ModelGenerator<AluminiumRadia
       { depth: width, rotation: acrossX, position: { x: width / 2, y: 0, z: 0 }, points: backAngled },
     ];
 
-    const merger = new MaterialGroupMerger();
-    for (const sleeve of sleeves) merger.add(...this.sleeves.build({ ...sleeve, material: 'plastic' }));
-    for (const fin of fins) merger.add(this.shapes.build({ ...fin, material: 'plastic' }));
-    return merger.merge();
+    return [
+      ...sleeves.flatMap((sleeve) => this.sleeves.build({ ...sleeve, material: 'plastic' })),
+      ...fins.map((fin) => this.shapes.build({ ...fin, material: 'plastic' })),
+    ];
   }
 }

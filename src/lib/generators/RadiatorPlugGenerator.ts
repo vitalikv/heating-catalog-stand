@@ -3,7 +3,6 @@ import { GeneratorParamsError } from '../GeneratorParamsError';
 import { ExtrudedShapeBuilder } from '../geometry/ExtrudedShapeBuilder';
 import { MaterialGroupMerger } from '../geometry/MaterialGroupMerger';
 import { SleeveGeometryBuilder } from '../geometry/SleeveGeometryBuilder';
-import type { MaterialLibrary } from '../materials/MaterialLibrary';
 import { ParamSchema } from '../params/ParamSchema';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 import { MeshModel } from './MeshModel';
@@ -55,8 +54,6 @@ export class RadiatorPlugGenerator implements ModelGenerator<RadiatorPlugParams>
 
   private readonly sleeves = new SleeveGeometryBuilder();
   private readonly shapes = new ExtrudedShapeBuilder();
-
-  constructor(private readonly materials: MaterialLibrary) {}
 
   validate(params: RadiatorPlugParams): ValidationError[] {
     return ParamSchema.validate(this.paramSpecs, params);
@@ -154,6 +151,6 @@ export class RadiatorPlugGenerator implements ModelGenerator<RadiatorPlugParams>
       });
     }
 
-    return MeshModel.create({ title, ...merger.merge(), connectors }, this.materials);
+    return MeshModel.create({ title, ...merger.merge(), connectors });
   }
 }
