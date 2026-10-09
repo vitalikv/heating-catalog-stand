@@ -202,6 +202,7 @@ function frameCurrent(): void {
 }
 
 const gui = new GUI({ title: 'Стенд' });
+gui.add({ benchmark: () => { location.search = '?benchmark'; } }, 'benchmark').name('Тест FPS: 5000 моделей');
 
 const assemblyState = { index: -1 };
 const assemblyOptions = Object.fromEntries([['— одна модель —', -1], ...STAND_ASSEMBLIES.map((definition, index) => [definition.label, index])]);

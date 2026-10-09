@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "npm run typecheck && vite build",
     "preview": "vite preview",
+    "benchmark:million": "npm run build && vite preview --host 0.0.0.0 --port 4174 --strictPort --open /?benchmark=million",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.lib.json",
     "test": "vitest run",
     "test:watch": "vitest"
