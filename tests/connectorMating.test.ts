@@ -18,11 +18,12 @@ const plug = new RadiatorPlugGenerator(materials);
 
 const byId = (connectors: Connector[], id: string) => connectors.find((c) => c.id === id)!;
 
-/** Мировые торец и направление разъёма детали, стоящей в matrix. */
+/** Мировые торец, направление и up разъёма детали, стоящей в matrix. */
 function world(connector: Connector, matrix: Matrix4) {
   return {
     position: new Vector3().copy(connector.position).applyMatrix4(matrix),
     direction: new Vector3().copy(connector.direction).transformDirection(matrix),
+    up: new Vector3().copy(connector.up).transformDirection(matrix),
   };
 }
 
@@ -63,8 +64,8 @@ describe('ConnectorMating.place', () => {
   });
 
   it('учитывает поворот и сдвиг неподвижной детали', () => {
-    const fixed: Connector = { id: 'f', position: { x: 0.1, y: 0, z: 0 }, direction: { x: 1, y: 0, z: 0 }, depth: 0.01, nominal: '1', joint: 'thread', gender: 'internal' };
-    const moving: Connector = { id: 'm', position: { x: 0, y: 0.02, z: 0 }, direction: { x: 0, y: 1, z: 0 }, depth: 0.006, nominal: '1', joint: 'thread', gender: 'external' };
+    const fixed: Connector = { id: 'f', position: { x: 0.1, y: 0, z: 0 }, direction: { x: 1, y: 0, z: 0 }, up: { x: 0, y: 1, z: 0 }, depth: 0.01, nominal: '1', joint: 'thread', gender: 'internal' };
+    const moving: Connector = { id: 'm', position: { x: 0, y: 0.02, z: 0 }, direction: { x: 0, y: 1, z: 0 }, up: { x: 1, y: 0, z: 0 }, depth: 0.006, nominal: '1', joint: 'thread', gender: 'external' };
     const fixedMatrix = new Matrix4().compose(
       new Vector3(1, 2, 3),
       new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), Math.PI / 2),
@@ -93,5 +94,35 @@ describe('ConnectorMating.place', () => {
     expect(rotation.angleTo(new Quaternion())).toBeLessThan(1e-9);
     // Резьба переходника (8 мм) короче резьбы порта (21 мм): входит на 8 мм.
     expect(position.x + byId(adapter.connectors, 'radiator').position.x).toBeCloseTo(port.position.x - 0.008, 9);
+  });
+
+  it('up подвижной детали совпадает с up неподвижной', () => {
+    const fixed: Connector = { id: 'f', position: { x: 0, y: 0, z: 0 }, direction: { x: 0, y: 0, z: 1 }, up: { x: 1, y: 0, z: 0 }, depth: 0.01, nominal: '1', joint: 'thread', gender: 'internal' };
+    const moving: Connector = { id: 'm', position: { x: 0, y: 0, z: 0 }, direction: { x: 0, y: 1, z: 0 }, up: { x: 0, y: 0, z: -1 }, depth: 0.01, nominal: '1', joint: 'thread', gender: 'external' };
+    const a = world(fixed, new Matrix4());
+    const b = world(moving, ConnectorMating.place(fixed, new Matrix4(), moving));
+    expect(b.direction.dot(a.direction)).toBeCloseTo(-1, 9);
+    expect(b.up.dot(a.up)).toBeCloseTo(1, 9);
+  });
+
+  it('одинаковые направления: разворот на 180° не переворачивает up', () => {
+    // setFromUnitVectors для противоположных векторов выбирает ось произвольно — доворот это исправляет.
+    const right = byId(coupling.build({ r1: '1/2', r2: '1/2', m1: 0.03 }).connectors, 'right');
+    const nippleRight = byId(nipple.build({ r1: '1/2', r2: '1/2', m1: 0.022 }).connectors, 'right');
+    const b = world(nippleRight, ConnectorMating.place(right, new Matrix4(), nippleRight));
+    expect(b.direction.x).toBeCloseTo(-1, 9);
+    expect(b.up.y).toBeCloseTo(1, 9);
+  });
+
+  it('угол стыка поворачивает деталь вокруг оси разъёма', () => {
+    const fixed = byId(coupling.build({ r1: '1/2', r2: '1/2', m1: 0.03 }).connectors, 'right');
+    const moving = byId(nipple.build({ r1: '1/2', r2: '1/2', m1: 0.022 }).connectors, 'left');
+    const plain = ConnectorMating.place(fixed, new Matrix4(), moving);
+    const turned = ConnectorMating.place(fixed, new Matrix4(), moving, Math.PI / 2);
+    const b = world(moving, turned);
+
+    // Ось — +X: up +Y поворачивается в +Z, торец остаётся на месте.
+    expect(b.up.distanceTo(new Vector3(0, 0, 1))).toBeLessThan(1e-9);
+    expect(b.position.distanceTo(world(moving, plain).position)).toBeLessThan(1e-9);
   });
 });

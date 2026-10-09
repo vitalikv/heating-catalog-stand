@@ -1,18 +1,37 @@
 import { Color, DoubleSide, MathUtils, MeshPhongMaterial, RepeatWrapping, SRGBColorSpace } from 'three';
 import type { Material, Texture } from 'three';
 
-export type MaterialKey = 'metal' | 'thread' | 'plastic' | 'plasticFlat';
+export type MaterialKey =
+  | 'metal'
+  | 'metalFlat'
+  | 'thread'
+  | 'plastic'
+  | 'plasticFlat'
+  | 'plasticGrey'
+  | 'bronze'
+  | 'bronzeFlat'
+  | 'bronzeThread'
+  | 'red'
+  | 'blue';
 
-// Источник: gl2/sceneParams.js, metal_1, rezba_1, white_1 и white_1_edge. lightMap_1 не переносится.
+// Источник: gl2/sceneParams.js. lightMap_1 не переносится.
+// metal_1, rezba_1, bronz_1 и rezba_2: блик как у металла.
 const METAL_COLOR = 0xc1c6c9;
+const BRONZE_COLOR = 0xb87c23;
 const METAL_SPECULAR = 0xa3a3a3;
 const METAL_SHININESS = 100;
 const THREAD_REPEAT_X = 900;
 const THREAD_ROTATION_DEG = 2;
-// white_1 (полипропилен): shininess и specular — значения Phong по умолчанию.
+// white_1, white_2, red_1, blue_1: shininess и specular — значения Phong по умолчанию.
 const PLASTIC_COLOR = 0xf0f0f0;
-const PLASTIC_SPECULAR = 0x111111;
-const PLASTIC_SHININESS = 30;
+const PLASTIC_GREY_COLOR = 0xd1d1d1;
+const RED_COLOR = 0xbf2502;
+const BLUE_COLOR = 0x3e65f0;
+const DEFAULT_SPECULAR = 0x111111;
+const DEFAULT_SHININESS = 30;
+
+/** Материалы с текстурой резьбы. */
+const THREADED: readonly MaterialKey[] = ['thread', 'bronzeThread'];
 
 /**
  * Общие материалы генераторов. Модели только ссылаются на них, поэтому
@@ -25,10 +44,25 @@ export class MaterialLibrary {
   private threadTexture: Texture | null = null;
 
   constructor(threadTexture: Texture | null = null) {
-    const plasticFlat = this.createPlastic();
-    // white_1_edge: тот же пластик с плоским затенением — для граней гаек.
-    plasticFlat.flatShading = true;
-    this.materials = { metal: this.createMetal(), thread: this.createMetal(), plastic: this.createPlastic(), plasticFlat };
+    const metal = () => this.create(METAL_COLOR, METAL_SPECULAR, METAL_SHININESS);
+    const bronze = () => this.create(BRONZE_COLOR, METAL_SPECULAR, METAL_SHININESS);
+    const plastic = () => this.create(PLASTIC_COLOR, DEFAULT_SPECULAR, DEFAULT_SHININESS);
+    // *_edge в gl2: тот же материал с плоским затенением — для граней гаек.
+    const flat = (material: MeshPhongMaterial) => Object.assign(material, { flatShading: true });
+
+    this.materials = {
+      metal: metal(),
+      metalFlat: flat(metal()),
+      thread: metal(),
+      plastic: plastic(),
+      plasticFlat: flat(plastic()),
+      plasticGrey: this.create(PLASTIC_GREY_COLOR, DEFAULT_SPECULAR, DEFAULT_SHININESS),
+      bronze: bronze(),
+      bronzeFlat: flat(bronze()),
+      bronzeThread: bronze(),
+      red: this.create(RED_COLOR, DEFAULT_SPECULAR, DEFAULT_SHININESS),
+      blue: this.create(BLUE_COLOR, DEFAULT_SPECULAR, DEFAULT_SHININESS),
+    };
     this.setThreadTexture(threadTexture);
   }
 
@@ -36,7 +70,7 @@ export class MaterialLibrary {
     return this.materials[key];
   }
 
-  /** Без текстуры материал резьбы выглядит как metal, но остаётся отдельным. */
+  /** Без текстуры материалы резьбы выглядят как metal и bronze, но остаются отдельными. */
   setThreadTexture(texture: Texture | null): void {
     if (texture === this.threadTexture) return;
     this.threadTexture?.dispose();
@@ -51,8 +85,10 @@ export class MaterialLibrary {
       texture.needsUpdate = true;
     }
 
-    this.materials.thread.map = texture;
-    this.materials.thread.needsUpdate = true;
+    for (const key of THREADED) {
+      this.materials[key].map = texture;
+      this.materials[key].needsUpdate = true;
+    }
   }
 
   dispose(): void {
@@ -61,21 +97,7 @@ export class MaterialLibrary {
     this.threadTexture = null;
   }
 
-  private createMetal(): MeshPhongMaterial {
-    return new MeshPhongMaterial({
-      color: new Color(METAL_COLOR),
-      specular: new Color(METAL_SPECULAR),
-      shininess: METAL_SHININESS,
-      side: DoubleSide,
-    });
-  }
-
-  private createPlastic(): MeshPhongMaterial {
-    return new MeshPhongMaterial({
-      color: new Color(PLASTIC_COLOR),
-      specular: new Color(PLASTIC_SPECULAR),
-      shininess: PLASTIC_SHININESS,
-      side: DoubleSide,
-    });
+  private create(color: number, specular: number, shininess: number): MeshPhongMaterial {
+    return new MeshPhongMaterial({ color: new Color(color), specular: new Color(specular), shininess, side: DoubleSide });
   }
 }

@@ -1,4 +1,4 @@
-import { Vector3 } from 'three';
+import { MathUtils, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { GeneratorRegistry, MaterialLibrary } from '../src/lib/index';
 import { Assembly } from '../src/stand/Assembly';
@@ -18,7 +18,7 @@ describe.each(STAND_ASSEMBLIES)('сборка «$label»', (definition) => {
     assembly.dispose();
   });
 
-  it('разъёмы каждого стыка смотрят навстречу', () => {
+  it('разъёмы каждого стыка смотрят навстречу, up — с доворотом на угол стыка', () => {
     const assembly = new Assembly(registry, definition);
     for (const part of definition.parts) {
       if (!part.attach) continue;
@@ -29,6 +29,9 @@ describe.each(STAND_ASSEMBLIES)('сборка «$label»', (definition) => {
       const da = new Vector3().copy(a.direction).transformDirection(fixed.root.matrixWorld);
       const db = new Vector3().copy(b.direction).transformDirection(moving.root.matrixWorld);
       expect(da.dot(db), part.name).toBeCloseTo(-1, 9);
+      const ua = new Vector3().copy(a.up).transformDirection(fixed.root.matrixWorld);
+      const ub = new Vector3().copy(b.up).transformDirection(moving.root.matrixWorld);
+      expect(ua.dot(ub), part.name).toBeCloseTo(Math.cos(MathUtils.degToRad(part.attach.angle ?? 0)), 9);
     }
     assembly.dispose();
   });
@@ -43,6 +46,18 @@ describe('цепочка радиатор → переходник → нипп�
 
     const xs = assembly.parts.map(({ model }) => model.root.position.x);
     expect(xs).toEqual([...xs].sort((a, b) => a - b));
+    assembly.dispose();
+  });
+});
+
+describe('доворот на угол стыка', () => {
+  it('угол на ниппеле повёрнут на 90°: второй выход смотрит вдоль Z', () => {
+    const definition = STAND_ASSEMBLIES.find((assembly) => assembly.label.startsWith('Тройник'))!;
+    const assembly = new Assembly(registry, definition);
+    const elbow = assembly.parts.find(({ name }) => name === 'угол')!.model;
+    const top = elbow.connectors.find((c) => c.id === 'top')!;
+    const direction = new Vector3().copy(top.direction).transformDirection(elbow.root.matrixWorld);
+    expect(Math.abs(direction.z)).toBeCloseTo(1, 9);
     assembly.dispose();
   });
 });

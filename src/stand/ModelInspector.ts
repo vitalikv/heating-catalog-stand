@@ -29,7 +29,7 @@ export interface InspectorOptions {
 
 /**
  * Диагностические оверлеи поверх модели: каркас, нормали, габарит,
- * нейтральный материал, стрелки разъёмов с подписями и глубиной ввода.
+ * нейтральный материал, стрелки разъёмов с подписями, глубиной ввода и up (синий отрезок).
  * Материалы и геометрию модели не меняет — только подменяет материал меша.
  */
 export class ModelInspector {
@@ -42,6 +42,8 @@ export class ModelInspector {
   private readonly wireMaterial = new LineBasicMaterial({ color: new Color(0x1f5fbf) });
   /** Глубина ввода разъёма: видна сквозь деталь. */
   private readonly depthMaterial = new LineBasicMaterial({ color: new Color(0xe0560b), depthTest: false });
+  /** Опорное направление разъёма up: от него считается поворот вокруг оси при стыковке. */
+  private readonly upMaterial = new LineBasicMaterial({ color: new Color(0x2050d0), depthTest: false });
   private readonly originalMaterials = new Map<Mesh, Material | Material[]>();
   private model: GeneratedModel | null = null;
   /** Разъёмы, которые не рисуются: в сборке — уже состыкованные. */
@@ -127,7 +129,7 @@ export class ModelInspector {
         const element = document.createElement('div');
         element.className = 'connector-label';
         const gender = connector.gender === 'internal' ? 'в' : 'н';
-        const kind = { thread: gender, 'radiator-thread': `рад. ${gender}`, 'pp-socket': 'пайка' }[connector.joint];
+        const kind = { thread: gender, 'radiator-thread': `рад. ${gender}`, 'pp-socket': 'пайка', 'mp-press': 'пресс' }[connector.joint];
         element.textContent = `${connector.id} · ${connector.nominal} (${kind})`;
         const label = new CSS2DObject(element);
         label.position.set(0, length * 1.15, 0);
@@ -140,6 +142,11 @@ export class ModelInspector {
         const depth = new LineSegments(new BufferGeometry().setFromPoints([origin, end]), this.depthMaterial);
         depth.renderOrder = 1;
         this.overlays.add(depth);
+
+        const up = new Vector3().copy(connector.up).transformDirection(model.root.matrixWorld);
+        const upLine = new LineSegments(new BufferGeometry().setFromPoints([origin, origin.clone().addScaledVector(up, length * 0.4)]), this.upMaterial);
+        upLine.renderOrder = 1;
+        this.overlays.add(upLine);
       }
     }
   }
@@ -150,6 +157,7 @@ export class ModelInspector {
     this.neutralMaterial.dispose();
     this.wireMaterial.dispose();
     this.depthMaterial.dispose();
+    this.upMaterial.dispose();
   }
 
   private meshesOf(root: Object3D): Mesh[] {
@@ -174,7 +182,7 @@ export class ModelInspector {
       if (overlay instanceof ArrowHelper || overlay instanceof Box3Helper || overlay instanceof VertexNormalsHelper) {
         overlay.dispose();
       } else if (overlay instanceof LineSegments) {
-        // Каркас и глубина разъёма: своя геометрия, общий материал.
+        // Каркас, глубина и up разъёма: своя геометрия, общий материал.
         overlay.geometry.dispose();
       }
       overlay.removeFromParent();

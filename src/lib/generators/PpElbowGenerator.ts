@@ -83,8 +83,8 @@ export class PpElbowGenerator implements ModelGenerator<PpElbowParams> {
     // В gl2 точка разъёма стояла в центре раструба. ID — по стороне выхода.
     const common = { depth: x1, nominal: params.r1, joint: 'pp-socket', gender: 'internal' } as const;
     const connectors: Connector[] = [
-      { id: 'right', position: { x: params.m1, y: 0, z: 0 }, direction: { x: 1, y: 0, z: 0 }, ...common },
-      { id: 'top', position: { x: 0, y: params.m1, z: 0 }, direction: { x: 0, y: 1, z: 0 }, ...common },
+      { id: 'right', position: { x: params.m1, y: 0, z: 0 }, direction: { x: 1, y: 0, z: 0 }, up: { x: 0, y: 1, z: 0 }, ...common },
+      { id: 'top', position: { x: 0, y: params.m1, z: 0 }, direction: { x: 0, y: 1, z: 0 }, up: { x: 1, y: 0, z: 0 }, ...common },
     ];
 
     let disposed = false;

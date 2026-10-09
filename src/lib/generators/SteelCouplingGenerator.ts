@@ -106,7 +106,7 @@ export class SteelCouplingGenerator implements ModelGenerator<SteelCouplingParam
     // Торец — наружная грань кольца (m1/2 + x_4/2); резьба идёт от него до гладкого участка.
     // В gl2 точка разъёма стояла в центре резьбового участка.
     const face = params.m1 / 2 + x4 / 2;
-    const common = { joint: 'thread', gender: 'internal' } as const;
+    const common = { up: { x: 0, y: 1, z: 0 }, joint: 'thread', gender: 'internal' } as const;
     const connectors: Connector[] = [
       { id: 'left', position: at(-face), direction: { x: -1, y: 0, z: 0 }, depth: face - x3L, nominal: params.r1, ...common },
       { id: 'right', position: at(face), direction: { x: 1, y: 0, z: 0 }, depth: face - x3R, nominal: params.r2, ...common },

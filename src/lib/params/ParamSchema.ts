@@ -35,6 +35,11 @@ export class ParamSchema {
     return errors;
   }
 
+  /** Ошибка связи параметров: длина param должна быть больше minimum, м. */
+  static tooShort(param: string, minimum: number): ValidationError {
+    return { code: 'too_short', param, message: `Длина ${param} должна быть больше ${(minimum * 1000).toFixed(1)} мм` };
+  }
+
   /** Нужен ли параметр при текущих значениях (условие ParamSpec.when). */
   static isActive(spec: ParamSpec, params: unknown): boolean {
     if (!spec.when) return true;

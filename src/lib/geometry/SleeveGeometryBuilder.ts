@@ -26,9 +26,11 @@ export interface SleeveOptions {
   innerDiameterStart?: number;
   outerSegments?: number;
   innerSegments?: number;
+  /** Сдвиг до поворота, м (pos1 в gl2): так ставятся куски наклонного плеча отвода. */
+  offset?: Vector3Data;
   /**
    * Поворот вокруг начала координат, рад (rot в gl2): сначала X, потом Y, потом Z,
-   * до сдвига в center. UV считаются до поворота, как в gl2.
+   * после offset и до сдвига в center. UV считаются до поворота и сдвигов, как в gl2.
    */
   rotation?: Vector3Data;
   /** Центр втулки, м. */
@@ -63,9 +65,11 @@ export class SleeveGeometryBuilder {
       parts.splice(1, 0, { geometry: this.tube(innerEnd, innerStart, options.length, innerSegments), materialIndex: materials.inner });
     }
 
+    const offset = options.offset ?? { x: 0, y: 0, z: 0 };
     const rotation = options.rotation ?? { x: 0, y: 0, z: 0 };
     const { x, y, z } = options.center ?? { x: 0, y: 0, z: 0 };
     for (const part of parts) {
+      part.geometry.translate(offset.x, offset.y, offset.z);
       part.geometry.rotateX(rotation.x).rotateY(rotation.y).rotateZ(rotation.z);
       part.geometry.translate(x, y, z);
     }

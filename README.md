@@ -25,7 +25,11 @@ npm run build      # проверка типов и сборка в dist/
 - `src/stand` — просмотр: сцена, панель параметров, диагностика.
   Свет и камера повторяют `src-heating`: `AmbientLight` 0.5π,
   `DirectionalLight` 1.5 у камеры, FOV 75.
-- `tests` — тесты vitest в среде node.
+- `tests` — тесты vitest в среде node; `tests/fixtures/gl2-reference.json` —
+  эталон моделей `gl2` для теста `gl2Reference`.
+- `scripts` — сверка с `gl2` через headless Chrome (`gl2-compare.mjs`, `gl2-snapshot.mjs`).
+  Нужны `gl2` в OpenServer, `npx vite --port 5199` и Chrome с `--remote-debugging-port=9223`;
+  для обычной работы и тестов не нужны. Порядок — `docs/catalog-porting-plan.md`, п. 5.
 
 ## Версии
 

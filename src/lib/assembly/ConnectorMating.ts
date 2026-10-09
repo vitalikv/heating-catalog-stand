@@ -9,9 +9,8 @@ export type MatingCheck =
 /**
  * Стыковка разъёмов по данным, без разбора названий.
  * Совместимы: один способ соединения, один номинал, разные типы (внутренний и наружный).
- * Положение: направления противоположны, ответная деталь входит внутрь
- * на e = min(depth₁, depth₂) — торец подвижной встаёт в P − D × e неподвижной.
- * Поворот вокруг оси разъёма — минимальный; задавать его отдельно — следующий шаг.
+ * Положение: направления противоположны, up совпадают (с доворотом на угол стыка),
+ * ответная деталь входит внутрь на e = min(depth₁, depth₂) — торец подвижной встаёт в P − D × e неподвижной.
  */
 export class ConnectorMating {
   static check(a: Connector, b: Connector): MatingCheck {
@@ -31,16 +30,21 @@ export class ConnectorMating {
   /**
    * Мировая матрица для корня подвижной детали, чтобы её разъём moving
    * состыковался с разъёмом fixed детали, стоящей в fixedMatrix.
+   * angle — доворот подвижной детали вокруг direction разъёма fixed, рад
+   * (против часовой стрелки, если смотреть навстречу direction); 0 — up совпадают.
    * Совместимость не проверяет — это делает check().
    */
-  static place(fixed: Connector, fixedMatrix: Matrix4, moving: Connector): Matrix4 {
+  static place(fixed: Connector, fixedMatrix: Matrix4, moving: Connector, angle = 0): Matrix4 {
     const fixedPosition = new Vector3().copy(fixed.position).applyMatrix4(fixedMatrix);
     const fixedDirection = new Vector3().copy(fixed.direction).transformDirection(fixedMatrix);
+    const fixedUp = new Vector3().copy(fixed.up).transformDirection(fixedMatrix);
 
-    const rotation = new Quaternion().setFromUnitVectors(
-      new Vector3().copy(moving.direction).normalize(),
-      fixedDirection.clone().negate(),
-    );
+    // Сначала направления навстречу, потом доворот вокруг оси стыка до совпадения up.
+    const axis = fixedDirection.clone().negate();
+    const align = new Quaternion().setFromUnitVectors(new Vector3().copy(moving.direction).normalize(), axis);
+    const movingUp = new Vector3().copy(moving.up).applyQuaternion(align);
+    const twist = Math.atan2(axis.dot(movingUp.clone().cross(fixedUp)), movingUp.dot(fixedUp));
+    const rotation = new Quaternion().setFromAxisAngle(fixedDirection, angle - twist).multiply(align);
 
     const engagement = Math.min(fixed.depth, moving.depth);
     const target = fixedPosition.addScaledVector(fixedDirection, -engagement);

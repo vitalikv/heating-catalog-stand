@@ -96,7 +96,7 @@ export class SteelNippleGenerator implements ModelGenerator<SteelNippleParams> {
 
     // Торцы — концы резьбы (±m1/2), глубина — длина резьбового участка.
     // В gl2 точка разъёма стояла в центре резьбового участка.
-    const common = { joint: 'thread', gender: 'external' } as const;
+    const common = { up: { x: 0, y: 1, z: 0 }, joint: 'thread', gender: 'external' } as const;
     const connectors: Connector[] = [
       { id: 'left', position: at(-params.m1 / 2), direction: { x: -1, y: 0, z: 0 }, depth: x1, nominal: params.r1, ...common },
       { id: 'right', position: at(params.m1 / 2), direction: { x: 1, y: 0, z: 0 }, depth: x2, nominal: params.r2, ...common },

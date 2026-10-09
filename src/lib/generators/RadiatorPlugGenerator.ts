@@ -124,7 +124,8 @@ export class RadiatorPlugGenerator implements ModelGenerator<RadiatorPlugParams>
           points: [p(0, -VENT.height / 2), p(0, VENT.height / 2), p(VENT.width, VENT.height / 2), p(VENT.width / 2, 0), p(VENT.width, -VENT.height / 2)],
           depth: VENT.thickness,
           position: { x: COLLAR / 2 + NUT + VENT.disk, y: 0, z: -VENT.thickness / 2 },
-          materialIndex: METAL,
+          // В gl2 бабочка сливается со смещением индекса 0 и получает white_1, а не металл.
+          materialIndex: PLASTIC,
         }),
       );
     }
@@ -151,6 +152,7 @@ export class RadiatorPlugGenerator implements ModelGenerator<RadiatorPlugParams>
         id: 'radiator',
         position: at(-(COLLAR / 2 + RADIATOR_THREAD)),
         direction: { x: -1, y: 0, z: 0 },
+        up: { x: 0, y: 1, z: 0 },
         depth: RADIATOR_THREAD,
         nominal: params.r1,
         joint: 'radiator-thread',
@@ -162,6 +164,7 @@ export class RadiatorPlugGenerator implements ModelGenerator<RadiatorPlugParams>
         id: 'outlet',
         position: at(COLLAR / 2 + NUT),
         direction: { x: 1, y: 0, z: 0 },
+        up: { x: 0, y: 1, z: 0 },
         depth: NUT,
         nominal: outlet,
         joint: 'thread',

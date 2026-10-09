@@ -1,4 +1,4 @@
-import { Box3, Group } from 'three';
+import { Box3, Group, MathUtils } from 'three';
 import { ConnectorMating } from '../lib/index';
 import type { GeneratedModel, GeneratorRegistry, MatingCheck } from '../lib/index';
 import type { AssemblyDefinition } from './assemblies';
@@ -46,7 +46,7 @@ export class Assembly {
       this.parts.push({ name: part.name, model });
 
       if (!part.attach) continue;
-      const { connector, to, toConnector } = part.attach;
+      const { connector, to, toConnector, angle = 0 } = part.attach;
       const target = this.parts.find((placed) => placed.name === to);
       const fixed = target?.model.connectors.find((c) => c.id === toConnector);
       const moving = model.connectors.find((c) => c.id === connector);
@@ -56,7 +56,7 @@ export class Assembly {
       }
 
       target.model.root.updateMatrixWorld(true);
-      const matrix = ConnectorMating.place(fixed, target.model.root.matrixWorld, moving);
+      const matrix = ConnectorMating.place(fixed, target.model.root.matrixWorld, moving, MathUtils.degToRad(angle));
       matrix.decompose(model.root.position, model.root.quaternion, model.root.scale);
       model.root.updateMatrixWorld(true);
 

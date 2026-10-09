@@ -87,7 +87,7 @@ export class AluminiumRadiatorGenerator implements ModelGenerator<AluminiumRadia
     const leftX = -threadEnd;
     const rightX = threadEnd + step * (params.count - 1);
     // Порты радиатора — своя резьба: подходят только радиаторные переходники и пробки.
-    const common = { depth: x2, nominal: params.r1, joint: 'radiator-thread', gender: 'internal' } as const;
+    const common = { up: { x: 0, y: 1, z: 0 }, depth: x2, nominal: params.r1, joint: 'radiator-thread', gender: 'internal' } as const;
     const left = { x: -1, y: 0, z: 0 };
     const right = { x: 1, y: 0, z: 0 };
     const connectors: Connector[] = [

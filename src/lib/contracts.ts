@@ -9,9 +9,9 @@ export interface Vector3Data {
 
 /**
  * Разъём модели. Координаты локальны относительно корня, в метрах.
- * Стыковка (ConnectorMating): направления противоположны, ответная деталь
- * входит внутрь на e = min(depth₁, depth₂) — торец подвижной детали
- * встаёт в position − direction × e неподвижной.
+ * Стыковка (ConnectorMating): направления противоположны, up совпадают,
+ * ответная деталь входит внутрь на e = min(depth₁, depth₂) — торец подвижной
+ * детали встаёт в position − direction × e неподвижной.
  */
 export interface Connector {
   /** Устойчивый ID по назначению ('left', 'right'), а не по порядку обхода. */
@@ -20,6 +20,13 @@ export interface Connector {
   position: Vector3Data;
   /** Единичный вектор выхода наружу. */
   direction: Vector3Data;
+  /**
+   * Опорное направление: единичный вектор, перпендикулярный direction.
+   * Задаёт поворот детали вокруг оси разъёма при стыковке. У выходов вдоль ±X — +Y;
+   * выход вверх, вниз или под углом — это левый выход (−X), повёрнутый вокруг Z,
+   * его up — +Y, повёрнутый так же: вверх (+Y) — up +X, вниз (−Y) — up −X.
+   */
+  up: Vector3Data;
   /**
    * Длина соединительного участка от торца внутрь детали, м: резьбы
    * (внутренней или наружной) или раструба. Конец участка — position − direction × depth.
@@ -38,9 +45,10 @@ export interface Connector {
 /**
  * 'thread' — дюймовая трубная резьба; 'radiator-thread' — резьба портов
  * алюминиевого радиатора, к ней подходят только радиаторные переходники и пробки;
- * 'pp-socket' — раструб под пайку ПП-трубы.
+ * 'pp-socket' — раструб под пайку ПП-трубы; 'mp-press' — пресс-обжим
+ * металлопластиковой трубы (номинал — наружный диаметр трубы, мм).
  */
-export type ConnectorJoint = 'thread' | 'radiator-thread' | 'pp-socket';
+export type ConnectorJoint = 'thread' | 'radiator-thread' | 'pp-socket' | 'mp-press';
 
 export interface ValidationError {
   code: string;
