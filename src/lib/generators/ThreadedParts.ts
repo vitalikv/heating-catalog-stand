@@ -54,23 +54,31 @@ export function angleCorner(thick: ThreadedSize, thin: ThreadedSize, thickDirect
   return parts;
 }
 
+/** Материалы детали: корпус, грани гаек, резьба. Резьба бронзовой детали — бронзовая. */
+export type ThreadedMaterial = 'metal' | 'bronze';
+const FINISH = {
+  metal: { flat: 'metalFlat', thread: 'thread' },
+  bronze: { flat: 'bronzeFlat', thread: 'bronzeThread' },
+} as const satisfies Record<ThreadedMaterial, { flat: MaterialKey; thread: MaterialKey }>;
+
 /** Плечо от начала координат до торца reach с резьбой на конце. */
-export function threadedArm(size: ThreadedSize, gender: ThreadGender, reach: number, material: MaterialKey = 'metal'): GeometryPart[] {
+export function threadedArm(size: ThreadedSize, gender: ThreadGender, reach: number, material: ThreadedMaterial = 'metal'): GeometryPart[] {
   const bodyEnd = reach - size.depth;
   const outer = armBodyDiameter(size, gender);
+  const thread = FINISH[material].thread;
   return [
     ...sleeves.build({ material, length: bodyEnd, outerDiameter: outer, innerDiameter: size.v,
       center: { x: bodyEnd / 2, y: 0, z: 0 } }),
     ...sleeves.build({ material, length: size.depth, outerDiameter: gender === 'internal' ? outer : size.n,
       innerDiameter: size.v, center: { x: reach - size.depth / 2, y: 0, z: 0 },
-      materials: gender === 'internal' ? { inner: 'thread' } : { outer: 'thread' } }),
+      materials: gender === 'internal' ? { inner: thread } : { outer: thread } }),
   ];
 }
 
 /** Кольцевая гайка вокруг корпуса или хвостовика; центр на оси +X. */
-export function unionNut(size: ThreadedSize, x: number): GeometryPart[] {
-  return sleeves.build({ material: 'metal', length: size.depth, outerDiameter: size.n * 1.6,
-    innerDiameter: size.n + 0.0005, outerSegments: 6, center: { x, y: 0, z: 0 }, materials: { outer: 'metalFlat' } });
+export function unionNut(size: ThreadedSize, x: number, material: ThreadedMaterial = 'metal'): GeometryPart[] {
+  return sleeves.build({ material, length: size.depth, outerDiameter: size.n * 1.6,
+    innerDiameter: size.n + 0.0005, outerSegments: 6, center: { x, y: 0, z: 0 }, materials: { outer: FINISH[material].flat } });
 }
 
 /** Головка по +Y; height — положение её основания. */

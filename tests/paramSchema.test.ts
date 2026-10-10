@@ -29,6 +29,30 @@ describe('ParamSchema', () => {
     expect(codes({})).toEqual(['unknown_option:r1', 'not_a_number:size.y', 'not_a_number:count']);
   });
 
+  it('withAddedDefaults дополняет только отсутствующие ключи с addedIn', () => {
+    const versioned: ParamSpec[] = [
+      { kind: 'choice', key: 'r1', label: 'Резьба', options: ['1/2', '1'] },
+      { kind: 'choice', key: 'connection', label: 'Подключение', options: ['side', 'bottom'], addedIn: 2 },
+      { kind: 'length', key: 'size.y', label: 'Высота', min: 0.1, max: 1, step: 0.005, addedIn: 2 },
+    ];
+    const defaults = { r1: '1/2', connection: 'side', size: { x: 1, y: 0.5 } };
+
+    const old = { r1: '1', size: { x: 2 } };
+    const completed = ParamSchema.withAddedDefaults(versioned, old, defaults);
+    expect(completed).toEqual({ r1: '1', connection: 'side', size: { x: 2, y: 0.5 } });
+    // Исходные параметры не меняются.
+    expect(old).toEqual({ r1: '1', size: { x: 2 } });
+
+    // Явное значение, даже неверное, не подменяется умолчанием.
+    const explicit = { r1: '1', connection: 'top', size: { x: 2, y: 0.3 } };
+    expect(ParamSchema.withAddedDefaults(versioned, explicit, defaults)).toBe(explicit);
+    expect(ParamSchema.validate(versioned, explicit).map(({ code }) => code)).toEqual(['unknown_option']);
+
+    // Ключ без addedIn обязателен: его отсутствие — ошибка, а не умолчание.
+    const withoutR1 = ParamSchema.withAddedDefaults(versioned, { connection: 'bottom', size: { x: 2, y: 0.3 } } as typeof defaults, defaults);
+    expect(ParamSchema.validate(versioned, withoutR1).map(({ param }) => param)).toEqual(['r1']);
+  });
+
   it('сообщения длин в миллиметрах', () => {
     const [error] = ParamSchema.validate([specs[1]], { size: { y: 1.5 } });
     expect(error.message).toBe('Высота: 1500 мм — вне диапазона 100…1000 мм');

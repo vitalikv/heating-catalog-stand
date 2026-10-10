@@ -18,11 +18,17 @@ export interface RadiatorHBlockParams {
   configuration: 'straight' | 'angle';
 }
 type Layout = { radiator: ReturnType<typeof threadedSize>; pipe: ReturnType<typeof threadedSize> };
+/** Носик евроконуса за резьбой выхода, м. */
+const EUROCONE_TIP = 0.003;
 
-/** Двухтрубный H-блок с накидными гайками сверху и евроконусами снизу либо сзади. */
+/**
+ * Двухтрубный H-блок с накидными гайками сверху и евроконусами снизу либо сзади.
+ * Версия 2: глубина выхода евроконуса — резьба и носик (раньше только носик 3 мм), чтобы
+ * накидная гайка фитинга садилась на резьбу. Геометрия не изменилась.
+ */
 export class RadiatorHBlockGenerator extends BaseGenerator<RadiatorHBlockParams, Layout> {
   readonly id = 'valve.radiator-h-block';
-  readonly version = 1;
+  readonly version = 2;
   readonly title = 'Узел нижнего подключения радиатора';
   readonly defaults: RadiatorHBlockParams = { radiatorNominal: '3/4', pipeNominal: '3/4', spacing: 0.05, height: 0.06, configuration: 'straight' };
   readonly paramSpecs: readonly ParamSpec[] = [specs.threadNominal('radiatorNominal', 'Резьба к радиатору'),
@@ -50,17 +56,17 @@ export class RadiatorHBlockGenerator extends BaseGenerator<RadiatorHBlockParams,
     for (const [side, x] of [['left', -p.spacing / 2], ['right', p.spacing / 2]] as const) {
       const origin = { x, y: 0, z: 0 };
       merger.add(...orientParts([...threadedArm(d.radiator, 'internal', half), ...unionNut(d.radiator, half - d.radiator.depth / 2)], ConnectorFrame.top.direction, origin),
-        ...orientParts([...threadedArm(d.pipe, 'external', half - 0.003),
-          ...sleeves.build({ material: 'metal', length: 0.003, outerDiameterStart: d.pipe.n, outerDiameter: d.pipe.v,
-            innerDiameter: d.pipe.v * 0.8, center: { x: half - 0.0015, y: 0, z: 0 } })], output.direction, origin),
+        ...orientParts([...threadedArm(d.pipe, 'external', half - EUROCONE_TIP),
+          ...sleeves.build({ material: 'metal', length: EUROCONE_TIP, outerDiameterStart: d.pipe.n, outerDiameter: d.pipe.v,
+            innerDiameter: d.pipe.v * 0.8, center: { x: half - EUROCONE_TIP / 2, y: 0, z: 0 } })], output.direction, origin),
         ...orientParts(sleeves.build({ material: 'metalFlat', length: 0.008, outerDiameter: 0.015, innerDiameter: 0,
           outerSegments: 6, center: { x: 0.013, y: 0, z: 0 } }), { x: 0, y: 0, z: 1 }, origin));
       // Конус у основания трубного плеча не заходит на резьбу.
-      if (p.configuration === 'angle') merger.add(...angleCorner(d.radiator, d.pipe, ConnectorFrame.top.direction, output.direction, half - 0.003 - d.pipe.depth, origin));
+      if (p.configuration === 'angle') merger.add(...angleCorner(d.radiator, d.pipe, ConnectorFrame.top.direction, output.direction, half - EUROCONE_TIP - d.pipe.depth, origin));
       connectors.push(connector(`radiator-${side}`, ConnectorFrame.top, { x, y: half, z: 0 },
         { nominal: p.radiatorNominal, joint: 'thread', gender: 'internal', depth: d.radiator.depth }),
       connector(`pipe-${side}`, output, { x, y: output.direction.y * half, z: output.direction.z * half },
-        { nominal: p.pipeNominal, joint: 'eurocone', gender: 'external', depth: 0.003 }));
+        { nominal: p.pipeNominal, joint: 'eurocone', gender: 'external', depth: d.pipe.depth + EUROCONE_TIP }));
     }
     return createMeshModel({ title: `H-блок ${p.configuration === 'straight' ? 'прямой' : 'угловой'}, ${Math.round(p.spacing * 1000)} мм`, ...merger.merge(), connectors });
   }

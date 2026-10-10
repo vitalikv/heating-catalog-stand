@@ -34,6 +34,51 @@ describe('стальной радиатор radiator.steel', () => {
     expect(codes(generator, { dimensions: { x: 0.05, y: 0.5, z: 0.07 }, nominal: '1/2' })).toEqual(['out_of_range:dimensions.x']);
     expect(codes(generator, { dimensions: { x: 0.8, y: 0.5, z: 0.01 }, nominal: '1/2' })).toEqual(['out_of_range:dimensions.z']);
   });
+
+  describe('нижнее подключение (версия 2)', () => {
+    const base = { dimensions: { x: 0.8, y: 0.5, z: 0.07 }, nominal: '1/2' } as const;
+    const geometryOf = (model: GeneratedModel) => Array.from(model.geometry.getAttribute('position').array);
+
+    it("параметры версии 1 и явное 'side' — прежняя модель", () => {
+      const old = generator.build(base);
+      const side = generator.build({ ...base, connection: 'side', bottomSide: 'left' });
+      expect(side.connectors).toEqual(old.connectors);
+      expect(geometryOf(side)).toEqual(geometryOf(old));
+      expect(side.title).toBe(old.title);
+      old.dispose(); side.dispose();
+    });
+
+    it.each([['right', 1], ['left', -1]] as const)("'bottom' %s: шесть портов, нижние вниз через 50 мм у торца", (bottomSide, sign) => {
+      const side = generator.build(base);
+      const model = generator.build({ ...base, connection: 'bottom', bottomSide });
+      expect(model.connectors.map((c) => c.id)).toEqual(['bottom-left', 'top-left', 'top-right', 'bottom-right', 'below-outer', 'below-inner']);
+      // Боковые порты не меняются.
+      expect(model.connectors.slice(0, 4)).toEqual(side.connectors);
+      const outer = byId(model, 'below-outer');
+      const inner = byId(model, 'below-inner');
+      for (const port of [outer, inner]) {
+        expect(port).toMatchObject({ joint: 'thread', gender: 'internal', nominal: '1/2', depth: 0.005, direction: { x: 0, y: -1, z: 0 } });
+        // Торец резьбы — на 5 мм ниже дна корпуса.
+        expect(port.position.y).toBeCloseTo(side.bounds.min.y - 0.005, 6);
+        expect(port.position.z).toBe(0);
+      }
+      expect(outer.position.x).toBeCloseTo(sign * (0.4 - 0.05), 9);
+      expect(inner.position.x - outer.position.x).toBeCloseTo(-sign * 0.05, 9);
+      expect(model.bounds.min.y).toBeCloseTo(side.bounds.min.y - 0.005, 6);
+      expect(model.title).toBe('Ст.радиатор h500 (0.8м), нижн.');
+      side.dispose(); model.dispose();
+    });
+
+    it('короткий корпус для нижней пары и неверное подключение — ошибки', () => {
+      // 1/2: n = 21,3 мм; минимум 50 + 50 + 20 + 21,3 мм.
+      const minimum = 0.05 + 0.05 + 0.02 + 0.0213;
+      const short = { ...base, dimensions: { x: 0.14, y: 0.5, z: 0.07 }, connection: 'bottom' } as const;
+      expect(minimum).toBeGreaterThan(0.14);
+      expect(codes(generator, short)).toEqual(['too_short:dimensions.x']);
+      expect(codes(generator, { ...short, connection: 'side' })).toEqual([]);
+      expect(codes(generator, { ...base, connection: 'top' as 'side' })).toEqual(['unknown_option:connection']);
+    });
+  });
 });
 
 describe('воздухоотводчик radiator.vent', () => {

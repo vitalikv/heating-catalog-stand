@@ -28,14 +28,21 @@ export abstract class BaseGenerator<P, L = void> implements ModelGenerator<P> {
 
   protected abstract create(params: P, layout: L): GeneratedModel;
 
+  /** Параметры прежних версий дополняются умолчаниями добавленных ключей (ParamSpec.addedIn). */
   validate(params: P): ValidationError[] {
-    const errors = ParamSchema.validate(this.paramSpecs, params);
-    return errors.length > 0 ? errors : this.relations(params, this.layout(params));
+    const completed = this.complete(params);
+    const errors = ParamSchema.validate(this.paramSpecs, completed);
+    return errors.length > 0 ? errors : this.relations(completed, this.layout(completed));
   }
 
   build(params: P): GeneratedModel {
-    const errors = this.validate(params);
+    const completed = this.complete(params);
+    const errors = this.validate(completed);
     if (errors.length > 0) throw new GeneratorParamsError(this.id, errors);
-    return this.create(params, this.layout(params));
+    return this.create(completed, this.layout(completed));
+  }
+
+  private complete(params: P): P {
+    return ParamSchema.withAddedDefaults(this.paramSpecs, params, this.defaults);
   }
 }

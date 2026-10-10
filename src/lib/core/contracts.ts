@@ -10,7 +10,7 @@ export interface Vector3Data {
 /**
  * Разъём модели. Координаты локальны относительно корня, в метрах.
  * Стыковка (ConnectorMating): направления противоположны, up совпадают,
- * ответная деталь входит внутрь на e = min(depth₁, depth₂) — торец подвижной
+ * ответная деталь входит внутрь на e = min(depth₁, depth₂) (ConnectionRules) — торец подвижной
  * детали встаёт в position − direction × e неподвижной.
  */
 export interface Connector {
@@ -50,10 +50,13 @@ export type ThreadGender = 'internal' | 'external';
  * алюминиевого радиатора, к ней подходят только радиаторные переходники и пробки;
  * 'pp-socket' — раструб под пайку ПП-трубы; 'mp-press' — пресс-обжим
  * металлопластиковой трубы (номинал — наружный диаметр трубы, мм).
+ * 'mp-compression' — обжимной (цанговый) фитинг МП: гайка и разрезное кольцо (номинал — наружный
+ * диаметр трубы, мм); принимает конец трубы МП, объявленный как наружный 'mp-press'.
  * 'eurocone' — конусное соединение (номинал резьбы, например '3/4'), не обычная thread;
  * 'hose-barb' — штуцер/шланг (номинал — внутренний диаметр шланга, мм).
+ * Какие системы стыкуются между собой и как садятся — ConnectionRules.
  */
-export type ConnectorJoint = 'thread' | 'radiator-thread' | 'pp-socket' | 'mp-press' | 'eurocone' | 'hose-barb';
+export type ConnectorJoint = 'thread' | 'radiator-thread' | 'pp-socket' | 'mp-press' | 'mp-compression' | 'eurocone' | 'hose-barb';
 
 /** Ключ материала MaterialLibrary: геометрия ссылается на материал по ключу, а не по индексу. */
 export type MaterialKey =
@@ -99,6 +102,12 @@ export interface ParamSpecBase {
   label: string;
   /** Параметр нужен, только если параметр key равен одному из values; иначе не проверяется и скрыт. */
   when?: { key: string; values: readonly string[] };
+  /**
+   * Версия генератора, в которой параметр появился. Параметры, сохранённые до неё,
+   * его не содержат: отсутствующее значение берётся из defaults. Параметры без addedIn
+   * обязательны — опечатка в ключе не подменяется умолчанием.
+   */
+  addedIn?: number;
 }
 
 /** Габарит как простые данные, в локальных координатах модели, м. */

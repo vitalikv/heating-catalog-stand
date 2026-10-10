@@ -2,6 +2,9 @@ import type { ParamSpec, ValidationError } from '../core/contracts';
 
 const toMm = (meters: number) => Math.round(meters * 10000) / 10;
 
+/** Копия параметров — простых данных (строки, числа, вложенные объекты); structuredClone в библиотеке без DOM недоступен. */
+const clonePlain = <T>(value: T): T => (value === undefined ? value : (JSON.parse(JSON.stringify(value)) as T));
+
 /** Доступ к параметрам по пути ParamSpec.key и проверка по схеме. */
 export class ParamSchema {
   /** Значение по пути вида 'size.y'; undefined, если пути нет. */
@@ -22,6 +25,19 @@ export class ParamSchema {
       node = node[part] as Record<string, unknown>;
     }
     node[last] = value;
+  }
+
+  /**
+   * Дополняет параметры значениями из defaults для отсутствующих ключей с addedIn
+   * (параметры, сохранённые до версии, где ключ появился). Исходный объект не меняется;
+   * если дополнять нечего, он и возвращается.
+   */
+  static withAddedDefaults<P>(specs: readonly ParamSpec[], params: P, defaults: P): P {
+    const missing = specs.filter((spec) => spec.addedIn !== undefined && ParamSchema.get(params, spec.key) === undefined);
+    if (missing.length === 0 || typeof params !== 'object' || params === null) return params;
+    const completed = clonePlain(params) as Record<string, unknown>;
+    for (const spec of missing) ParamSchema.set(completed, spec.key, clonePlain(ParamSchema.get(defaults, spec.key)));
+    return completed as P;
   }
 
   /** Проверка каждого параметра по его описанию; связи между параметрами проверяет генератор. */

@@ -112,10 +112,10 @@ export class StandPanel {
   }
 
   private applyPreset(reframe: boolean): void {
-    const preset = this.entry.presets[this.state.preset];
+    const preset = this.presetParams();
     this.ui = {};
     for (const spec of this.entry.generator.paramSpecs) {
-      const value = ParamSchema.get(preset.params, spec.key);
+      const value = ParamSchema.get(preset, spec.key);
       if (spec.kind === 'length') this.ui[spec.key] = toMm(Number(value));
       // Неактивный в наборе выбор (выход у заглушки) — первый вариант, чтобы его можно было включить.
       else if (spec.kind === 'choice') this.ui[spec.key] = spec.options.find((option) => option === value) ?? spec.options[0];
@@ -148,16 +148,22 @@ export class StandPanel {
     }
   }
 
+  /** Параметры текущего набора; ключи, добавленные в новой версии генератора, — из defaults. */
+  private presetParams(): unknown {
+    const { generator, presets } = this.entry;
+    return ParamSchema.withAddedDefaults(generator.paramSpecs, presets[this.state.preset].params, generator.defaults);
+  }
+
   private emit(reframe: boolean): void {
     // Параметры вне схемы (например, size.z радиатора) берутся из набора.
     // Параметры каталога типизированы по генератору; панель правит их как запись по ключам.
-    const params = structuredClone(this.entry.presets[this.state.preset].params) as StandParams;
+    const params = structuredClone(this.presetParams()) as StandParams;
     for (const spec of this.entry.generator.paramSpecs) {
       const value = this.ui[spec.key];
       ParamSchema.set(params, spec.key, spec.kind === 'length' ? Number(value) / 1000 : value);
     }
     // Поля с условием when: неактивные скрыты и остаются как в наборе.
-    const preset = this.entry.presets[this.state.preset].params;
+    const preset = this.presetParams();
     for (const [spec, control] of this.controls) {
       const active = ParamSchema.isActive(spec, params);
       control.show(active);

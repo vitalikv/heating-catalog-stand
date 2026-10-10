@@ -1,20 +1,31 @@
 import { PlaneGeometry } from 'three';
 import { BaseGenerator } from '../../core/BaseGenerator';
 import { ConnectorFrame } from '../../core/ConnectorFrame';
-import type { Connector, GeneratedModel, MaterialKey, ParamSpec, Vector3Data } from '../../core/contracts';
+import type { Connector, GeneratedModel, MaterialKey, ParamSpec, ValidationError, Vector3Data } from '../../core/contracts';
 import { createMeshModel } from '../../core/MeshModel';
 import { MaterialGroupMerger } from '../../geometry/MaterialGroupMerger';
 import type { GeometryPart } from '../../geometry/MaterialGroupMerger';
 import { sleeves } from '../../geometry/SleeveGeometryBuilder';
+import { ParamSchema } from '../../params/ParamSchema';
 import { specs } from '../../params/specs';
 import { ThreadSizes } from '../../sizes/ThreadSizes';
+import { orientParts } from '../ThreadedParts';
 
 export interface SteelRadiatorParams {
   /** Габарит, м: x — длина, y — межосевое расстояние портов, z — глубина. */
   dimensions: Vector3Data;
   /** Дюймовый номинал внутренней резьбы портов, например '1/2'. */
   nominal: string;
+  /**
+   * С версии 2: 'bottom' добавляет пару портов вниз под H-блок (боковые порты остаются).
+   * В параметрах версии 1 отсутствует — берётся из defaults ('side').
+   */
+  connection?: 'side' | 'bottom';
+  /** С версии 2: у какого торца нижняя пара (connection = 'bottom'). */
+  bottomSide?: 'right' | 'left';
 }
+
+type Layout = ReturnType<typeof ThreadSizes.require>;
 
 /** Длина резьбы портов (x_1 в gl2), м. */
 const PORT_LENGTH = 0.005;
@@ -24,6 +35,10 @@ const RIB_FRAME = 0.02;
 const RIB_DEPTH = 0.01;
 /** Ширина панели-ребра до подгонки под длину радиатора, м. */
 const RIB_WIDTH = 0.07;
+/** Нижнее подключение (условные размеры): межосевое пары — как spacing H-блока по умолчанию. */
+const BOTTOM_SPACING = 0.05;
+/** От торца корпуса до оси ближнего нижнего порта, м. */
+const BOTTOM_OFFSET = 0.05;
 
 /** Плоскость PlaneGeometry: сначала повороты по порядку, потом сдвиг. */
 interface PlaneOptions {
@@ -38,21 +53,35 @@ interface PlaneOptions {
  * Стальной панельный радиатор (перенос st_radiator_1): короб без боковых стенок с окантовкой,
  * спереди и сзади — панели-рёбра на всю длину, по углам — четыре порта с внутренней резьбой.
  * Порты — обычная трубная резьба (решение 9 октября 2026). Всё слито в один меш.
+ * Версия 2: нижнее подключение — ещё два порта вниз у одного торца (below-outer, below-inner).
  */
-export class SteelRadiatorGenerator extends BaseGenerator<SteelRadiatorParams> {
+export class SteelRadiatorGenerator extends BaseGenerator<SteelRadiatorParams, Layout> {
   readonly id = 'radiator.steel';
-  readonly version = 1;
+  readonly version = 2;
   readonly title = 'Радиатор стальной';
   readonly paramSpecs: readonly ParamSpec[] = [
     specs.length('dimensions.x', 'Длина', { min: 0.1, max: 3, step: 0.01 }),
     specs.length('dimensions.y', 'Межосевое', { min: 0.1, max: 1.5, step: 0.005 }),
     specs.length('dimensions.z', 'Глубина', { min: 0.03, step: 0.001 }),
     specs.threadNominal('nominal', 'Резьба портов (в)'),
+    { kind: 'choice', key: 'connection', label: 'Подключение', options: ['side', 'bottom'], optionLabels: { side: 'боковое', bottom: 'нижнее' }, addedIn: 2 },
+    { kind: 'choice', key: 'bottomSide', label: 'Нижние порты', options: ['right', 'left'], optionLabels: { right: 'справа', left: 'слева' },
+      when: { key: 'connection', values: ['bottom'] }, addedIn: 2 },
   ];
-  readonly defaults: SteelRadiatorParams = { dimensions: { x: 0.4, y: 0.3, z: 0.07 }, nominal: '1/2' };
+  readonly defaults: SteelRadiatorParams = { dimensions: { x: 0.4, y: 0.3, z: 0.07 }, nominal: '1/2', connection: 'side', bottomSide: 'right' };
 
-  protected create(params: SteelRadiatorParams): GeneratedModel {
-    const d = ThreadSizes.require(params.nominal, 'internal');
+  protected override layout(params: SteelRadiatorParams): Layout {
+    return ThreadSizes.require(params.nominal, 'internal');
+  }
+
+  /** Нижняя пара с отступом от торца и окантовка у другого торца помещаются в длину корпуса. */
+  protected override relations(params: SteelRadiatorParams, d: Layout): ValidationError[] {
+    if (params.connection !== 'bottom') return [];
+    const minimum = BOTTOM_OFFSET + BOTTOM_SPACING + FRAME + d.n;
+    return params.dimensions.x <= minimum ? [ParamSchema.tooShort('dimensions.x', minimum)] : [];
+  }
+
+  protected create(params: SteelRadiatorParams, d: Layout): GeneratedModel {
     const { x: length, z: depth } = params.dimensions;
     // Высота корпуса: межосевое + окантовки сверху и снизу + диаметр порта.
     const height = params.dimensions.y + 2 * FRAME + d.n;
@@ -101,8 +130,39 @@ export class SteelRadiatorGenerator extends BaseGenerator<SteelRadiatorParams> {
       });
     }
 
+    if (params.connection === 'bottom') {
+      // Пара у торца bottomSide: ось порта на BOTTOM_OFFSET от торца, торец резьбы — на PORT_LENGTH ниже дна.
+      const side = params.bottomSide === 'left' ? -1 : 1;
+      const bottom = -height / 2;
+      const below: [string, number][] = [
+        ['below-outer', side * (length / 2 - BOTTOM_OFFSET)],
+        ['below-inner', side * (length / 2 - BOTTOM_OFFSET - BOTTOM_SPACING)],
+      ];
+      for (const [id, x] of below) {
+        const origin = { x, y: bottom, z: 0 };
+        merger.add(
+          ...orientParts(
+            sleeves.build({ material: 'metal', length: PORT_LENGTH, outerDiameter: d.n, innerDiameter: d.v,
+              center: { x: PORT_LENGTH / 2, y: 0, z: 0 }, materials: { inner: 'thread' } }),
+            ConnectorFrame.bottom.direction,
+            origin,
+          ),
+        );
+        connectors.push({
+          id,
+          position: { x, y: bottom - PORT_LENGTH, z: 0 },
+          ...ConnectorFrame.bottom,
+          depth: PORT_LENGTH,
+          nominal: params.nominal,
+          joint: 'thread',
+          gender: 'internal',
+        });
+      }
+    }
+
+    const bottomSuffix = params.connection === 'bottom' ? ', нижн.' : '';
     return createMeshModel({
-      title: `Ст.радиатор h${Math.round(params.dimensions.y * 1000)} (${params.dimensions.x}м)`,
+      title: `Ст.радиатор h${Math.round(params.dimensions.y * 1000)} (${params.dimensions.x}м)${bottomSuffix}`,
       ...merger.merge(),
       connectors,
     });

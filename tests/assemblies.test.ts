@@ -1,7 +1,7 @@
 import { Box3, Group, MathUtils, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
-import { Assembly, createModelObject, GeneratorRegistry, MaterialLibrary } from '../src/lib/index';
-import { STAND_ASSEMBLIES } from '../src/stand/assemblies';
+import { Assembly, ConnectorMating, createModelObject, GeneratorRegistry, MaterialLibrary } from '../src/lib/index';
+import { STAND_ASSEMBLIES, steelBottomHBlock } from '../src/stand/assemblies';
 
 const registry = new GeneratorRegistry();
 
@@ -45,6 +45,33 @@ describe('цепочка радиатор → переходник → нипп�
 
     const xs = assembly.parts.map(({ matrix }) => new Vector3().setFromMatrixPosition(matrix).x);
     expect(xs).toEqual([...xs].sort((a, b) => a - b));
+    assembly.dispose();
+  });
+});
+
+describe('стальной радиатор снизу: H-блок на двух ниппелях', () => {
+  it.each(['right', 'left'] as const)('%s: второй порт H-блока встаёт в ниппель B по правилу стыковки', (bottomSide) => {
+    const assembly = new Assembly(registry, steelBottomHBlock(bottomSide));
+    expect(assembly.joints.every(({ check }) => check.compatible)).toBe(true);
+    const part = (name: string) => assembly.parts.find((placed) => placed.name === name)!;
+    const port = (name: string, id: string) => part(name).model.connectors.find((c) => c.id === id)!;
+    const hBlock = part('H-блок');
+    // Порт H-блока, не участвующий в attach, — с ниппелем B.
+    const free = port('H-блок', bottomSide === 'right' ? 'radiator-right' : 'radiator-left');
+    const nippleB = port('ниппель B', 'left');
+    expect(ConnectorMating.check(nippleB, free).compatible).toBe(true);
+    // Замыкание вне дерева attach: H-блок, поставленный по второму стыку, совпадает с фактическим.
+    const expected = ConnectorMating.place(nippleB, part('ниппель B').matrix, free);
+    const actual = new Vector3().setFromMatrixPosition(hBlock.matrix);
+    expect(new Vector3().setFromMatrixPosition(expected).distanceTo(actual)).toBeLessThan(1e-6);
+    const worldFree = new Vector3().copy(free.direction).transformDirection(hBlock.matrix);
+    const worldNipple = new Vector3().copy(nippleB.direction).transformDirection(part('ниппель B').matrix);
+    expect(worldFree.dot(worldNipple)).toBeCloseTo(-1, 9);
+    // Звено «евроконус → МП-труба»: обе трубы уходят от H-блока вниз, под радиатор.
+    const hBlockY = actual.y;
+    for (const side of ['left', 'right']) {
+      expect(new Vector3().setFromMatrixPosition(part(`труба ${side}`).matrix).y, side).toBeLessThan(hBlockY - 0.05);
+    }
     assembly.dispose();
   });
 });

@@ -10,6 +10,8 @@ const ALUMINIUM_SECTIONS = [1, 5, 10];
 /** Стальные радиаторы: каждая высота со всеми длинами, глубина 0.07, подключение 1/2. */
 const STEEL_HEIGHTS = [0.3, 0.4, 0.5, 0.6, 0.9];
 const STEEL_LENGTHS = [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0];
+/** Нижнее подключение под H-блок (условные размеры): типовые высота и длины, пара справа. */
+const STEEL_BOTTOM = { y: 0.5, lengths: [0.6, 1.0, 1.4] };
 
 export const RADIATOR_CATALOG: CatalogEntry[] = [
   entry(
@@ -32,6 +34,11 @@ export const RADIATOR_CATALOG: CatalogEntry[] = [
     'radiator.steel',
     STEEL_HEIGHTS.flatMap((y) =>
       STEEL_LENGTHS.map((x) => ({ label: `h${mm(y)}, ${mm(x)} мм`, params: { dimensions: { x, y, z: 0.07 }, nominal: '1/2' } })),
+    ).concat(
+      STEEL_BOTTOM.lengths.map((x) => ({
+        label: `h${mm(STEEL_BOTTOM.y)}, ${mm(x)} мм, нижнее`,
+        params: { dimensions: { x, y: STEEL_BOTTOM.y, z: 0.07 }, nominal: '1/2', connection: 'bottom', bottomSide: 'right' },
+      })),
     ),
   ),
 ];

@@ -8,8 +8,9 @@ const registry = new GeneratorRegistry();
 const port = (model: GeneratedModel, id: string): Connector => model.connectors.find((c) => c.id === id)!;
 
 describe('новые модели вне gl2', () => {
-  it('все восемь семейств доступны в каталоге', () => {
+  it('все семейства расширений доступны в каталоге', () => {
     expect(EXTENSION_CATALOG.map((entry) => entry.generatorId).sort()).toEqual([
+      'mp.compression-coupling', 'mp.compression-elbow', 'mp.compression-tee', 'mp.compression-thread-adapter', 'mp.eurocone-adapter',
       'steel.bushing', 'steel.cap', 'steel.union', 'valve.check', 'valve.drain',
       'valve.lockshield', 'valve.radiator-h-block', 'valve.thermostatic-angle',
     ]);

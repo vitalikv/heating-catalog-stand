@@ -2,6 +2,7 @@ import { Box3, Vector3 } from 'three';
 import type { BufferAttribute } from 'three';
 import { describe, expect, it } from 'vitest';
 import { CATALOG, GeneratorRegistry } from '../src/lib/index';
+import { ConnectionRules } from '../src/lib/assembly/ConnectionRules';
 import { boundsBox } from './modelHelpers';
 
 // Общие проверки всех генераторов на всех позициях каталога; размеры — в тестах генераторов.
@@ -51,7 +52,8 @@ describe.each(cases)('$name', ({ generator, params }) => {
       expect(direction.length(), connector.id).toBeCloseTo(1, 9);
       expect(up.length(), connector.id).toBeCloseTo(1, 9);
       expect(direction.dot(up), connector.id).toBeCloseTo(0, 9);
-      expect(connector.depth, connector.id).toBeGreaterThan(0);
+      // Вставная посадка требует участка соединения; торцевые системы проверяются своим правилом.
+      if (ConnectionRules.seating(connector.joint) === 'insert') expect(connector.depth, connector.id).toBeGreaterThan(0);
       expect(bounds.containsPoint(new Vector3().copy(connector.position)), connector.id).toBe(true);
     }
     model.dispose();

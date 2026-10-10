@@ -47,6 +47,11 @@ import { CheckValveGenerator } from './valve/CheckValveGenerator';
 import { DrainValveGenerator } from './valve/DrainValveGenerator';
 import { LockshieldValveGenerator } from './valve/LockshieldValveGenerator';
 import { RadiatorHBlockGenerator } from './valve/RadiatorHBlockGenerator';
+import { MpCompressionCouplingGenerator } from './mp/MpCompressionCouplingGenerator';
+import { MpCompressionElbowGenerator } from './mp/MpCompressionElbowGenerator';
+import { MpCompressionTeeGenerator } from './mp/MpCompressionTeeGenerator';
+import { MpCompressionThreadAdapterGenerator } from './mp/MpCompressionThreadAdapterGenerator';
+import { MpEuroconeAdapterGenerator } from './mp/MpEuroconeAdapterGenerator';
 
 /** Все генераторы библиотеки; порядок — порядок списка на стенде. */
 function createGenerators() {
@@ -99,6 +104,11 @@ function createGenerators() {
   new SteelBushingGenerator(),
   new SteelCapGenerator(),
   new DrainValveGenerator(),
+  new MpCompressionCouplingGenerator(),
+  new MpCompressionElbowGenerator(),
+  new MpCompressionTeeGenerator(),
+  new MpCompressionThreadAdapterGenerator(),
+  new MpEuroconeAdapterGenerator(),
   ] as const;
 }
 

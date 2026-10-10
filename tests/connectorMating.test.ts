@@ -1,7 +1,9 @@
 import { Matrix4, Quaternion, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { ConnectorMating } from '../src/lib/index';
-import type { Connector } from '../src/lib/index';
+import { ConnectionRules } from '../src/lib/assembly/ConnectionRules';
+import type { Connector, ConnectorJoint } from '../src/lib/index';
+import { MpPipeGenerator } from '../src/lib/generators/mp/MpPipeGenerator';
 import { AluminiumRadiatorGenerator } from '../src/lib/generators/radiator/AluminiumRadiatorGenerator';
 import { RadiatorPortFittingGenerator } from '../src/lib/generators/radiator/RadiatorPortFittingGenerator';
 import { SteelCouplingGenerator } from '../src/lib/generators/steel/SteelCouplingGenerator';
@@ -120,5 +122,45 @@ describe('ConnectorMating.place', () => {
     // Ось — +X: up +Y поворачивается в +Z, торец остаётся на месте.
     expect(b.up.distanceTo(new Vector3(0, 0, 1))).toBeLessThan(1e-9);
     expect(b.position.distanceTo(world(moving, plain).position)).toBeLessThan(1e-9);
+  });
+});
+
+describe('ConnectionRules: системы МП', () => {
+  const end = (joint: ConnectorJoint, gender: Connector['gender'], nominal = '16', depth = 0.02): Connector => ({
+    id: joint, position: { x: 0, y: 0, z: 0 }, direction: { x: 1, y: 0, z: 0 }, up: { x: 0, y: 1, z: 0 }, depth, nominal, joint, gender,
+  });
+  const pipe = new MpPipeGenerator().build({ nominal: '16', length: 0.5 });
+  const pipeEnd = byId(pipe.connectors, 'end');
+  const compression = end('mp-compression', 'internal', '16', 0.018);
+  const press = end('mp-press', 'internal', '16', 0.017);
+
+  it('конец трубы МП принимают и пресс-, и обжимной фитинг', () => {
+    expect(pipeEnd).toMatchObject({ joint: 'mp-press', gender: 'external' });
+    expect(ConnectionRules.check(pipeEnd, press)).toEqual({ compatible: true, engagement: 0.017 });
+    expect(ConnectionRules.check(compression, pipeEnd)).toEqual({ compatible: true, engagement: 0.018 });
+  });
+
+  it('обжим не стыкуется с прессом, резьбой и евроконусом; номинал и пол проверяются', () => {
+    expect(ConnectionRules.check(compression, press)).toMatchObject({ compatible: false, reason: 'joint' });
+    expect(ConnectionRules.check(compression, end('thread', 'external', '1/2'))).toMatchObject({ compatible: false, reason: 'joint' });
+    expect(ConnectionRules.check(compression, end('eurocone', 'external', '3/4'))).toMatchObject({ compatible: false, reason: 'joint' });
+    // Наружный разъём обжимной системы — не конец трубы: пары «обжим → пресс-гнездо» нет.
+    expect(ConnectionRules.check(end('mp-compression', 'external'), press)).toMatchObject({ compatible: false, reason: 'joint' });
+    expect(ConnectionRules.check(compression, end('mp-press', 'external', '20'))).toMatchObject({ compatible: false, reason: 'nominal' });
+    expect(ConnectionRules.check(compression, end('mp-compression', 'internal'))).toMatchObject({ compatible: false, reason: 'gender' });
+  });
+
+  it('place сажает на ту же глубину, что и check', () => {
+    const check = ConnectorMating.check(compression, pipeEnd);
+    expect(check.compatible).toBe(true);
+    const b = world(pipeEnd, ConnectorMating.place(compression, new Matrix4(), pipeEnd));
+    expect(b.position.x).toBeCloseTo(-(check as { engagement: number }).engagement, 9);
+    pipe.dispose();
+  });
+
+  it('у всех существующих систем вставная посадка', () => {
+    for (const joint of ['thread', 'radiator-thread', 'pp-socket', 'mp-press', 'mp-compression', 'eurocone', 'hose-barb'] as const) {
+      expect(ConnectionRules.seating(joint), joint).toBe('insert');
+    }
   });
 });

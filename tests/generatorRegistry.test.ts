@@ -22,6 +22,16 @@ describe('GeneratorRegistry', () => {
     generator.build(generator.defaults).dispose();
   });
 
+  it.each(registry.list().map((generator) => [generator.id, generator] as const))('%s: addedIn в пределах версии, умолчание задано всегда', (_, generator) => {
+    for (const spec of generator.paramSpecs) {
+      if (spec.addedIn === undefined) continue;
+      // Параметр первой версии обязателен; addedIn после текущей версии — ошибка описания.
+      expect(Number.isInteger(spec.addedIn) && spec.addedIn >= 2 && spec.addedIn <= generator.version, spec.key).toBe(true);
+      // Умолчание подставляется и для неактивного when-параметра: в defaults должно быть значение.
+      expect(ParamSchema.get(generator.defaults, spec.key), spec.key).toBeDefined();
+    }
+  });
+
   it('get по ID библиотеки отдаёт генератор с типом параметров, по чужому ID — undefined', () => {
     const coupling = registry.get('steel.coupling');
     const model = coupling.build({ nominalLeft: '1/2', nominalRight: '1/2', length: 0.03 });

@@ -1,30 +1,20 @@
 import { Matrix4, Quaternion, Vector3 } from 'three';
 import type { Connector } from '../core/contracts';
+import { ConnectionRules } from './ConnectionRules';
+import type { MatingCheck } from './ConnectionRules';
 
-/** Итог проверки пары разъёмов. */
-export type MatingCheck =
-  | { compatible: true; engagement: number }
-  | { compatible: false; reason: 'joint' | 'nominal' | 'gender'; message: string };
+export type { MatingCheck } from './ConnectionRules';
 
 /**
  * Стыковка разъёмов по данным, без разбора названий.
- * Совместимы: один способ соединения, один номинал, разные типы (внутренний и наружный).
+ * Совместимость и посадку задаёт ConnectionRules: совместимые системы соединения (одна
+ * или пара вроде конца трубы МП и обжима), один номинал, внутренний и наружный разъёмы.
  * Положение: направления противоположны, up совпадают (с доворотом на угол стыка),
- * ответная деталь входит внутрь на e = min(depth₁, depth₂) — торец подвижной встаёт в P − D × e неподвижной.
+ * ответная деталь входит внутрь на e = ConnectionRules.engagement — торец подвижной встаёт в P − D × e неподвижной.
  */
 export class ConnectorMating {
   static check(a: Connector, b: Connector): MatingCheck {
-    if (a.joint !== b.joint) {
-      return { compatible: false, reason: 'joint', message: `разные способы соединения: ${a.joint} и ${b.joint}` };
-    }
-    if (a.nominal !== b.nominal) {
-      return { compatible: false, reason: 'nominal', message: `разные номиналы: ${a.nominal} и ${b.nominal}` };
-    }
-    if (a.gender === b.gender) {
-      const kind = a.gender === 'internal' ? 'внутренние' : 'наружные';
-      return { compatible: false, reason: 'gender', message: `оба разъёма ${kind}` };
-    }
-    return { compatible: true, engagement: Math.min(a.depth, b.depth) };
+    return ConnectionRules.check(a, b);
   }
 
   /**
@@ -46,7 +36,7 @@ export class ConnectorMating {
     const twist = Math.atan2(axis.dot(movingUp.clone().cross(fixedUp)), movingUp.dot(fixedUp));
     const rotation = new Quaternion().setFromAxisAngle(fixedDirection, angle - twist).multiply(align);
 
-    const engagement = Math.min(fixed.depth, moving.depth);
+    const engagement = ConnectionRules.engagement(fixed, moving);
     const target = fixedPosition.addScaledVector(fixedDirection, -engagement);
     const translation = target.sub(new Vector3().copy(moving.position).applyQuaternion(rotation));
 

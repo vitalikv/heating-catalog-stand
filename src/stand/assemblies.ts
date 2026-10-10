@@ -3,6 +3,35 @@ import type { AluminiumRadiatorParams, AssemblyDefinition } from '../lib/index';
 const radiator = (sections: number, height: number): AluminiumRadiatorParams => ({ sections, dimensions: { x: 0.08, y: height, z: 0.08 }, nominal: '1' });
 
 /**
+ * Стальной радиатор с нижним подключением (версия 2): ниппели каталога 3/4 × 1/2 концом 1/2 в обе нижние резьбы,
+ * H-блок ставится по одному разъёму, второй контур замыкается на ниппель B (проверяет тест).
+ * При совмещении up H-блок разворачивается на π вокруг вертикали, поэтому к ниппелю A у торца
+ * идёт противоположный по названию порт: при паре справа — radiator-left.
+ */
+export function steelBottomHBlock(bottomSide: 'right' | 'left'): AssemblyDefinition {
+  const nipple = { nominalLeft: '3/4', nominalRight: '1/2', length: 0.026 };
+  return {
+    label: `Стальной радиатор снизу (${bottomSide === 'right' ? 'справа' : 'слева'}): ниппели, H-блок, евроконус → МП`,
+    parts: [
+      { name: 'радиатор', generatorId: 'radiator.steel',
+        params: { dimensions: { x: 0.6, y: 0.5, z: 0.07 }, nominal: '1/2', connection: 'bottom', bottomSide } },
+      { name: 'ниппель A', generatorId: 'steel.nipple', params: nipple, attach: { connector: 'right', to: 'радиатор', toConnector: 'below-outer' } },
+      { name: 'ниппель B', generatorId: 'steel.nipple', params: nipple, attach: { connector: 'right', to: 'радиатор', toConnector: 'below-inner' } },
+      { name: 'H-блок', generatorId: 'valve.radiator-h-block',
+        params: { radiatorNominal: '3/4', pipeNominal: '3/4', spacing: 0.05, height: 0.06, configuration: 'straight' },
+        attach: { connector: bottomSide === 'right' ? 'radiator-left' : 'radiator-right', to: 'ниппель A', toConnector: 'left' } },
+      // Звено «евроконус → МП-труба» (часть 22): обжимной адаптер и отрезок трубы на каждом выходе.
+      ...(['left', 'right'] as const).flatMap((side) => [
+        { name: `адаптер ${side}`, generatorId: 'mp.eurocone-adapter', params: { pipeNominal: '16', euroconeNominal: '3/4', length: 0.026 },
+          attach: { connector: 'eurocone', to: 'H-блок', toConnector: `pipe-${side}` } },
+        { name: `труба ${side}`, generatorId: 'mp.pipe', params: { nominal: '16', length: 0.15 },
+          attach: { connector: 'start', to: `адаптер ${side}`, toConnector: 'pipe' } },
+      ]),
+    ],
+  };
+}
+
+/**
  * Сборки для проверки стыковки. Сначала совместимые стыки, потом заведомо
  * несовместимые (название начинается с «Ошибка») — стенд должен показать причину.
  */
@@ -368,6 +397,7 @@ export const STAND_ASSEMBLIES: AssemblyDefinition[] = [
         attach: { connector: 'radiator', to: 'радиатор', toConnector: 'bottom-right' } },
     ],
   },
+  steelBottomHBlock('right'),
   {
     label: 'Новые модели: американка, обратный клапан и слив',
     parts: [
