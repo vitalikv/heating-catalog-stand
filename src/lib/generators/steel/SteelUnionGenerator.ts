@@ -4,10 +4,9 @@ import { ConnectorFrame } from '../../core/ConnectorFrame';
 import type { GeneratedModel, ParamSpec, ValidationError } from '../../core/contracts';
 import { createMeshModel } from '../../core/MeshModel';
 import { MaterialGroupMerger } from '../../geometry/MaterialGroupMerger';
-import { spheres } from '../../geometry/SphereGeometryBuilder';
 import { ParamSchema } from '../../params/ParamSchema';
 import { specs } from '../../params/specs';
-import { orientParts, threadedArm, threadedSize, unionNut } from '../ThreadedParts';
+import { angleCorner, orientParts, threadedArm, threadedSize, unionNut } from '../ThreadedParts';
 
 export interface SteelUnionParams { nominal: string; armLength: number; configuration: 'straight' | 'angle' }
 type Layout = { inner: ReturnType<typeof threadedSize>; outer: ReturnType<typeof threadedSize> };
@@ -32,7 +31,8 @@ export class SteelUnionGenerator extends BaseGenerator<SteelUnionParams, Layout>
     const merger = new MaterialGroupMerger();
     merger.add(...orientParts(threadedArm(d.inner, 'internal', p.armLength), first.direction),
       ...threadedArm(d.outer, 'external', p.armLength), ...unionNut(d.outer, p.armLength - 1.5 * d.outer.depth));
-    if (p.configuration === 'angle') merger.add(spheres.build({ material: 'metal', radius: d.inner.n * 0.58 }));
+    // Конус у основания выхода не заходит под гайку.
+    if (p.configuration === 'angle') merger.add(...angleCorner(d.inner, d.outer, first.direction, ConnectorFrame.right.direction, p.armLength - 2 * d.outer.depth));
     return createMeshModel({ title: `Американка ${p.nominal} ${p.configuration === 'straight' ? 'прямая' : 'угловая'}`, ...merger.merge(), connectors: [
       connector('inlet', first, p.armLength, { nominal: p.nominal, joint: 'thread', gender: 'internal', depth: d.inner.depth }),
       connector('outlet', ConnectorFrame.right, p.armLength, { nominal: p.nominal, joint: 'thread', gender: 'external', depth: d.outer.depth }),

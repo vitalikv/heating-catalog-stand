@@ -1,7 +1,8 @@
-import { Quaternion, Vector3 } from 'three';
+import { Matrix4, Quaternion, Vector3 } from 'three';
 import type { MaterialKey, ThreadGender, Vector3Data } from '../core/contracts';
 import type { GeometryPart } from '../geometry/MaterialGroupMerger';
 import { sleeves } from '../geometry/SleeveGeometryBuilder';
+import { spheres } from '../geometry/SphereGeometryBuilder';
 import { ThreadSizes } from '../sizes/ThreadSizes';
 
 /** Обобщённые размеры новых моделей, не размерный ряд конкретного производителя. */
@@ -22,10 +23,41 @@ export function orientParts(parts: GeometryPart[], direction: Vector3Data, origi
   return parts;
 }
 
+/** Наружный диаметр корпуса плеча threadedArm до резьбы. */
+export function armBodyDiameter(size: ThreadedSize, gender: ThreadGender): number {
+  return gender === 'internal' ? size.n * 1.15 : size.n + 0.004;
+}
+
+/**
+ * Скругление стыка двух плеч под 90°, как у угла: четверти сферы во внешнем углу.
+ * Толстое плечо — с внутренней резьбой, тонкое — с наружной; у основания тонкого конус
+ * до диаметра толстого, длиной в перепад диаметров, но не больше coneLimit — стык без ступеньки.
+ * Канал скругления — по большему каналу толстого плеча: щель до узкого канала закрывает торец корпуса тонкого.
+ */
+export function angleCorner(thick: ThreadedSize, thin: ThreadedSize, thickDirection: Vector3Data, thinDirection: Vector3Data,
+  coneLimit: number, origin = { x: 0, y: 0, z: 0 }): GeometryPart[] {
+  const thickOuter = armBodyDiameter(thick, 'internal');
+  const thinOuter = armBodyDiameter(thin, 'external');
+  const cone = Math.min(thickOuter - thinOuter, coneLimit);
+  // Заготовка: тонкое плечо по +X, толстое по +Y, внешний угол в x < 0, y < 0.
+  const quarter = { phiLength: Math.PI / 2, rotation: { x: Math.PI / 2, y: 0, z: 0 } };
+  const parts = [
+    spheres.build({ material: 'metal', ...quarter, radius: thickOuter / 2 }),
+    spheres.build({ material: 'metal', ...quarter, radius: thick.v / 2 }),
+    ...sleeves.build({ material: 'metal', length: cone, outerDiameterStart: thickOuter, outerDiameter: thinOuter,
+      innerDiameter: thin.v, center: { x: cone / 2, y: 0, z: 0 } }),
+  ];
+  const x = new Vector3().copy(thinDirection).normalize();
+  const y = new Vector3().copy(thickDirection).normalize();
+  const basis = new Matrix4().makeBasis(x, y, new Vector3().crossVectors(x, y));
+  for (const { geometry } of parts) geometry.applyMatrix4(basis).translate(origin.x, origin.y, origin.z);
+  return parts;
+}
+
 /** Плечо от начала координат до торца reach с резьбой на конце. */
 export function threadedArm(size: ThreadedSize, gender: ThreadGender, reach: number, material: MaterialKey = 'metal'): GeometryPart[] {
   const bodyEnd = reach - size.depth;
-  const outer = gender === 'internal' ? size.n * 1.15 : size.n + 0.004;
+  const outer = armBodyDiameter(size, gender);
   return [
     ...sleeves.build({ material, length: bodyEnd, outerDiameter: outer, innerDiameter: size.v,
       center: { x: bodyEnd / 2, y: 0, z: 0 } }),

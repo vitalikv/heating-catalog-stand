@@ -7,7 +7,7 @@ import { MaterialGroupMerger } from '../../geometry/MaterialGroupMerger';
 import { sleeves } from '../../geometry/SleeveGeometryBuilder';
 import { ParamSchema } from '../../params/ParamSchema';
 import { specs } from '../../params/specs';
-import { orientParts, threadedArm, threadedSize, unionNut } from '../ThreadedParts';
+import { angleCorner, orientParts, threadedArm, threadedSize, unionNut } from '../ThreadedParts';
 
 export interface RadiatorHBlockParams {
   radiatorNominal: string;
@@ -55,6 +55,8 @@ export class RadiatorHBlockGenerator extends BaseGenerator<RadiatorHBlockParams,
             innerDiameter: d.pipe.v * 0.8, center: { x: half - 0.0015, y: 0, z: 0 } })], output.direction, origin),
         ...orientParts(sleeves.build({ material: 'metalFlat', length: 0.008, outerDiameter: 0.015, innerDiameter: 0,
           outerSegments: 6, center: { x: 0.013, y: 0, z: 0 } }), { x: 0, y: 0, z: 1 }, origin));
+      // Конус у основания трубного плеча не заходит на резьбу.
+      if (p.configuration === 'angle') merger.add(...angleCorner(d.radiator, d.pipe, ConnectorFrame.top.direction, output.direction, half - 0.003 - d.pipe.depth, origin));
       connectors.push(connector(`radiator-${side}`, ConnectorFrame.top, { x, y: half, z: 0 },
         { nominal: p.radiatorNominal, joint: 'thread', gender: 'internal', depth: d.radiator.depth }),
       connector(`pipe-${side}`, output, { x, y: output.direction.y * half, z: output.direction.z * half },

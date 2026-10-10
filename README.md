@@ -4,6 +4,7 @@
 из старого проекта `3d-stroyka/gl2` и библиотека генераторов `src/lib` для редактора.
 Устройство библиотеки — [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); история работ —
 `docs/development-plan.md`, `docs/catalog-porting-plan.md`, `docs/library-refactoring-plan.md`.
+Расширение каталога — [единый план с реестром, карточками и чек-листами](docs/catalog-expansion-plan.md). Замеры FPS — [docs/benchmark.md](docs/benchmark.md).
 
 Не требует OpenServer, PHP или БД и не импортирует код соседних проектов.
 
