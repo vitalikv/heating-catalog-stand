@@ -21,7 +21,9 @@ body {
   border: 1px solid #ddd;
   border-radius: 4px;
   white-space: pre;
-  pointer-events: none;
+  pointer-events: auto;
+  user-select: text;
+  cursor: text;
 }
 
 #info.has-errors {

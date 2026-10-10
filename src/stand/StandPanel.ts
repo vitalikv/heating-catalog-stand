@@ -15,15 +15,29 @@ interface PanelEntry {
   presets: CatalogItem[];
 }
 
+const GROUP_LABELS: Readonly<Record<string, string>> = {
+  steel: 'Стальные детали',
+  pp: 'Полипропилен',
+  mp: 'Металлопластик',
+  radiator: 'Радиаторы и комплектующие',
+  valve: 'Арматура',
+  equipment: 'Оборудование',
+};
+
+function groupId(entry: PanelEntry): string {
+  return entry.generator.id.split('.')[0];
+}
+
 /**
- * Папка «Модель»: выбор генератора и набора, ручная правка параметров, сброс.
+ * Папка «Каталог»: выбор группы, объекта и набора, ручная правка параметров, сброс.
  * Поля строятся по paramSpecs генератора. Длины показываются в миллиметрах,
  * наружу отдаются в метрах.
  */
 export class StandPanel {
   private readonly folder: GUI;
   private readonly entries: PanelEntry[];
-  private readonly state = { generator: '', preset: 0 };
+  private readonly state = { group: '', generator: '', preset: 0 };
+  private generatorController: Controller;
   private presetController: Controller;
   private paramsFolder: GUI;
   /** Значения полей в единицах панели (мм для длин), по ключу ParamSpec.key. */
@@ -43,15 +57,21 @@ export class StandPanel {
     });
     if (this.entries.length === 0) throw new Error('StandPanel: нет генераторов с наборами параметров');
     this.state.generator = this.entries[0].generator.id;
+    this.state.group = groupId(this.entries[0]);
 
-    this.folder = gui.addFolder('Модель');
-    const options = Object.fromEntries(this.entries.map(({ generator }) => [generator.title, generator.id]));
-    this.folder.add(this.state, 'generator', options).name('Генератор').onChange(() => this.selectGenerator());
+    this.folder = gui.addFolder('Каталог');
+    const groups = [...new Set(this.entries.map(groupId))];
+    const groupOptions = Object.fromEntries([
+      ['Все группы', ''],
+      ...groups.map((id) => [GROUP_LABELS[id] ?? id, id]),
+    ]);
+    this.folder.add(this.state, 'group', groupOptions).name('Группа').onChange(() => this.selectGroup());
+    this.generatorController = this.folder.add(this.state, 'generator', {}).name('Объект');
     this.presetController = this.folder.add(this.state, 'preset', {}).name('Набор');
     this.folder.add({ reset: () => this.applyPreset(true) }, 'reset').name('Сбросить к набору');
     this.paramsFolder = this.folder.addFolder('Параметры');
 
-    this.selectGenerator();
+    this.selectGroup();
   }
 
   /** Скрывает папку на время режима сборки. */
@@ -66,6 +86,19 @@ export class StandPanel {
 
   private get entry(): PanelEntry {
     return this.entries.find((entry) => entry.generator.id === this.state.generator) ?? this.entries[0];
+  }
+
+  private selectGroup(): void {
+    const entries = this.entries.filter((entry) => !this.state.group || groupId(entry) === this.state.group);
+    // При переходе в «Все группы» сохраняем выбранный объект и его параметры.
+    const keepSelection = entries.some((entry) => entry.generator.id === this.state.generator);
+    if (!keepSelection) this.state.generator = entries[0].generator.id;
+    const options = Object.fromEntries(entries.map(({ generator }) => [generator.title, generator.id]));
+    this.generatorController = this.generatorController
+      .options(options)
+      .name('Объект')
+      .onChange(() => this.selectGenerator());
+    if (!keepSelection || this.controls.size === 0) this.selectGenerator();
   }
 
   private selectGenerator(): void {
