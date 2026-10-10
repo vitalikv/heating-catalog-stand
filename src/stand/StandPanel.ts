@@ -22,6 +22,7 @@ const GROUP_LABELS: Readonly<Record<string, string>> = {
   radiator: 'Радиаторы и комплектующие',
   valve: 'Арматура',
   equipment: 'Оборудование',
+  manifold: 'Коллекторы',
 };
 
 function groupId(entry: PanelEntry): string {

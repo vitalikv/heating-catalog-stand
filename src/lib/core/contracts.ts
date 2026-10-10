@@ -54,9 +54,11 @@ export type ThreadGender = 'internal' | 'external';
  * диаметр трубы, мм); принимает конец трубы МП, объявленный как наружный 'mp-press'.
  * 'eurocone' — конусное соединение (номинал резьбы, например '3/4'), не обычная thread;
  * 'hose-barb' — штуцер/шланг (номинал — внутренний диаметр шланга, мм).
+ * 'valve-head' — посадочное место термоголовки или сервопривода на клапане (номинал 'M30x1.5'):
+ * наружное у клапана, внутреннее у привода; не трубная резьба.
  * Какие системы стыкуются между собой и как садятся — ConnectionRules.
  */
-export type ConnectorJoint = 'thread' | 'radiator-thread' | 'pp-socket' | 'mp-press' | 'mp-compression' | 'eurocone' | 'hose-barb';
+export type ConnectorJoint = 'thread' | 'radiator-thread' | 'pp-socket' | 'mp-press' | 'mp-compression' | 'eurocone' | 'hose-barb' | 'valve-head';
 
 /** Ключ материала MaterialLibrary: геометрия ссылается на материал по ключу, а не по индексу. */
 export type MaterialKey =

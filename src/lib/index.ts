@@ -39,6 +39,8 @@ export type { MpCompressionElbowParams } from './generators/mp/MpCompressionElbo
 export type { MpCompressionTeeParams } from './generators/mp/MpCompressionTeeGenerator';
 export type { MpCompressionThreadAdapterParams } from './generators/mp/MpCompressionThreadAdapterGenerator';
 export type { MpEuroconeAdapterParams } from './generators/mp/MpEuroconeAdapterGenerator';
+export type { BrassManifoldParams } from './generators/manifold/BrassManifoldGenerator';
+export type { ManifoldInsertKind } from './generators/manifold/ManifoldInserts';
 export type { PpCouplingParams } from './generators/pp/PpCouplingGenerator';
 export type { PpCrossParams } from './generators/pp/PpCrossGenerator';
 export type { PpElbowParams } from './generators/pp/PpElbowGenerator';
@@ -72,6 +74,7 @@ export type { CheckValveParams } from './generators/valve/CheckValveGenerator';
 export type { DrainValveParams } from './generators/valve/DrainValveGenerator';
 export type { LockshieldValveParams } from './generators/valve/LockshieldValveGenerator';
 export type { RadiatorHBlockParams } from './generators/valve/RadiatorHBlockGenerator';
+export type { ThermoelectricActuatorParams } from './generators/valve/ThermoelectricActuatorGenerator';
 
 // Материалы и объект сцены.
 export { MaterialLibrary } from './materials/MaterialLibrary';
@@ -79,7 +82,7 @@ export { createModelObject } from './scene/ModelObject';
 
 // Стыковка и сборки.
 export { Assembly } from './assembly/Assembly';
-export type { AssemblyDefinition, AssemblyJoint, AssemblyPart, AssemblyPartModel } from './assembly/Assembly';
+export type { AssemblyDefinition, AssemblyJoint, AssemblyPart, AssemblyPartModel, AssemblyPlacement } from './assembly/Assembly';
 export { ConnectorMating } from './assembly/ConnectorMating';
 export type { MatingCheck } from './assembly/ConnectorMating';
 

@@ -1,7 +1,8 @@
-import { Box3, Group, MathUtils, Vector3 } from 'three';
+import { Box3, Group, MathUtils, Matrix4, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { Assembly, ConnectorMating, createModelObject, GeneratorRegistry, MaterialLibrary } from '../src/lib/index';
-import { STAND_ASSEMBLIES, steelBottomHBlock } from '../src/stand/assemblies';
+import type { AssemblyDefinition } from '../src/lib/index';
+import { MANIFOLD_PAIR_OFFSET, manifoldPair, STAND_ASSEMBLIES, steelBottomHBlock } from '../src/stand/assemblies';
 
 const registry = new GeneratorRegistry();
 
@@ -156,6 +157,75 @@ describe('Assembly.setAngle', () => {
     expect(elbowAfter.angleTo(elbowBefore)).toBeCloseTo(Math.PI / 4, 9);
     // Детали с другой стороны тройника не сдвинулись.
     expect(assembly.parts.find(({ name }) => name === 'кран в-в')!.matrix.equals(valveBefore)).toBe(true);
+    assembly.dispose();
+  });
+});
+
+describe('явное положение детали (часть 16)', () => {
+  const nipple = { nominalLeft: '1/2', nominalRight: '1/2', length: 0.03 };
+  const coupling = { nominalLeft: '1/2', nominalRight: '1/2', length: 0.03 };
+  const position = (assembly: Assembly, name: string) => new Vector3().setFromMatrixPosition(assembly.parts.find((part) => part.name === name)!.matrix);
+
+  it('без relativeTo — в координатах сборки: сдвиг, затем поворот в градусах', () => {
+    const assembly = new Assembly(registry, { label: 'положение', parts: [
+      { name: 'муфта', generatorId: 'steel.coupling', params: coupling },
+      { name: 'ниппель', generatorId: 'steel.nipple', params: nipple, placement: { at: { x: 0.1, y: 0.2, z: 0 }, rotation: { x: 0, y: 0, z: 90 } } },
+    ] });
+    expect(assembly.errors).toEqual([]);
+    expect(assembly.joints).toEqual([]);
+    expect(position(assembly, 'ниппель').toArray()).toEqual([0.1, 0.2, 0]);
+    const axis = new Vector3(1, 0, 0).transformDirection(assembly.parts[1].matrix);
+    expect(axis.y).toBeCloseTo(1, 9);
+    assembly.dispose();
+  });
+
+  it('с relativeTo — следует за деталью, когда setAngle переставляет её', () => {
+    const definition: AssemblyDefinition = { label: 'относительно', parts: [
+      { name: 'муфта', generatorId: 'steel.coupling', params: coupling },
+      { name: 'ниппель', generatorId: 'steel.nipple', params: nipple, attach: { connector: 'left', to: 'муфта', toConnector: 'right' } },
+      { name: 'метка', generatorId: 'steel.coupling', params: coupling, placement: { at: { x: 0, y: 0.05, z: 0 }, relativeTo: 'ниппель' } },
+    ] };
+    const assembly = new Assembly(registry, definition);
+    const expected = () => new Vector3(0, 0.05, 0).applyMatrix4(assembly.parts[1].matrix);
+    expect(position(assembly, 'метка').distanceTo(expected())).toBeLessThan(1e-12);
+    assembly.setAngle('ниппель', 90);
+    // Ниппель повернулся вокруг оси X: метка ушла с +Y на ±Z вместе с ним.
+    expect(position(assembly, 'метка').distanceTo(expected())).toBeLessThan(1e-12);
+    expect(Math.abs(position(assembly, 'метка').z)).toBeCloseTo(0.05, 9);
+    assembly.dispose();
+  });
+
+  it.each([
+    ['и attach, и placement', { attach: { connector: 'left', to: 'муфта', toConnector: 'right' }, placement: { at: { x: 0, y: 0, z: 0 } } }, 'и присоединение, и явное положение'],
+    ['relativeTo неизвестной детали', { placement: { at: { x: 0, y: 0, z: 0 }, relativeTo: 'нет такой' } }, 'не найдена или ещё не поставлена'],
+    ['relativeTo детали ниже по описанию', { placement: { at: { x: 0, y: 0, z: 0 }, relativeTo: 'последняя' } }, 'не найдена или ещё не поставлена'],
+  ] as const)('%s — ошибка описания, деталь остаётся в начале координат', (_, how, message) => {
+    const assembly = new Assembly(registry, { label: 'ошибка', parts: [
+      { name: 'муфта', generatorId: 'steel.coupling', params: coupling },
+      { name: 'ниппель', generatorId: 'steel.nipple', params: nipple, ...how },
+      { name: 'последняя', generatorId: 'steel.coupling', params: coupling },
+    ] });
+    expect(assembly.errors).toHaveLength(1);
+    expect(assembly.errors[0]).toContain(message);
+    expect(assembly.joints).toEqual([]);
+    expect(assembly.parts[1].matrix.equals(new Matrix4())).toBe(true);
+    assembly.dispose();
+  });
+
+  it('пара гребёнок 67/68: обратная на 200 мм выше и на 32 мм ближе к стене, контуры с одним номером на одной вертикали', () => {
+    const assembly = new Assembly(registry, manifoldPair(4));
+    expect(assembly.errors).toEqual([]);
+    expect(position(assembly, 'обратный').toArray()).toEqual([MANIFOLD_PAIR_OFFSET.x, MANIFOLD_PAIR_OFFSET.y, MANIFOLD_PAIR_OFFSET.z]);
+    const outlet = (part: string, k: number) => {
+      const placed = assembly.parts.find((p) => p.name === part)!;
+      return new Vector3().copy(placed.model.connectors.find((c) => c.id === `out-${k}`)!.position).applyMatrix4(placed.matrix);
+    };
+    for (let k = 1; k <= 4; k++) expect(outlet('обратный', k).x).toBeCloseTo(outlet('подающий', k).x, 12);
+    // Труба обратки (Ø16) проходит за корпусом подающей (Ø40): разнос по глубине больше суммы радиусов.
+    expect(Math.abs(MANIFOLD_PAIR_OFFSET.z)).toBeGreaterThan(0.02 + 0.008);
+    // Расходомеры подающей ниже нижнего края обратной гребёнки.
+    const supply = assembly.parts.find((p) => p.name === 'подающий')!;
+    expect(supply.model.bounds.max.y).toBeLessThan(MANIFOLD_PAIR_OFFSET.y - 0.02);
     assembly.dispose();
   });
 });

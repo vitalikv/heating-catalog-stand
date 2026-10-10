@@ -1,4 +1,4 @@
-import type { AluminiumRadiatorParams, AssemblyDefinition } from '../lib/index';
+import type { AluminiumRadiatorParams, AssemblyDefinition, AssemblyPart } from '../lib/index';
 
 const radiator = (sections: number, height: number): AluminiumRadiatorParams => ({ sections, dimensions: { x: 0.08, y: height, z: 0.08 }, nominal: '1' });
 
@@ -27,6 +27,84 @@ export function steelBottomHBlock(bottomSide: 'right' | 'left'): AssemblyDefinit
         { name: `труба ${side}`, generatorId: 'mp.pipe', params: { nominal: '16', length: 0.15 },
           attach: { connector: 'start', to: `адаптер ${side}`, toConnector: 'pipe' } },
       ]),
+    ],
+  };
+}
+
+const MANIFOLD_1 = { nominal: '1', outletEnd: 'eurocone', outletNominal: '1/2', mainEnd: 'internal', endPorts: 'vent-drain' } as const;
+
+/**
+ * Концевой узел 70 на коллекторе collector: воздухоотводчик, слив, пробка; ниппель магистрали.
+ * Воздухоотводчик — радиаторный 1/2, пока нет автоматического воздухоотводчика 109.
+ */
+function manifoldEnds(collector: string, suffix = ''): AssemblyPart[] {
+  return [
+    { name: `воздухоотводчик${suffix}`, generatorId: 'radiator.vent', params: { nominal: '1/2', kind: 'vent' },
+      attach: { connector: 'left', to: collector, toConnector: 'vent' } },
+    { name: `слив${suffix}`, generatorId: 'valve.drain', params: { nominal: '1/2', hoseNominal: '16', length: 0.06 },
+      attach: { connector: 'inlet', to: collector, toConnector: 'drain' } },
+    { name: `пробка${suffix}`, generatorId: 'steel.plug', params: { nominal: '1', length: 0.03 },
+      attach: { connector: 'left', to: collector, toConnector: 'end' } },
+    { name: `ниппель магистрали${suffix}`, generatorId: 'steel.nipple', params: { nominalLeft: '1', nominalRight: '1', length: 0.044 },
+      attach: { connector: 'right', to: collector, toConnector: 'main' } },
+  ];
+}
+
+/** Контур МП 16 на выходе outlet: адаптер евроконуса и отрезок трубы. */
+function manifoldContour(collector: string, outlet: number, pipeLength: number, suffix = ''): AssemblyPart[] {
+  return [
+    { name: `адаптер${suffix}`, generatorId: 'mp.eurocone-adapter', params: { pipeNominal: '16', euroconeNominal: '3/4', length: 0.026 },
+      attach: { connector: 'eurocone', to: collector, toConnector: `out-${outlet}` } },
+    { name: `труба${suffix}`, generatorId: 'mp.pipe', params: { nominal: '16', length: pipeLength },
+      attach: { connector: 'start', to: `адаптер${suffix}`, toConnector: 'pipe' } },
+  ];
+}
+
+/** Сервоприводы 69 на всех посадочных местах коллектора. */
+function manifoldActuators(collector: string, outlets: number): AssemblyPart[] {
+  return Array.from({ length: outlets }, (_, i) => ({ name: `привод ${i + 1}`, generatorId: 'valve.thermoelectric-actuator',
+    params: { state: 'closed' }, attach: { connector: 'valve', to: collector, toConnector: `head-${i + 1}` } }));
+}
+
+/**
+ * Обратный коллектор тёплого пола (68) под приводы: сервоприводы 69 на всех выходах, концевой
+ * узел 70, ниппель магистрали и первый контур на МП-трубе.
+ */
+export function manifoldReturnNode(outlets = 4): AssemblyDefinition {
+  return {
+    label: `Коллектор обратный 1" × ${outlets}: приводы, концевой узел, контур МП 16`,
+    parts: [
+      { name: 'коллектор', generatorId: 'manifold.brass', params: { ...MANIFOLD_1, outlets, inserts: 'thermostatic', head: 'none' } },
+      ...manifoldActuators('коллектор', outlets),
+      ...manifoldEnds('коллектор'),
+      ...manifoldContour('коллектор', 1, 0.15),
+    ],
+  };
+}
+
+/**
+ * Разнос осей пары гребёнок, м: обратная выше подающей на 200 мм и на 32 мм ближе к стене (−Z) —
+ * VALTEC VTc.IV130 (каталог 2017, с. 202) и общие размеры R, S блока VTc.596EMNX.
+ */
+export const MANIFOLD_PAIR_OFFSET = { x: 0, y: 0.2, z: -0.032 };
+
+/**
+ * Пара гребёнок тёплого пола 67/68: подающая с расходомерами стоит в начале координат, обратная
+ * под приводы — явным положением относительно неё (между гребёнками нет разъёмов, часть 16).
+ * Контур 1 подключён к обеим гребёнкам; труба обратки проходит за подающей гребёнкой.
+ */
+export function manifoldPair(outlets = 4): AssemblyDefinition {
+  return {
+    label: `Пара коллекторов 1" × ${outlets}: расходомеры, приводы, концевые узлы, контур 1`,
+    parts: [
+      { name: 'подающий', generatorId: 'manifold.brass', params: { ...MANIFOLD_1, outlets, inserts: 'flowmeter', head: 'handle' } },
+      { name: 'обратный', generatorId: 'manifold.brass', params: { ...MANIFOLD_1, outlets, inserts: 'thermostatic', head: 'none' },
+        placement: { at: MANIFOLD_PAIR_OFFSET, relativeTo: 'подающий' } },
+      ...manifoldActuators('обратный', outlets),
+      ...manifoldEnds('подающий', ' подачи'),
+      ...manifoldEnds('обратный', ' обратки'),
+      ...manifoldContour('подающий', 1, 0.15, ' подачи'),
+      ...manifoldContour('обратный', 1, 0.35, ' обратки'),
     ],
   };
 }
@@ -398,6 +476,8 @@ export const STAND_ASSEMBLIES: AssemblyDefinition[] = [
     ],
   },
   steelBottomHBlock('right'),
+  manifoldReturnNode(),
+  manifoldPair(),
   {
     label: 'Новые модели: американка, обратный клапан и слив',
     parts: [

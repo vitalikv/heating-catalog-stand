@@ -10,9 +10,9 @@ const port = (model: GeneratedModel, id: string): Connector => model.connectors.
 describe('новые модели вне gl2', () => {
   it('все семейства расширений доступны в каталоге', () => {
     expect(EXTENSION_CATALOG.map((entry) => entry.generatorId).sort()).toEqual([
-      'mp.compression-coupling', 'mp.compression-elbow', 'mp.compression-tee', 'mp.compression-thread-adapter', 'mp.eurocone-adapter',
+      'manifold.brass', 'mp.compression-coupling', 'mp.compression-elbow', 'mp.compression-tee', 'mp.compression-thread-adapter', 'mp.eurocone-adapter',
       'steel.bushing', 'steel.cap', 'steel.union', 'valve.check', 'valve.drain',
-      'valve.lockshield', 'valve.radiator-h-block', 'valve.thermostatic-angle',
+      'valve.lockshield', 'valve.radiator-h-block', 'valve.thermoelectric-actuator', 'valve.thermostatic-angle',
     ]);
   });
 
@@ -113,11 +113,14 @@ describe('новые модели вне gl2', () => {
     model.dispose();
   });
 
-  it.each(EXTENSION_CATALOG)('$generatorId: заведомо короткая модель отклоняется до построения', ({ generatorId }) => {
+  // Коллектор и привод без параметра длины: размеры заданы таблицей VALTEC (tests/manifold.test.ts).
+  const lengthKey = (defaults: Record<string, unknown>) => ['length', 'armLength', 'height'].find((key) => key in defaults);
+  const sized = EXTENSION_CATALOG.filter(({ generatorId }) => lengthKey(registry.get(generatorId as string)!.defaults as Record<string, unknown>));
+
+  it.each(sized)('$generatorId: заведомо короткая модель отклоняется до построения', ({ generatorId }) => {
     const generator = registry.get(generatorId as string)!;
     const defaults = generator.defaults as Record<string, unknown>;
-    const key = 'length' in defaults ? 'length' : 'armLength' in defaults ? 'armLength' : 'height';
-    const params = { ...defaults, [key]: 0.001 };
+    const params = { ...defaults, [lengthKey(defaults)!]: 0.001 };
     expect(generator.validate(params).length).toBeGreaterThan(0);
     expect(() => generator.build(params)).toThrow(GeneratorParamsError);
   });

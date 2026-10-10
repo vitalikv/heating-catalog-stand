@@ -93,7 +93,8 @@ registry.get(idFromProject);         // ModelGenerator<unknown> | undefined
 - Номиналы — **строки**, как в таблицах размеров: резьба `'1/2'`, `'1 1/4'`; трубы ПП и МП —
   наружный диаметр в миллиметрах: `'20'`, `'16'`.
 - Объём бака — литры числом (`volume: 6`). Число секций, выходов — целые.
-- Углы стыков в `AssemblyPart.attach.angle` и `Assembly.setAngle` — **градусы**.
+- Углы стыков в `AssemblyPart.attach.angle` и `Assembly.setAngle`, поворот явного положения
+  `AssemblyPart.placement.rotation` — **градусы**; сдвиг `placement.at` — метры.
   `ConnectorMating.place` принимает радианы.
 - Ось Y смотрит вверх, как в Three.js. Модель строится в своих локальных координатах:
   проход линейных деталей (муфта, кран, труба) идёт вдоль X, ответвление тройника — вверх (+Y),
@@ -109,7 +110,7 @@ interface Connector {
   up: Vector3Data;         // единичный, ⟂ direction — задаёт поворот вокруг оси
   depth: number;           // длина резьбы или раструба от торца внутрь, м
   nominal: string;
-  joint: 'thread' | 'radiator-thread' | 'pp-socket' | 'mp-press' | 'eurocone' | 'hose-barb';
+  joint: 'thread' | 'radiator-thread' | 'pp-socket' | 'mp-press' | 'mp-compression' | 'eurocone' | 'hose-barb' | 'valve-head';
   gender: 'internal' | 'external';
 }
 ```

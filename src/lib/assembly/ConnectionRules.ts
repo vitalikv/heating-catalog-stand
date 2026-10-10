@@ -24,6 +24,7 @@ const SYSTEMS: Readonly<Record<ConnectorJoint, JointSystem>> = {
   'mp-compression': { seating: 'insert' },
   eurocone: { seating: 'insert' },
   'hose-barb': { seating: 'insert' },
+  'valve-head': { seating: 'insert' },
 };
 
 /**

@@ -159,7 +159,7 @@ describe('ConnectionRules: системы МП', () => {
   });
 
   it('у всех существующих систем вставная посадка', () => {
-    for (const joint of ['thread', 'radiator-thread', 'pp-socket', 'mp-press', 'mp-compression', 'eurocone', 'hose-barb'] as const) {
+    for (const joint of ['thread', 'radiator-thread', 'pp-socket', 'mp-press', 'mp-compression', 'eurocone', 'hose-barb', 'valve-head'] as const) {
       expect(ConnectionRules.seating(joint), joint).toBe('insert');
     }
   });

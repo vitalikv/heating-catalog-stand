@@ -1,18 +1,32 @@
-import { Box3, MathUtils, Matrix4, Vector3 } from 'three';
-import type { BoundsData, Connector, GeneratedModel } from '../core/contracts';
+import { Box3, Euler, MathUtils, Matrix4, Quaternion, Vector3 } from 'three';
+import type { BoundsData, Connector, GeneratedModel, Vector3Data } from '../core/contracts';
 import type { GeneratorRegistry } from '../generators/GeneratorRegistry';
 import { ConnectorMating } from './ConnectorMating';
 import type { MatingCheck } from './ConnectorMating';
 
 /**
- * Деталь сборки; attach — к какому разъёму уже поставленной детали её присоединить,
- * angle — доворот вокруг оси стыка, градусы (по умолчанию up разъёмов совпадают).
+ * Явное положение независимой детали: сдвиг at, м, и поворот rotation, градусы (оси X, Y, Z
+ * по порядку, как Euler 'XYZ'). relativeTo — уже поставленная деталь: положение задано
+ * в её координатах и следует за ней, когда её переставляет setAngle.
+ */
+export interface AssemblyPlacement {
+  at: Vector3Data;
+  rotation?: Vector3Data;
+  relativeTo?: string;
+}
+
+/**
+ * Деталь сборки ставится одним способом: attach — к какому разъёму уже поставленной детали её
+ * присоединить, angle — доворот вокруг оси стыка, градусы (по умолчанию up разъёмов совпадают);
+ * placement — явное положение без стыка. Оба сразу — ошибка описания. Без них деталь стоит
+ * в начале координат (так ставится первая деталь).
  */
 export interface AssemblyPart {
   name: string;
   generatorId: string;
   params: unknown;
   attach?: { connector: string; to: string; toConnector: string; angle?: number };
+  placement?: AssemblyPlacement;
 }
 
 export interface AssemblyDefinition {
@@ -37,14 +51,10 @@ export interface AssemblyPartModel {
   matrix: Matrix4;
 }
 
-/** Как поставлена деталь: к какому разъёму какой детали. */
-interface Placement {
-  part: AssemblyPartModel;
-  target: AssemblyPartModel;
-  fixed: Connector;
-  moving: Connector;
-  joint: AssemblyJoint;
-}
+/** Как поставлена деталь: к какому разъёму какой детали или явным положением. */
+type Placement =
+  | { kind: 'attach'; part: AssemblyPartModel; target: AssemblyPartModel; fixed: Connector; moving: Connector; joint: AssemblyJoint }
+  | { kind: 'explicit'; part: AssemblyPartModel; reference: AssemblyPartModel | null; local: Matrix4 };
 
 /**
  * Сборка из нескольких моделей: каждая деталь ставится по ConnectorMating
@@ -58,7 +68,7 @@ export class Assembly {
   readonly joints: AssemblyJoint[] = [];
   /** Ошибки описания: неизвестный генератор, неверные параметры, нет разъёма. */
   readonly errors: string[] = [];
-  /** По порядку описания: детали ставятся после тех, к кому присоединены. */
+  /** По порядку описания: детали ставятся после тех, к кому присоединены или относительно кого стоят. */
   private readonly placements: Placement[] = [];
 
   constructor(registry: GeneratorRegistry, definition: AssemblyDefinition) {
@@ -80,6 +90,14 @@ export class Assembly {
       const placed = { name: part.name, model, matrix: new Matrix4() };
       this.parts.push(placed);
 
+      if (part.attach && part.placement) {
+        this.errors.push(`${part.name}: задано и присоединение, и явное положение — нужно одно`);
+        continue;
+      }
+      if (part.placement) {
+        this.placeExplicitly(placed, part.placement);
+        continue;
+      }
       if (!part.attach) continue;
       const { connector, to, toConnector, angle = 0 } = part.attach;
       const target = this.parts.find((placed) => placed.name === to);
@@ -92,7 +110,7 @@ export class Assembly {
 
       const joint = { part: part.name, label: `${part.name}.${connector} → ${to}.${toConnector}`, check: ConnectorMating.check(fixed, moving), angle };
       this.joints.push(joint);
-      const placement = { part: placed, target, fixed, moving, joint };
+      const placement = { kind: 'attach' as const, part: placed, target, fixed, moving, joint };
       this.placements.push(placement);
       Assembly.place(placement);
     }
@@ -100,16 +118,37 @@ export class Assembly {
 
   /**
    * Меняет угол стыка детали и переставляет её и все детали после неё по описанию
-   * (среди них — присоединённые к ней дальше по цепочке). Модели не перестраиваются.
+   * (среди них — присоединённые к ней дальше по цепочке и поставленные относительно неё).
+   * Модели не перестраиваются.
    */
   setAngle(partName: string, degrees: number): void {
-    const start = this.placements.findIndex(({ joint }) => joint.part === partName);
+    const start = this.placements.findIndex((placement) => placement.kind === 'attach' && placement.joint.part === partName);
     if (start < 0) return;
-    this.placements[start].joint.angle = degrees;
-    for (const placement of this.placements.slice(start)) Assembly.place(placement);
+    const placement = this.placements[start];
+    if (placement.kind === 'attach') placement.joint.angle = degrees;
+    for (const next of this.placements.slice(start)) Assembly.place(next);
   }
 
-  private static place({ part, target, fixed, moving, joint }: Placement): void {
+  private placeExplicitly(part: AssemblyPartModel, { at, rotation = { x: 0, y: 0, z: 0 }, relativeTo }: AssemblyPlacement): void {
+    const reference = relativeTo === undefined ? null : this.parts.find((placed) => placed.name === relativeTo && placed !== part);
+    if (reference === undefined) {
+      this.errors.push(`${part.name}: деталь ${relativeTo} для положения не найдена или ещё не поставлена`);
+      return;
+    }
+    const turn = new Quaternion().setFromEuler(new Euler(MathUtils.degToRad(rotation.x), MathUtils.degToRad(rotation.y), MathUtils.degToRad(rotation.z), 'XYZ'));
+    const local = new Matrix4().compose(new Vector3(at.x, at.y, at.z), turn, new Vector3(1, 1, 1));
+    const placement = { kind: 'explicit' as const, part, reference, local };
+    this.placements.push(placement);
+    Assembly.place(placement);
+  }
+
+  private static place(placement: Placement): void {
+    if (placement.kind === 'explicit') {
+      const { part, reference, local } = placement;
+      part.matrix.copy(reference ? new Matrix4().multiplyMatrices(reference.matrix, local) : local);
+      return;
+    }
+    const { part, target, fixed, moving, joint } = placement;
     part.matrix.copy(ConnectorMating.place(fixed, target.matrix, moving, MathUtils.degToRad(joint.angle)));
   }
 

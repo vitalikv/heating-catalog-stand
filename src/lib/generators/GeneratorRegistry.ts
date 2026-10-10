@@ -52,6 +52,8 @@ import { MpCompressionElbowGenerator } from './mp/MpCompressionElbowGenerator';
 import { MpCompressionTeeGenerator } from './mp/MpCompressionTeeGenerator';
 import { MpCompressionThreadAdapterGenerator } from './mp/MpCompressionThreadAdapterGenerator';
 import { MpEuroconeAdapterGenerator } from './mp/MpEuroconeAdapterGenerator';
+import { BrassManifoldGenerator } from './manifold/BrassManifoldGenerator';
+import { ThermoelectricActuatorGenerator } from './valve/ThermoelectricActuatorGenerator';
 
 /** Все генераторы библиотеки; порядок — порядок списка на стенде. */
 function createGenerators() {
@@ -109,6 +111,8 @@ function createGenerators() {
   new MpCompressionTeeGenerator(),
   new MpCompressionThreadAdapterGenerator(),
   new MpEuroconeAdapterGenerator(),
+  new BrassManifoldGenerator(),
+  new ThermoelectricActuatorGenerator(),
   ] as const;
 }
 
