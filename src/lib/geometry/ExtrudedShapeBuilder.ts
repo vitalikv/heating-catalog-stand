@@ -1,4 +1,4 @@
-import { ExtrudeGeometry, Shape, Vector2 } from 'three';
+import { ExtrudeGeometry, Path, Shape, Vector2 } from 'three';
 import type { BufferGeometry } from 'three';
 import type { MaterialKey, Vector3Data } from '../core/contracts';
 import type { GeometryPart } from './MaterialGroupMerger';
@@ -6,6 +6,8 @@ import type { GeometryPart } from './MaterialGroupMerger';
 export interface ExtrudedShapeOptions {
   /** Контур в плоскости XY, м. */
   points: readonly { x: number; y: number }[];
+  /** Круглые сквозные отверстия в контуре: центр и радиус в плоскости XY, м. */
+  holes?: readonly { x: number; y: number; radius: number }[];
   /** Толщина выдавливания вдоль +Z, м (w1 в gl2). */
   depth: number;
   /** Поворот вокруг начала координат, рад: сначала X, потом Y, потом Z. */
@@ -19,6 +21,9 @@ export interface ExtrudedShapeOptions {
 export class ExtrudedShapeBuilder {
   build(options: ExtrudedShapeOptions): GeometryPart {
     const shape = new Shape(options.points.map((point) => new Vector2(point.x, point.y)));
+    for (const hole of options.holes ?? []) {
+      shape.holes.push(new Path().absarc(hole.x, hole.y, hole.radius, 0, Math.PI * 2, true));
+    }
     const extruded = new ExtrudeGeometry(shape, { bevelEnabled: false, depth: options.depth });
 
     const rotation = options.rotation ?? { x: 0, y: 0, z: 0 };

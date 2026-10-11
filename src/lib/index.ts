@@ -84,6 +84,13 @@ export type { SteelRunningNippleParams } from './generators/steel/SteelRunningNi
 export type { LocknutNominal, SteelLocknutParams } from './generators/steel/SteelLocknutGenerator';
 export type { SteelEccentricParams } from './generators/steel/SteelEccentricGenerator';
 export type { SteelHoseAdapterParams } from './generators/steel/SteelHoseAdapterGenerator';
+export type { PpCapParams } from './generators/pp/PpCapGenerator';
+export type { PpUnionEnd, PpUnionParams } from './generators/pp/PpUnionGenerator';
+export type { PpNutElbowParams } from './generators/pp/PpNutElbowGenerator';
+export type { PpBallValveEnds, PpBallValveParams } from './generators/pp/PpBallValveGenerator';
+export type { MpWallOutletParams } from './generators/mp/MpWallOutletGenerator';
+export type { MpOutletPlateParams } from './generators/mp/MpOutletPlateGenerator';
+export type { MpNutAdapterParams } from './generators/mp/MpNutAdapterGenerator';
 export type { DoubleRegulationValveParams } from './generators/valve/DoubleRegulationValveGenerator';
 export type { InjectorValveParams } from './generators/valve/InjectorValveGenerator';
 export type { RadiatorPipeEnd, RadiatorValveForm, RadiatorValveHead } from './generators/valve/RadiatorValveParts';

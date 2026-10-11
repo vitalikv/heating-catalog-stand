@@ -586,6 +586,79 @@ export function gaugeAndHoseTee(): AssemblyDefinition {
   };
 }
 
+/**
+ * ПП-линия 20 мм (часть 05a): заглушка VTp.790 на конце трубы, кран VTp.743, муфта разъёмная VTp.763,
+ * угольник с накидной гайкой VTp.758 к ниппелю 1/2.
+ */
+export function ppLine(): AssemblyDefinition {
+  const pipe = (length: number) => ({ nominal: '20', length });
+  return {
+    label: 'ПП 20: заглушка, кран, муфта разъёмная, угольник с гайкой',
+    parts: [
+      { name: 'труба A', generatorId: 'pp.pipe', params: pipe(0.1) },
+      { name: 'заглушка', generatorId: 'pp.cap', params: { nominal: '20', length: 0.0215 },
+        attach: { connector: 'socket', to: 'труба A', toConnector: 'start' } },
+      { name: 'кран ПП', generatorId: 'pp.ball-valve',
+        params: { pipeNominal: '20', ends: 'socket', threadNominal: '1/2', length: 0.07, height: 0.034, handleLength: 0.056 },
+        attach: { connector: 'left', to: 'труба A', toConnector: 'end' } },
+      { name: 'труба B', generatorId: 'pp.pipe', params: pipe(0.08), attach: { connector: 'start', to: 'кран ПП', toConnector: 'right' } },
+      { name: 'муфта разъёмная', generatorId: 'pp.union', params: { pipeNominal: '20', end: 'socket', threadNominal: '1/2', length: 0.042 },
+        attach: { connector: 'left', to: 'труба B', toConnector: 'end' } },
+      { name: 'труба C', generatorId: 'pp.pipe', params: pipe(0.08), attach: { connector: 'start', to: 'муфта разъёмная', toConnector: 'right' } },
+      { name: 'угольник', generatorId: 'pp.nut-elbow', params: { pipeNominal: '20', threadNominal: '1/2', socketArm: 0.0265, nutArm: 0.048 },
+        attach: { connector: 'socket', to: 'труба C', toConnector: 'end' } },
+      { name: 'ниппель', generatorId: 'steel.nipple', params: { nominalLeft: '1/2', nominalRight: '1/2', length: 0.022 },
+        attach: { connector: 'left', to: 'угольник', toConnector: 'nut' } },
+    ],
+  };
+}
+
+/** Латунные краны для ПП (позиция 32) на трубе 20: VTp.745 и VTp.742; за VTp.742 — ниппель 1/2 и соединитель VTp.762 обратно на ПП. */
+export function ppBrassValves(): AssemblyDefinition {
+  return {
+    label: 'ПП 20: латунные краны с американками VTp.745 и VTp.742, ниппель 1/2',
+    parts: [
+      { name: 'труба', generatorId: 'pp.pipe', params: { nominal: '20', length: 0.1 } },
+      { name: 'кран VTp.745', generatorId: 'pp.ball-valve',
+        params: { pipeNominal: '20', ends: 'union', threadNominal: '1/2', length: 0.065, height: 0.036, handleLength: 0.091 },
+        attach: { connector: 'left', to: 'труба', toConnector: 'end' } },
+      { name: 'кран VTp.742', generatorId: 'pp.ball-valve',
+        params: { pipeNominal: '20', ends: 'union-internal', threadNominal: '1/2', length: 0.065, height: 0.036, handleLength: 0.091 },
+        attach: { connector: 'left', to: 'труба', toConnector: 'start' } },
+      { name: 'ниппель', generatorId: 'steel.nipple', params: { nominalLeft: '1/2', nominalRight: '1/2', length: 0.022 },
+        attach: { connector: 'left', to: 'кран VTp.742', toConnector: 'right' } },
+      { name: 'соединитель', generatorId: 'pp.union', params: { pipeNominal: '20', end: 'internal', threadNominal: '1/2', length: 0.035 },
+        attach: { connector: 'right', to: 'ниппель', toConnector: 'right' } },
+    ],
+  };
+}
+
+/**
+ * Двойная водорозетка на планке (позиция 36) по VALTEC VTm.224: пластина 117 и две пресс-водорозетки 35 (16 × 1/2)
+ * на межцентровом расстоянии; ушки водорозеток лежат на лицевой стороне пластины. К каждой — труба МП 16 снизу.
+ * У VTm.224 своя форма угольников с болтом M8 — здесь водорозетки VTm.254, условно.
+ */
+export function doubleWallOutlet(spacing: '75' | '112.5' | '150' = '150'): AssemblyDefinition {
+  const outlet = { pipeNominal: '16', pipeEnd: 'press', threadNominal: '1/2', threadGender: 'internal', pipeArm: 0.047, height: 0.04 } as const;
+  // Плоскость ушек водорозетки 16 × 1/2(в) — y = −base: тело / 2 + 2 мм, тело — 1,2 наружного диаметра резьбы 1/2 (в).
+  // Совпадение с моделью проверяет tests/mpWallOutlet.test.ts.
+  const base = 0.01478;
+  return {
+    label: `Двойная водорозетка на планке VTm.224, ${spacing.replace('.', ',')} мм, МП 16`,
+    parts: [
+      { name: 'пластина', generatorId: 'mp.outlet-plate', params: { spacing } },
+      // Центры водорозеток — симметрично середине пластины, как отверстия mp.outlet-plate.
+      ...[-1, 1].map((side) => side * Number(spacing) / 2000).flatMap((x, i) => [
+        // Резьба выхода — от стены (+Y), трубный конец — вниз (−Z пластины): поворот −90° вокруг Y.
+        { name: `водорозетка ${i + 1}`, generatorId: 'mp.wall-outlet' as const, params: outlet,
+          placement: { relativeTo: 'пластина', at: { x, y: base, z: 0 }, rotation: { x: 0, y: 90, z: 0 } } },
+        { name: `труба ${i + 1}`, generatorId: 'mp.pipe' as const, params: { nominal: '16', length: 0.15 },
+          attach: { connector: 'start', to: `водорозетка ${i + 1}`, toConnector: 'pipe' } },
+      ]),
+    ],
+  };
+}
+
 export const STAND_ASSEMBLIES: AssemblyDefinition[] = [
   {
     label: 'Радиатор → переходник → ниппель → муфта',
@@ -1014,6 +1087,9 @@ export const STAND_ASSEMBLIES: AssemblyDefinition[] = [
   radiatorOnePipeInjector(),
   threadedLine(),
   gaugeAndHoseTee(),
+  ppLine(),
+  ppBrassValves(),
+  doubleWallOutlet(),
   steelBottomHBlock('right'),
   steelBottomHBlock('right', 'ball'),
   manifoldReturnNode(),

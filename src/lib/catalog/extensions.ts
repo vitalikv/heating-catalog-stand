@@ -94,6 +94,65 @@ export const EXTENSION_CATALOG: CatalogEntry[] = [
     ...['10', '12', '14', '16', '18', '20'].map((hoseNominal) => ({ label: `1/2(в) × ${hoseNominal} (VTr.654)`, params: { nominal: '1/2', hoseNominal, length: 0.044 } })),
     { label: '3/4(в) × 20 (VTr.654)', params: { nominal: '3/4', hoseNominal: '20', length: 0.044 } },
   ]),
+  // ПП-заглушка (позиция 29) — VALTEC VTp.790, каталог 2017, с. 134: A, мм.
+  entry('pp.cap', ([['20', 21.5], ['25', 24], ['32', 27.5], ['40', 33], ['50', 39], ['63', 44], ['75', 58]] as const).map(([nominal, a]) => ({
+    label: `${nominal} (VTp.790)`, params: { nominal, length: a / 1000 },
+  }))),
+  // ПП-разъёмное соединение (позиция 30) — VALTEC VTp.763, 761, 762 (с. 132) и VTp.708 (с. 124): A, мм.
+  entry('pp.union', [
+    ...([['20', 42], ['25', 45], ['32', 53], ['40', 62], ['50', 70], ['63', 83]] as const).map(([pipeNominal, a]) => ({
+      label: `${pipeNominal} × ${pipeNominal} (VTp.763)`, params: { pipeNominal, end: 'socket' as const, threadNominal: '1/2', length: a / 1000 },
+    })),
+    ...([['20', '1/2', 45], ['25', '3/4', 49], ['32', '1', 53], ['20', '1', 48], ['25', '1', 50], ['40', '1 1/4', 60.5], ['50', '1 1/2', 73], ['63', '2', 85]] as const)
+      .map(([pipeNominal, threadNominal, a]) => ({
+        label: `${pipeNominal} × ${threadNominal}(н) (VTp.761)`, params: { pipeNominal, end: 'external' as const, threadNominal, length: a / 1000 },
+      })),
+    ...([['20', '1/2', 35], ['25', '3/4', 40], ['32', '1', 43.5], ['20', '1', 38.5], ['25', '1', 40.5], ['40', '1 1/4', 51], ['50', '1 1/2', 63]] as const)
+      .map(([pipeNominal, threadNominal, a]) => ({
+        label: `${pipeNominal} × ${threadNominal}(в) (VTp.762)`, params: { pipeNominal, end: 'internal' as const, threadNominal, length: a / 1000 },
+      })),
+    ...([['20', '1/2', 57], ['20', '3/4', 59], ['25', '3/4', 61.5]] as const).map(([pipeNominal, threadNominal, a]) => ({
+      label: `${pipeNominal} × гайка ${threadNominal} (VTp.708)`, params: { pipeNominal, end: 'nut' as const, threadNominal, length: a / 1000 },
+    })),
+  ]),
+  // ПП-угольник с накидной гайкой (позиция 81) — VALTEC VTp.758, каталог 2017, с. 131: A, C, мм.
+  entry('pp.nut-elbow', ([['20', '1/2', 26.5, 48], ['20', '3/4', 28, 48], ['25', '3/4', 31, 49.5]] as const).map(([pipeNominal, threadNominal, a, c]) => ({
+    label: `${pipeNominal} × гайка ${threadNominal} (VTp.758)`, params: { pipeNominal, threadNominal, socketArm: a / 1000, nutArm: c / 1000 },
+  }))),
+  // ПП-шаровой кран (позиция 32) — VALTEC VTp.743 (с. 139), VTp.742 (с. 143), VTp.745 (с. 145): A, высота, ручка, мм.
+  entry('pp.ball-valve', [
+    ...([['20', 70, 34, 56], ['25', 80, 54, 56], ['32', 88, 63, 65], ['40', 100, 78, 65], ['50', 112, 97, 74], ['63', 128, 116, 80]] as const)
+      .map(([pipeNominal, a, h, b]) => ({
+        label: `${pipeNominal} (VTp.743)`, params: { pipeNominal, ends: 'socket' as const, threadNominal: '1/2', length: a / 1000, height: h / 1000, handleLength: b / 1000 },
+      })),
+    ...([['20', '1/2', 65, 36, 91], ['25', '3/4', 73, 42, 91], ['32', '1', 89, 50, 116]] as const).map(([pipeNominal, threadNominal, a, b, c]) => ({
+      label: `${pipeNominal} × ${threadNominal}(в) (VTp.742)`,
+      params: { pipeNominal, ends: 'union-internal' as const, threadNominal, length: a / 1000, height: b / 1000, handleLength: c / 1000 },
+    })),
+    ...([['20', 65, 36, 91], ['25', 85, 42, 91], ['32', 95, 50, 116], ['40', 110, 60, 116]] as const).map(([pipeNominal, a, b, c]) => ({
+      label: `${pipeNominal} × ${pipeNominal} (VTp.745)`,
+      params: { pipeNominal, ends: 'union' as const, threadNominal: '1/2', length: a / 1000, height: b / 1000, handleLength: c / 1000 },
+    })),
+  ]),
+  // МП-водорозетка (позиция 35) — VALTEC VTm.254 / 255 (пресс, с. 49), VTm.254.H (с. 51), VTm.354 / 355 (обжим, с. 39): A, B, мм.
+  entry('mp.wall-outlet', ([
+    ['VTm.254', 'press', 'internal', '16', '1/2', 47, 40], ['VTm.254', 'press', 'internal', '20', '1/2', 51, 44],
+    ['VTm.254', 'press', 'internal', '20', '3/4', 56, 47], ['VTm.254', 'press', 'internal', '26', '3/4', 58, 47],
+    ['VTm.254.H', 'press', 'internal', '16', '1/2', 44, 46.5], ['VTm.255', 'press', 'external', '16', '1/2', 47, 40],
+    ['VTm.354', 'compression', 'internal', '16', '1/2', 35, 40], ['VTm.354', 'compression', 'internal', '20', '1/2', 41, 44],
+    ['VTm.354', 'compression', 'internal', '20', '3/4', 45, 47], ['VTm.355', 'compression', 'external', '16', '1/2', 35, 40],
+  ] as const).map(([code, pipeEnd, threadGender, pipeNominal, threadNominal, a, b]) => ({
+    label: `${pipeNominal} × ${threadNominal}${threadGender === 'internal' ? '(в)' : '(н)'} (${code})`,
+    params: { pipeNominal, pipeEnd, threadNominal, threadGender, pipeArm: a / 1000, height: b / 1000 },
+  }))),
+  // Монтажная пластина водорозеток (позиция 117) — VALTEC VTm.224, каталог 2017, с. 52.
+  entry('mp.outlet-plate', (['150', '112.5', '75'] as const).map((spacing) => ({
+    label: `186 × 35, межцентровое ${spacing.replace('.', ',')} мм (VTm.224)`, params: { spacing },
+  }))),
+  // МП с накидной гайкой (позиция 82) — VALTEC VTm.222, каталог 2017, с. 50: A, мм.
+  entry('mp.nut-adapter', ([['16', '1/2', 45], ['20', '3/4', 52], ['32', '1 1/4', 57]] as const).map(([pipeNominal, threadNominal, a]) => ({
+    label: `${pipeNominal} × гайка ${threadNominal} (VTm.222)`, params: { pipeNominal, threadNominal, length: a / 1000 },
+  }))),
   // Эксцентрик (позиция 15) — VALTEC VTr.670, каталог 2017, с. 82.
   entry('steel.eccentric', (['cup', 'none'] as const).map((cup) => ({
     label: `1/2 × 3/4, 9 мм (VTr.670)${cup === 'cup' ? ', с чашкой' : ', без чашки'}`,

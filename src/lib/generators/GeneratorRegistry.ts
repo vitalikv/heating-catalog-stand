@@ -73,6 +73,13 @@ import { SteelRunningNippleGenerator } from './steel/SteelRunningNippleGenerator
 import { SteelLocknutGenerator } from './steel/SteelLocknutGenerator';
 import { SteelEccentricGenerator } from './steel/SteelEccentricGenerator';
 import { SteelHoseAdapterGenerator } from './steel/SteelHoseAdapterGenerator';
+import { PpCapGenerator } from './pp/PpCapGenerator';
+import { PpUnionGenerator } from './pp/PpUnionGenerator';
+import { PpNutElbowGenerator } from './pp/PpNutElbowGenerator';
+import { PpBallValveGenerator } from './pp/PpBallValveGenerator';
+import { MpWallOutletGenerator } from './mp/MpWallOutletGenerator';
+import { MpOutletPlateGenerator } from './mp/MpOutletPlateGenerator';
+import { MpNutAdapterGenerator } from './mp/MpNutAdapterGenerator';
 
 /** Все генераторы библиотеки; порядок — порядок списка на стенде. */
 function createGenerators() {
@@ -151,6 +158,13 @@ function createGenerators() {
   new SteelLocknutGenerator(),
   new SteelEccentricGenerator(),
   new SteelHoseAdapterGenerator(),
+  new PpCapGenerator(),
+  new PpUnionGenerator(),
+  new PpNutElbowGenerator(),
+  new PpBallValveGenerator(),
+  new MpWallOutletGenerator(),
+  new MpOutletPlateGenerator(),
+  new MpNutAdapterGenerator(),
   ] as const;
 }
 
