@@ -28,6 +28,9 @@ const MANOMETER_OFFSET = 0.5;
 const DEFAULT_SPECULAR = 0x111111;
 const DEFAULT_SHININESS = 30;
 
+/** Циферблаты: белые материалы с картой шкалы в компоновке manometr.png. */
+export type DialKey = 'manometer' | 'thermometer' | 'thermomanometer';
+
 /** Материалы с текстурой резьбы. */
 const THREADED: readonly MaterialKey[] = ['thread', 'bronzeThread'];
 
@@ -40,7 +43,7 @@ const THREADED: readonly MaterialKey[] = ['thread', 'bronzeThread'];
 export class MaterialLibrary {
   private readonly materials: Record<MaterialKey, MeshPhongMaterial>;
   private threadTexture: Texture | null = null;
-  private manometerTexture: Texture | null = null;
+  private readonly dialTextures: Record<DialKey, Texture | null> = { manometer: null, thermometer: null, thermomanometer: null };
 
   constructor(threadTexture: Texture | null = null) {
     const metal = () => this.create(METAL_COLOR, METAL_SPECULAR, METAL_SHININESS);
@@ -66,6 +69,8 @@ export class MaterialLibrary {
       black: this.create(BLACK_COLOR, DEFAULT_SPECULAR, DEFAULT_SHININESS),
       blackFlat: flat(this.create(BLACK_COLOR, DEFAULT_SPECULAR, DEFAULT_SHININESS)),
       manometer: this.create(MANOMETER_COLOR, DEFAULT_SPECULAR, DEFAULT_SHININESS),
+      thermometer: this.create(MANOMETER_COLOR, DEFAULT_SPECULAR, DEFAULT_SHININESS),
+      thermomanometer: this.create(MANOMETER_COLOR, DEFAULT_SPECULAR, DEFAULT_SHININESS),
     };
     this.setThreadTexture(threadTexture);
   }
@@ -95,11 +100,19 @@ export class MaterialLibrary {
     }
   }
 
-  /** Циферблат манометра группы безопасности; без текстуры материал просто белый. */
+  /** Циферблат манометра; без текстуры материал просто белый. */
   setManometerTexture(texture: Texture | null): void {
-    if (texture === this.manometerTexture) return;
-    this.manometerTexture?.dispose();
-    this.manometerTexture = texture;
+    this.setDialTexture('manometer', texture);
+  }
+
+  /**
+   * Циферблат прибора: текстура в компоновке manometr.png — повторение и сдвиг под UV диска
+   * циферблата Ø 59,4 мм (группа безопасности); приборы других диаметров масштабируют UV сами.
+   */
+  setDialTexture(key: DialKey, texture: Texture | null): void {
+    if (texture === this.dialTextures[key]) return;
+    this.dialTextures[key]?.dispose();
+    this.dialTextures[key] = texture;
 
     if (texture) {
       texture.wrapS = RepeatWrapping;
@@ -110,16 +123,18 @@ export class MaterialLibrary {
       texture.colorSpace = SRGBColorSpace;
       texture.needsUpdate = true;
     }
-    this.materials.manometer.map = texture;
-    this.materials.manometer.needsUpdate = true;
+    this.materials[key].map = texture;
+    this.materials[key].needsUpdate = true;
   }
 
   dispose(): void {
     for (const material of Object.values(this.materials)) material.dispose();
     this.threadTexture?.dispose();
     this.threadTexture = null;
-    this.manometerTexture?.dispose();
-    this.manometerTexture = null;
+    for (const key of Object.keys(this.dialTextures) as DialKey[]) {
+      this.dialTextures[key]?.dispose();
+      this.dialTextures[key] = null;
+    }
   }
 
   private create(color: number, specular: number, shininess: number): MeshPhongMaterial {

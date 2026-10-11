@@ -77,7 +77,9 @@ export type MaterialKey =
   | 'redFlat'
   | 'black'
   | 'blackFlat'
-  | 'manometer';
+  | 'manometer'
+  | 'thermometer'
+  | 'thermomanometer';
 
 export interface ValidationError {
   code: string;

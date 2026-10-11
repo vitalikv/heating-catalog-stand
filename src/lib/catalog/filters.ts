@@ -10,7 +10,7 @@ const STRAIGHT = [
 /** Для 3/4 размеров в каталоге нет: 1/2 × отношение диаметров резьбы 26,8 / 21,3 (условно). */
 const SCALE_3_4 = 26.8 / 21.3;
 
-/** Фильтры части 29 вне gl2: прямые сетчатые (120) и промывные (121). */
+/** Фильтры части 29 вне gl2: прямые сетчатые (120) и промывные (121); отделители части 18. */
 export const FILTER_CATALOG: CatalogEntry[] = [
   entry('equipment.strainer-straight', [
     ...STRAIGHT.map(([article, ends, length, height, bottom]) => ({
@@ -24,4 +24,11 @@ export const FILTER_CATALOG: CatalogEntry[] = [
   entry('equipment.flush-filter', ['1/2', '3/4', '1'].flatMap((nominal) => (['manometer', 'none'] as const).map((gauge) => ({
     label: `${nominal} (VT.389)${gauge === 'manometer' ? ', с манометром' : ', без манометра'}`, params: { nominal, gauge },
   })))),
+  // Отделители части 18 (77, 78, 122): у VALTEC таких изделий нет, размеры условные.
+  entry('equipment.separator', (['magnetic', 'air', 'combined'] as const).flatMap((kind) => ['3/4', '1', '1 1/4'].flatMap((nominal) =>
+    (['internal', 'union'] as const).map((ends) => ({
+      label: `${{ magnetic: 'грязеуловитель магнитный', air: 'сепаратор воздуха', combined: 'грязе- и воздухоотделитель' }[kind]} ${nominal}, ${ends === 'internal' ? 'В–В' : 'накидные гайки'}`,
+      params: { kind, nominal, ends },
+    })))),
+  ),
 ];

@@ -1,5 +1,5 @@
 import GUI from 'lil-gui';
-import { Box3, Mesh, TextureLoader, Vector3 } from 'three';
+import { Box3, MathUtils, Mesh, TextureLoader, Vector3 } from 'three';
 import type { Object3D } from 'three';
 import { Assembly, CATALOG, createModelObject, GeneratorRegistry, MaterialLibrary } from '../lib/index';
 import { STAND_ASSEMBLIES } from './assemblies';
@@ -125,6 +125,10 @@ function showAssembly(index: number): void {
     mark(part.name, part.attach.connector);
     mark(part.attach.to, part.attach.toConnector);
   }
+  for (const closure of definition.closures ?? []) {
+    mark(closure.part, closure.connector);
+    mark(closure.to, closure.toConnector);
+  }
   const inspectors = value.parts.map((part) => {
     const partInspector = new ModelInspector(viewer.scene, inspectorOptions);
     partInspector.attach(part, mated.get(part.name));
@@ -146,12 +150,18 @@ function showAssemblyInfo(): void {
     const turn = angle !== 0 ? `, ${angle}°` : '';
     return check.compatible ? `✓ ${joint}: ввод ${(check.engagement * 1000).toFixed(1)} мм${turn}` : `✗ ${joint}: ${check.message}${turn}`;
   });
-  const failed = value.errors.length > 0 || value.joints.some(({ check }) => !check.compatible);
+  // Замыкания вне дерева attach: совместимость и зазор между торцом и местом посадки.
+  const closures = value.closures.map(({ label: closure, check, gap, misalignment, closed }) => {
+    const fit = `зазор ${(gap * 1000).toFixed(2)} мм, перекос ${MathUtils.radToDeg(misalignment).toFixed(2)}°`;
+    return `${closed ? '✓' : '✗'} замыкание ${closure}: ${check.compatible ? fit : check.message}`;
+  });
+  const failed = value.errors.length > 0 || value.joints.some(({ check }) => !check.compatible) || value.closures.some(({ closed }) => !closed);
   showInfo(
     [
       label,
       ...value.parts.map(({ name, model: part }) => `• ${name}: ${part.title}`),
       ...joints,
+      ...closures,
       ...value.errors.map((error) => `Ошибка: ${error}`),
       `Треугольников: ${triangleCount(assembly.value.root).toLocaleString('ru-RU')}`,
       formatSize(boundsBox(value.bounds())),
@@ -229,8 +239,14 @@ new TextureLoader()
     if (assembly) showAssembly(assemblyState.index);
     else if (lastBuild) rebuild(lastBuild.generatorId, lastBuild.params, false);
   });
-// Циферблат манометра группы безопасности; без текстуры материал просто белый.
+// Циферблаты приборов; без текстуры материалы просто белые.
 new TextureLoader()
   .loadAsync(`${import.meta.env.BASE_URL}textures/manometr.png`)
   .then((texture) => materials.setManometerTexture(texture))
   .catch(() => console.warn('Текстура манометра не загружена: textures/manometr.png'));
+for (const [key, file] of [['thermometer', 'termometr.png'], ['thermomanometer', 'termomanometr.png']] as const) {
+  new TextureLoader()
+    .loadAsync(`${import.meta.env.BASE_URL}textures/${file}`)
+    .then((texture) => materials.setDialTexture(key, texture))
+    .catch(() => console.warn(`Текстура циферблата не загружена: textures/${file}`));
+}

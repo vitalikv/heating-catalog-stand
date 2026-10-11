@@ -10,9 +10,9 @@ const port = (model: GeneratedModel, id: string): Connector => model.connectors.
 describe('новые модели вне gl2', () => {
   it('все семейства расширений доступны в каталоге', () => {
     expect(EXTENSION_CATALOG.map((entry) => entry.generatorId).sort()).toEqual([
-      'equipment.flush-filter', 'equipment.strainer-straight', 'manifold.brass', 'mp.compression-coupling', 'mp.compression-elbow', 'mp.compression-tee', 'mp.compression-thread-adapter', 'mp.eurocone-adapter',
+      'equipment.flush-filter', 'equipment.gauge', 'equipment.separator', 'equipment.strainer-straight', 'manifold.brass', 'mp.compression-coupling', 'mp.compression-elbow', 'mp.compression-tee', 'mp.compression-thread-adapter', 'mp.eurocone-adapter',
       'steel.bushing', 'steel.cap', 'steel.union', 'valve.check', 'valve.drain',
-      'valve.lockshield', 'valve.radiator-h-block', 'valve.thermoelectric-actuator', 'valve.thermostatic-angle',
+      'valve.lockshield', 'valve.mixing', 'valve.radiator-h-block', 'valve.thermoelectric-actuator', 'valve.thermostatic-angle',
     ]);
   });
 

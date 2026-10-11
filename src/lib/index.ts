@@ -29,6 +29,8 @@ export type { SafetyGroupParams } from './generators/equipment/SafetyGroupGenera
 export type { StrainerEnds, StrainerParams } from './generators/equipment/StrainerGenerator';
 export type { StraightStrainerParams } from './generators/equipment/StraightStrainerGenerator';
 export type { FlushFilterParams } from './generators/equipment/FlushFilterGenerator';
+export type { GaugeKind, GaugeParams } from './generators/equipment/GaugeGenerator';
+export type { SeparatorKind, SeparatorParams } from './generators/equipment/SeparatorGenerator';
 export type { MpCouplingParams } from './generators/mp/MpCouplingGenerator';
 export type { MpElbowParams } from './generators/mp/MpElbowGenerator';
 export type { MpPipeParams } from './generators/mp/MpPipeGenerator';
@@ -76,6 +78,7 @@ export type { CheckValveParams } from './generators/valve/CheckValveGenerator';
 export type { DrainValveParams } from './generators/valve/DrainValveGenerator';
 export type { LockshieldValveParams } from './generators/valve/LockshieldValveGenerator';
 export type { RadiatorHBlockParams } from './generators/valve/RadiatorHBlockGenerator';
+export type { MixingValveParams } from './generators/valve/MixingValveGenerator';
 export type { ThermoelectricActuatorParams } from './generators/valve/ThermoelectricActuatorGenerator';
 
 // Материалы и объект сцены.
@@ -84,7 +87,9 @@ export { createModelObject } from './scene/ModelObject';
 
 // Стыковка и сборки.
 export { Assembly } from './assembly/Assembly';
-export type { AssemblyDefinition, AssemblyJoint, AssemblyPart, AssemblyPartModel, AssemblyPlacement } from './assembly/Assembly';
+export type {
+  AssemblyClosure, AssemblyClosureDefinition, AssemblyDefinition, AssemblyJoint, AssemblyPart, AssemblyPartModel, AssemblyPlacement,
+} from './assembly/Assembly';
 export { ConnectorMating } from './assembly/ConnectorMating';
 export type { MatingCheck } from './assembly/ConnectorMating';
 

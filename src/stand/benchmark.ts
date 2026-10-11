@@ -26,6 +26,8 @@ info.textContent = `Подготовка ${countLabel} моделей…`;
 const textureJobs: [string, (texture: Awaited<ReturnType<TextureLoader['loadAsync']>>) => void][] = [
   ['rezba_1.png', (texture: Awaited<ReturnType<TextureLoader['loadAsync']>>) => materials.setThreadTexture(texture)],
   ['manometr.png', (texture: Awaited<ReturnType<TextureLoader['loadAsync']>>) => materials.setManometerTexture(texture)],
+  ['termometr.png', (texture: Awaited<ReturnType<TextureLoader['loadAsync']>>) => materials.setDialTexture('thermometer', texture)],
+  ['termomanometr.png', (texture: Awaited<ReturnType<TextureLoader['loadAsync']>>) => materials.setDialTexture('thermomanometer', texture)],
 ];
 await Promise.all(textureJobs.map(async ([file, apply]) => {
   try {

@@ -17,6 +17,11 @@ export class ConnectorMating {
     return ConnectionRules.check(a, b);
   }
 
+  /** Глубина посадки пары, м — та же, что использует place. */
+  static engagement(a: Connector, b: Connector): number {
+    return ConnectionRules.engagement(a, b);
+  }
+
   /**
    * Мировая матрица для корня подвижной детали, чтобы её разъём moving
    * состыковался с разъёмом fixed детали, стоящей в fixedMatrix.

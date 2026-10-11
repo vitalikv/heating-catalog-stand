@@ -56,6 +56,9 @@ import { BrassManifoldGenerator } from './manifold/BrassManifoldGenerator';
 import { ThermoelectricActuatorGenerator } from './valve/ThermoelectricActuatorGenerator';
 import { StraightStrainerGenerator } from './equipment/StraightStrainerGenerator';
 import { FlushFilterGenerator } from './equipment/FlushFilterGenerator';
+import { MixingValveGenerator } from './valve/MixingValveGenerator';
+import { GaugeGenerator } from './equipment/GaugeGenerator';
+import { SeparatorGenerator } from './equipment/SeparatorGenerator';
 
 /** Все генераторы библиотеки; порядок — порядок списка на стенде. */
 function createGenerators() {
@@ -117,6 +120,9 @@ function createGenerators() {
   new ThermoelectricActuatorGenerator(),
   new StraightStrainerGenerator(),
   new FlushFilterGenerator(),
+  new MixingValveGenerator(),
+  new GaugeGenerator(),
+  new SeparatorGenerator(),
   ] as const;
 }
 

@@ -4,7 +4,7 @@ const radiator = (sections: number, height: number): AluminiumRadiatorParams => 
 
 /**
  * Стальной радиатор с нижним подключением (версия 2): ниппели каталога 3/4 × 1/2 концом 1/2 в обе нижние резьбы,
- * H-блок ставится по одному разъёму, второй контур замыкается на ниппель B (проверяет тест).
+ * H-блок ставится по одному разъёму, второй его порт замыкается на ниппель B (closures).
  * При совмещении up H-блок разворачивается на π вокруг вертикали, поэтому к ниппелю A у торца
  * идёт противоположный по названию порт: при паре справа — radiator-left.
  */
@@ -28,6 +28,7 @@ export function steelBottomHBlock(bottomSide: 'right' | 'left'): AssemblyDefinit
           attach: { connector: 'start', to: `адаптер ${side}`, toConnector: 'pipe' } },
       ]),
     ],
+    closures: [{ part: 'H-блок', connector: bottomSide === 'right' ? 'radiator-right' : 'radiator-left', to: 'ниппель B', toConnector: 'left' }],
   };
 }
 
@@ -114,7 +115,7 @@ export function manifoldPair(outlets = 4): AssemblyDefinition {
  * фильтр на горизонтальном участке колбой вниз (монтаж по паспорту VALTEC). Длинный ниппель
  * опускает фильтр, чтобы манометр промывного фильтра не упирался в котёл.
  */
-export function boilerFilter(generatorId: 'equipment.strainer-straight' | 'equipment.flush-filter', params: unknown, name: string): AssemblyDefinition {
+export function boilerFilter(generatorId: 'equipment.strainer-straight' | 'equipment.flush-filter' | 'equipment.separator', params: unknown, name: string): AssemblyDefinition {
   return {
     label: `Котёл: ${name} на горизонтальном участке`,
     parts: [
@@ -394,8 +395,47 @@ export const STAND_ASSEMBLIES: AssemblyDefinition[] = [
       ]),
     ],
   },
+  {
+    // Часть 13: смесительный клапан VT.MIX03 1" — ниппели на ходах, справа гайка и насос VRS 25/6-180.
+    label: 'Клапан 3-ходовой 1: ниппели, гайка 1 1/2 × 1, насос VRS',
+    parts: [
+      { name: 'клапан', generatorId: 'valve.mixing', params: { ways: 3, nominal: '1', control: 'handle' } },
+      ...(['left', 'top', 'right'] as const).map((side) => ({
+        name: `ниппель ${side}`, generatorId: 'steel.nipple', params: { nominalLeft: '1', nominalRight: '1', length: 0.044 },
+        attach: { connector: 'left', to: 'клапан', toConnector: side },
+      })),
+      { name: 'гайка', generatorId: 'equipment.pump-nut', params: { pumpNominal: '1 1/2', pipeNominal: '1' },
+        attach: { connector: 'pipe', to: 'ниппель right', toConnector: 'right' } },
+      { name: 'насос', generatorId: 'equipment.pump',
+        params: { nominal: '1 1/2', installLength: 0.18, housing: 'vrs', motor: 'small', terminalBox: 'top' },
+        attach: { connector: 'left', to: 'гайка', toConnector: 'pump' } },
+    ],
+  },
   boilerFilter('equipment.strainer-straight', { nominal: '3/4', ends: 'internal', length: 0.068, height: 0.058, bottom: 'cap' }, 'прямой фильтр 3/4'),
   boilerFilter('equipment.flush-filter', { nominal: '3/4', gauge: 'manometer' }, 'промывной фильтр 3/4 с манометром'),
+  boilerFilter('equipment.separator', { kind: 'combined', nominal: '3/4', ends: 'union' }, 'грязе- и воздухоотделитель 3/4'),
+  {
+    // Часть 18: приборы на трубе 3/4 — термоманометр и термометр прямо в отводы 1/2, манометр через футорку 1/2 × 1/4.
+    // Радиальный прибор на выходе вверх — угол стыка 180°: up выхода вниз по соглашению −X, без доворота циферблат смотрел бы назад.
+    label: 'Приборы на тройниках 3/4: термоманометр, манометр, термометр',
+    parts: [
+      ...[1, 2, 3].flatMap((i) => [
+        ...(i > 1 ? [{ name: `ниппель ${i}`, generatorId: 'steel.nipple', params: { nominalLeft: '3/4', nominalRight: '3/4', length: 0.04 },
+          attach: { connector: 'left', to: `тройник ${i - 1}`, toConnector: 'right' } }] : []),
+        { name: `тройник ${i}`, generatorId: 'steel.tee',
+          params: { threadGender: 'internal', nominalLeft: '3/4', nominalBranch: '1/2', nominalRight: '3/4', length: 0.052, branchLength: 0.026 },
+          ...(i > 1 ? { attach: { connector: 'left', to: `ниппель ${i}`, toConnector: 'right' } } : {}) },
+      ]),
+      { name: 'термоманометр', generatorId: 'equipment.gauge', params: { kind: 'thermomanometer', diameter: 80, connection: 'bottom', nominal: '1/2', probe: 0.05 },
+        attach: { connector: 'connection', to: 'тройник 1', toConnector: 'top', angle: 180 } },
+      { name: 'футорка', generatorId: 'steel.bushing', params: { outerNominal: '1/2', innerNominal: '1/4', length: 0.022 },
+        attach: { connector: 'left', to: 'тройник 2', toConnector: 'top' } },
+      { name: 'манометр', generatorId: 'equipment.gauge', params: { kind: 'manometer', diameter: 63, connection: 'bottom', nominal: '1/4', probe: 0.05 },
+        attach: { connector: 'connection', to: 'футорка', toConnector: 'right', angle: 180 } },
+      { name: 'термометр', generatorId: 'equipment.gauge', params: { kind: 'thermometer', diameter: 63, connection: 'back', nominal: '1/2', probe: 0.05 },
+        attach: { connector: 'connection', to: 'тройник 3', toConnector: 'top' } },
+    ],
+  },
   {
     label: 'Котёл: фильтр, муфта, бак',
     parts: [

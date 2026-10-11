@@ -1,7 +1,8 @@
 import { Box3, Group, MathUtils, Matrix4, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { Assembly, ConnectorMating, createModelObject, GeneratorRegistry, MaterialLibrary } from '../src/lib/index';
-import type { AssemblyDefinition } from '../src/lib/index';
+import type { AssemblyClosureDefinition, AssemblyDefinition } from '../src/lib/index';
+import { CLOSURE_TOLERANCE } from '../src/lib/assembly/Assembly';
 import { MANIFOLD_PAIR_OFFSET, manifoldPair, STAND_ASSEMBLIES, steelBottomHBlock } from '../src/stand/assemblies';
 
 const registry = new GeneratorRegistry();
@@ -15,6 +16,8 @@ describe.each(STAND_ASSEMBLIES)('сборка «$label»', (definition) => {
     expect(assembly.parts).toHaveLength(definition.parts.length);
     expect(assembly.joints).toHaveLength(definition.parts.filter((part) => part.attach).length);
     expect(assembly.joints.every(({ check }) => check.compatible)).toBe(!expectFailure);
+    expect(assembly.closures).toHaveLength(definition.closures?.length ?? 0);
+    for (const closure of assembly.closures) expect(closure.closed, closure.label).toBe(true);
     assembly.dispose();
   });
 
@@ -226,6 +229,87 @@ describe('явное положение детали (часть 16)', () => {
     // Расходомеры подающей ниже нижнего края обратной гребёнки.
     const supply = assembly.parts.find((p) => p.name === 'подающий')!;
     expect(supply.model.bounds.max.y).toBeLessThan(MANIFOLD_PAIR_OFFSET.y - 0.02);
+    assembly.dispose();
+  });
+});
+
+describe('замыкания вне дерева attach', () => {
+  // Муфта на ниппеле; второй ниппель поставлен явным положением напротив правого конца муфты.
+  const coupling = { nominalLeft: '1/2', nominalRight: '1/2', length: 0.03 };
+  const nipple = { nominalLeft: '1/2', nominalRight: '1/2', length: 0.03 };
+  const loop = (x: number, closure: Partial<AssemblyClosureDefinition> = {}): AssemblyDefinition => ({
+    label: 'замыкание',
+    parts: [
+      { name: 'муфта', generatorId: 'steel.coupling', params: coupling },
+      { name: 'ниппель', generatorId: 'steel.nipple', params: nipple, placement: { at: { x, y: 0, z: 0 } } },
+    ],
+    closures: [{ part: 'ниппель', connector: 'left', to: 'муфта', toConnector: 'right', ...closure }],
+  });
+  /** Центр ниппеля, при котором его левый торец стоит на месте посадки в правом конце муфты. */
+  const seated = () => {
+    const assembly = new Assembly(registry, loop(0));
+    const [muff, nip] = assembly.parts.map((part) => part.model);
+    const fixed = muff.connectors.find((c) => c.id === 'right')!;
+    const moving = nip.connectors.find((c) => c.id === 'left')!;
+    const x = fixed.position.x - ConnectorMating.engagement(fixed, moving) - moving.position.x;
+    assembly.dispose();
+    return x;
+  };
+
+  it('торец на месте посадки — замыкание сходится', () => {
+    const assembly = new Assembly(registry, loop(seated()));
+    expect(assembly.errors).toEqual([]);
+    expect(assembly.closures).toHaveLength(1);
+    expect(assembly.closures[0]).toMatchObject({ label: 'ниппель.left → муфта.right', closed: true, check: { compatible: true } });
+    expect(assembly.closures[0].gap).toBeLessThan(1e-9);
+    assembly.dispose();
+  });
+
+  it('зазор больше допуска — не сходится, зазор измерен', () => {
+    const assembly = new Assembly(registry, loop(seated() + 0.002));
+    expect(assembly.closures[0].closed).toBe(false);
+    expect(assembly.closures[0].gap).toBeCloseTo(0.002, 9);
+    expect(assembly.closures[0].check.compatible).toBe(true);
+    assembly.dispose();
+  });
+
+  it('зазор в пределах допуска — сходится', () => {
+    const assembly = new Assembly(registry, loop(seated() + CLOSURE_TOLERANCE.gap / 2));
+    expect(assembly.closures[0].closed).toBe(true);
+    assembly.dispose();
+  });
+
+  it('несовместимая пара не сходится даже на месте', () => {
+    const assembly = new Assembly(registry, loop(seated(), { part: 'муфта', connector: 'left', to: 'муфта', toConnector: 'right' }));
+    expect(assembly.closures[0].check).toMatchObject({ compatible: false, reason: 'gender' });
+    expect(assembly.closures[0].closed).toBe(false);
+    assembly.dispose();
+  });
+
+  it('перекос осей не сходится', () => {
+    const definition = loop(seated());
+    definition.parts[1].placement!.rotation = { x: 0, y: 0, z: 5 };
+    const assembly = new Assembly(registry, definition);
+    expect(assembly.closures[0].misalignment).toBeCloseTo(MathUtils.degToRad(5), 9);
+    expect(assembly.closures[0].closed).toBe(false);
+    assembly.dispose();
+  });
+
+  it('нет разъёма — ошибка описания, замыкание не добавлено', () => {
+    const assembly = new Assembly(registry, loop(seated(), { toConnector: 'top' }));
+    expect(assembly.errors).toEqual(['замыкание ниппель.left → муфта.top: нет детали или разъёма']);
+    expect(assembly.closures).toEqual([]);
+    assembly.dispose();
+  });
+
+  it('setAngle пересчитывает замыкание: поворот H-блока размыкает второй порт', () => {
+    const assembly = new Assembly(registry, steelBottomHBlock('right'));
+    expect(assembly.closures[0].closed).toBe(true);
+    assembly.setAngle('H-блок', 30);
+    expect(assembly.closures[0].closed).toBe(false);
+    expect(assembly.closures[0].gap).toBeGreaterThan(0.01);
+    assembly.setAngle('H-блок', 0);
+    expect(assembly.closures[0].closed).toBe(true);
     assembly.dispose();
   });
 });

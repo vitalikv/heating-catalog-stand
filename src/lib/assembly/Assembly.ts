@@ -29,9 +29,37 @@ export interface AssemblyPart {
   placement?: AssemblyPlacement;
 }
 
+/**
+ * Замыкание вне дерева attach: разъём connector детали part соединён с разъёмом toConnector
+ * детали to, но обе детали уже поставлены другими стыками (вторая труба контура, второй порт
+ * H-блока). Деталь не переставляется — проверяются совместимость и совпадение положения.
+ */
+export interface AssemblyClosureDefinition {
+  part: string;
+  connector: string;
+  to: string;
+  toConnector: string;
+}
+
 export interface AssemblyDefinition {
   label: string;
   parts: AssemblyPart[];
+  closures?: AssemblyClosureDefinition[];
+}
+
+/** Допуски замыкания: зазор между торцом и местом посадки, м, и перекос осей, рад. */
+export const CLOSURE_TOLERANCE = { gap: 1e-4, angle: MathUtils.degToRad(0.1) };
+
+export interface AssemblyClosure {
+  /** 'труба обратки.end → адаптер.pipe' */
+  label: string;
+  check: MatingCheck;
+  /** Расстояние от торца разъёма part до места посадки на разъёме to, м. */
+  gap: number;
+  /** Угол между осями разъёмов и встречным направлением, рад. */
+  misalignment: number;
+  /** Совместимы и сходятся в пределах CLOSURE_TOLERANCE. */
+  closed: boolean;
 }
 
 export interface AssemblyJoint {
@@ -51,6 +79,13 @@ export interface AssemblyPartModel {
   matrix: Matrix4;
 }
 
+interface ClosureEnds {
+  moving: AssemblyPartModel;
+  fixed: AssemblyPartModel;
+  movingConnector: Connector;
+  fixedConnector: Connector;
+}
+
 /** Как поставлена деталь: к какому разъёму какой детали или явным положением. */
 type Placement =
   | { kind: 'attach'; part: AssemblyPartModel; target: AssemblyPartModel; fixed: Connector; moving: Connector; joint: AssemblyJoint }
@@ -66,10 +101,14 @@ export class Assembly {
   readonly label: string;
   readonly parts: AssemblyPartModel[] = [];
   readonly joints: AssemblyJoint[] = [];
+  /** Замыкания из описания; пересчитываются при setAngle. */
+  readonly closures: AssemblyClosure[] = [];
   /** Ошибки описания: неизвестный генератор, неверные параметры, нет разъёма. */
   readonly errors: string[] = [];
   /** По порядку описания: детали ставятся после тех, к кому присоединены или относительно кого стоят. */
   private readonly placements: Placement[] = [];
+  /** Разъёмы замыканий, по порядку closures: по ним замыкания пересчитываются после перестановки. */
+  private readonly closureEnds: ClosureEnds[] = [];
 
   constructor(registry: GeneratorRegistry, definition: AssemblyDefinition) {
     this.label = definition.label;
@@ -114,6 +153,8 @@ export class Assembly {
       this.placements.push(placement);
       Assembly.place(placement);
     }
+
+    for (const closure of definition.closures ?? []) this.addClosure(closure);
   }
 
   /**
@@ -127,6 +168,34 @@ export class Assembly {
     const placement = this.placements[start];
     if (placement.kind === 'attach') placement.joint.angle = degrees;
     for (const next of this.placements.slice(start)) Assembly.place(next);
+    this.closureEnds.forEach((ends, i) => Object.assign(this.closures[i], Assembly.measureClosure(ends)));
+  }
+
+  private addClosure({ part, connector, to, toConnector }: AssemblyClosureDefinition): void {
+    const label = `${part}.${connector} → ${to}.${toConnector}`;
+    const moving = this.parts.find((placed) => placed.name === part);
+    const fixed = this.parts.find((placed) => placed.name === to);
+    const movingConnector = moving?.model.connectors.find((c) => c.id === connector);
+    const fixedConnector = fixed?.model.connectors.find((c) => c.id === toConnector);
+    if (!moving || !fixed || !movingConnector || !fixedConnector) {
+      this.errors.push(`замыкание ${label}: нет детали или разъёма`);
+      return;
+    }
+    const ends = { moving, fixed, movingConnector, fixedConnector };
+    this.closureEnds.push(ends);
+    this.closures.push({ label, check: ConnectorMating.check(fixedConnector, movingConnector), ...Assembly.measureClosure(ends) });
+  }
+
+  /** Зазор и перекос по текущим матрицам: торец moving должен стоять на месте посадки, как его поставил бы place. */
+  private static measureClosure({ moving, fixed, movingConnector, fixedConnector }: ClosureEnds): Pick<AssemblyClosure, 'gap' | 'misalignment' | 'closed'> {
+    const fixedDirection = new Vector3().copy(fixedConnector.direction).transformDirection(fixed.matrix);
+    const movingDirection = new Vector3().copy(movingConnector.direction).transformDirection(moving.matrix);
+    const seat = new Vector3().copy(fixedConnector.position).applyMatrix4(fixed.matrix)
+      .addScaledVector(fixedDirection, -ConnectorMating.engagement(fixedConnector, movingConnector));
+    const gap = new Vector3().copy(movingConnector.position).applyMatrix4(moving.matrix).distanceTo(seat);
+    const misalignment = movingDirection.angleTo(fixedDirection.negate());
+    const compatible = ConnectorMating.check(fixedConnector, movingConnector).compatible;
+    return { gap, misalignment, closed: compatible && gap <= CLOSURE_TOLERANCE.gap && misalignment <= CLOSURE_TOLERANCE.angle };
   }
 
   private placeExplicitly(part: AssemblyPartModel, { at, rotation = { x: 0, y: 0, z: 0 }, relativeTo }: AssemblyPlacement): void {

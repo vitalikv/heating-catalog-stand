@@ -1,13 +1,16 @@
 import { entry } from './entry';
 import type { CatalogEntry } from './entry';
 import { FILTER_CATALOG } from './filters';
+import { INSTRUMENT_CATALOG } from './instruments';
 import { MANIFOLD_CATALOG } from './manifold';
 
 /** Обобщённые модели вне gl2. Размеры — стартовые параметры для стенда, не паспортные изделия. */
 export const EXTENSION_CATALOG: CatalogEntry[] = [
-  entry('valve.check', ['1/2', '3/4', '1'].flatMap((nominal, i) =>
+  // Обратный клапан VALTEC VT.161, В–В (технический каталог 2017, с. 360): длина B, мм.
+  // Наружной резьбы у обратных клапанов VALTEC нет (VT.161, 151, 171, 202 — все ВР-ВР).
+  entry('valve.check', ([['1/2', 46], ['3/4', 54], ['1', 58], ['1 1/4', 67], ['1 1/2', 75.5], ['2', 80.5]] as const).flatMap(([nominal, b]) =>
     (['left-to-right', 'right-to-left'] as const).map((flow) => ({
-      label: `${nominal}, ${flow === 'left-to-right' ? '→' : '←'}`, params: { nominal, length: 0.055 + i * 0.01, flow },
+      label: `${nominal} (VT.161), ${flow === 'left-to-right' ? '→' : '←'}`, params: { nominal, length: b / 1000, flow },
     })))),
   entry('valve.thermostatic-angle', ['1/2', '3/4'].flatMap((nominal, i) =>
     (['cap', 'thermostatic'] as const).map((head) => ({
@@ -86,4 +89,9 @@ export const EXTENSION_CATALOG: CatalogEntry[] = [
   }))),
   ...MANIFOLD_CATALOG,
   ...FILTER_CATALOG,
+  ...INSTRUMENT_CATALOG,
+  // Смесительные клапаны VALTEC VT.MIX03/04 (каталог 2017, с. 371, 375): размеры A, D, E — в генераторе по номиналу.
+  entry('valve.mixing', ([3, 4] as const).flatMap((ways) => ['3/4', '1', '1 1/4'].map((nominal) => ({
+    label: `${ways}-ходовой ${nominal} (VT.MIX0${ways})`, params: { ways, nominal, control: 'handle' as const },
+  })))),
 ];
