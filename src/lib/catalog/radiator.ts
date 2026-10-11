@@ -6,6 +6,8 @@ import type { CatalogEntry } from './entry';
 /** Высоты алюминиевых радиаторов; в start.js для каждой — 1…10 секций. */
 const ALUMINIUM_HEIGHTS = [0.2, 0.35, 0.5, 0.6, 0.7, 0.8];
 const ALUMINIUM_SECTIONS = [1, 5, 10];
+/** Нижнее подключение под H-блок (условное специальное исполнение): нижняя резьба 1/2, пара справа. */
+const ALUMINIUM_BOTTOM = { y: 0.5, sections: [4, 6, 10] };
 
 /** Стальные радиаторы: каждая высота со всеми длинами, глубина 0.07, подключение 1/2. */
 const STEEL_HEIGHTS = [0.3, 0.4, 0.5, 0.6, 0.9];
@@ -20,6 +22,11 @@ export const RADIATOR_CATALOG: CatalogEntry[] = [
       ALUMINIUM_SECTIONS.map((sections) => ({
         label: `h${mm(y)}, ${sections} шт.`,
         params: { sections, dimensions: { x: 0.08, y, z: 0.08 }, nominal: '1' },
+      })),
+    ).concat(
+      ALUMINIUM_BOTTOM.sections.map((sections) => ({
+        label: `h${mm(ALUMINIUM_BOTTOM.y)}, ${sections} шт., нижнее`,
+        params: { sections, dimensions: { x: 0.08, y: ALUMINIUM_BOTTOM.y, z: 0.08 }, nominal: '1', connection: 'bottom', bottomSide: 'right', bottomNominal: '1/2' },
       })),
     ),
   ),

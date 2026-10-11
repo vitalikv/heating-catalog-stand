@@ -10,8 +10,8 @@ const port = (model: GeneratedModel, id: string): Connector => model.connectors.
 describe('новые модели вне gl2', () => {
   it('все семейства расширений доступны в каталоге', () => {
     expect(EXTENSION_CATALOG.map((entry) => entry.generatorId).sort()).toEqual([
-      'equipment.air-vent', 'equipment.flush-filter', 'equipment.gauge', 'equipment.separator', 'equipment.strainer-straight', 'manifold.brass', 'mp.compression-coupling', 'mp.compression-elbow', 'mp.compression-tee', 'mp.compression-thread-adapter', 'mp.eurocone-adapter', 'mp.nut-adapter', 'mp.outlet-plate', 'mp.pipe-path', 'mp.wall-outlet', 'pp.ball-valve', 'pp.cap', 'pp.nut-elbow', 'pp.union',
-      'steel.bushing', 'steel.cap', 'steel.eccentric', 'steel.extension', 'steel.hose-adapter', 'steel.locknut', 'steel.running-nipple', 'steel.union', 'valve.check', 'valve.double-regulation', 'valve.drain', 'valve.injector',
+      'equipment.air-vent', 'equipment.boiler-safety-group', 'equipment.flush-filter', 'equipment.gauge', 'equipment.separator', 'equipment.siphon-tube', 'equipment.strainer-straight', 'equipment.thermowell', 'equipment.water-hammer-arrester', 'manifold.brass', 'mp.compression-coupling', 'mp.compression-elbow', 'mp.compression-tee', 'mp.compression-thread-adapter', 'mp.eurocone-adapter', 'mp.nut-adapter', 'mp.outlet-plate', 'mp.pipe-path', 'mp.wall-outlet', 'pp.ball-valve', 'pp.cap', 'pp.nut-elbow', 'pp.union',
+      'steel.bushing', 'steel.cap', 'steel.eccentric', 'steel.eurocone-elbow', 'steel.extension', 'steel.hose-adapter', 'steel.locknut', 'steel.running-nipple', 'steel.union', 'steel.y-tee', 'valve.check', 'valve.double-regulation', 'valve.drain', 'valve.gauge-tap', 'valve.injector',
       'valve.lockshield', 'valve.make-up', 'valve.mixing', 'valve.radiator-h-block', 'valve.thermoelectric-actuator', 'valve.thermostatic-angle',
       'valve.thermostatic-axial', 'valve.thermostatic-head', 'valve.thermostatic-straight', 'valve.vent-shutoff',
     ]);

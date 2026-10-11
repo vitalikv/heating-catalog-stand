@@ -2,7 +2,7 @@ import { Box3 } from 'three';
 import { BaseGenerator } from '../../core/BaseGenerator';
 import { connector } from '../../core/connector';
 import { ConnectorFrame } from '../../core/ConnectorFrame';
-import type { GeneratedModel, ParamSpec, Vector3Data } from '../../core/contracts';
+import type { GeneratedModel, ParamSpec, ValidationError, Vector3Data } from '../../core/contracts';
 import { createMeshModel } from '../../core/MeshModel';
 import { shapes } from '../../geometry/ExtrudedShapeBuilder';
 import type { ExtrudedShapeOptions } from '../../geometry/ExtrudedShapeBuilder';
@@ -12,6 +12,7 @@ import { sleeves } from '../../geometry/SleeveGeometryBuilder';
 import type { SleeveShape } from '../../geometry/SleeveGeometryBuilder';
 import { specs } from '../../params/specs';
 import { ThreadSizes } from '../../sizes/ThreadSizes';
+import { orientParts } from '../ThreadedParts';
 
 export interface AluminiumRadiatorParams {
   /** Число секций. */
@@ -20,6 +21,23 @@ export interface AluminiumRadiatorParams {
   dimensions: Vector3Data;
   /** Дюймовый номинал внутренней резьбы коллекторов, например '1'. */
   nominal: string;
+  /**
+   * С версии 2: 'bottom' добавляет пару патрубков вниз под H-блок (боковые порты остаются).
+   * В параметрах версии 1 отсутствует — берётся из defaults ('side').
+   */
+  connection?: 'side' | 'bottom';
+  /** С версии 2: у какого крайнего торца нижняя пара (connection = 'bottom'). */
+  bottomSide?: 'right' | 'left';
+  /** С версии 2: номинал внутренней трубной резьбы нижних патрубков; боковые порты — nominal. */
+  bottomNominal?: string;
+}
+
+interface Layout {
+  /** Резьбовой участок коллектора x_2 и торец коллектора от оси секции, м. */
+  x2: number;
+  threadEnd: number;
+  /** Расстояние между крайними торцами всей сборки секций, м. */
+  length: number;
 }
 
 /** Ширина центральной части коллектора, м (x_1 в gl2). */
@@ -28,11 +46,24 @@ const COLLECTOR_CENTER = 0.04;
 const FIN = 0.003;
 /** В gl2 наружный диаметр коллектора — диаметр резьбы × 1.2. */
 const COLLECTOR_SCALE = 1.2;
+/** Переднее ребро опущено на 25 мм ниже оси нижнего коллектора — самая низкая точка секции. */
+const FIN_DROP = 0.025;
+/**
+ * Нижнее подключение (условное специальное исполнение): межосевое пары — как spacing H-блока
+ * по умолчанию, ось ближнего патрубка — в 50 мм от крайнего торца; резьба выступает ниже рёбер.
+ */
+const BOTTOM_SPACING = 0.05;
+const BOTTOM_OFFSET = 0.05;
+const BOTTOM_THREAD = 0.01;
 
-/** Алюминиевый секционный радиатор (перенос al_radiator_1). */
-export class AluminiumRadiatorGenerator extends BaseGenerator<AluminiumRadiatorParams> {
+/**
+ * Алюминиевый секционный радиатор (перенос al_radiator_1).
+ * Версия 2: нижнее подключение — два патрубка вниз из нижнего коллектора у крайнего торца
+ * (below-outer, below-inner) с обычной трубной резьбой; боковые radiator-thread не меняются.
+ */
+export class AluminiumRadiatorGenerator extends BaseGenerator<AluminiumRadiatorParams, Layout> {
   readonly id = 'radiator.aluminium';
-  readonly version = 1;
+  readonly version = 2;
   readonly title = 'Радиатор алюминиевый';
   // count 1…10 — как в каталоге start.js. Ширина больше x_1, иначе нет резьбовых участков;
   // высота от 100 мм — ниже рёбра у коллекторов перекрываются.
@@ -41,8 +72,41 @@ export class AluminiumRadiatorGenerator extends BaseGenerator<AluminiumRadiatorP
     specs.length('dimensions.y', 'Высота', { min: 0.1, max: 1, step: 0.005 }),
     specs.length('dimensions.x', 'Ширина секции', { min: COLLECTOR_CENTER + 0.001, max: 0.12, step: 0.001 }),
     specs.threadNominal('nominal', 'Резьба'),
+    { kind: 'choice', key: 'connection', label: 'Подключение', options: ['side', 'bottom'], optionLabels: { side: 'боковое', bottom: 'нижнее' }, addedIn: 2 },
+    { kind: 'choice', key: 'bottomSide', label: 'Нижние порты', options: ['right', 'left'], optionLabels: { right: 'справа', left: 'слева' },
+      when: { key: 'connection', values: ['bottom'] }, addedIn: 2 },
+    { ...specs.threadNominal('bottomNominal', 'Резьба нижних (в)'), when: { key: 'connection', values: ['bottom'] }, addedIn: 2 },
   ];
-  readonly defaults: AluminiumRadiatorParams = { sections: 1, dimensions: { x: 0.08, y: 0.2, z: 0.08 }, nominal: '1' };
+  readonly defaults: AluminiumRadiatorParams = {
+    sections: 1, dimensions: { x: 0.08, y: 0.2, z: 0.08 }, nominal: '1', connection: 'side', bottomSide: 'right', bottomNominal: '1/2',
+  };
+
+  /** Шаг секций — габарит секции по X: коллектор x_1 + 2 x_2 шире рёбер на 2 мм. */
+  protected override layout(params: AluminiumRadiatorParams): Layout {
+    const x2 = (params.dimensions.x - COLLECTOR_CENTER) / 2 + 0.001;
+    const threadEnd = COLLECTOR_CENTER / 2 + x2;
+    return { x2, threadEnd, length: 2 * threadEnd * params.sections };
+  }
+
+  /**
+   * Нижняя пара: дальний патрубок не заходит в резьбовой участок противоположного торца;
+   * патрубок уже коллектора, из которого выходит.
+   */
+  protected override relations(params: AluminiumRadiatorParams, d: Layout): ValidationError[] {
+    if (params.connection !== 'bottom') return [];
+    const bottom = ThreadSizes.require(params.bottomNominal!, 'internal');
+    const collector = ThreadSizes.require(params.nominal, 'internal').n * COLLECTOR_SCALE;
+    const errors: ValidationError[] = [];
+    const needed = BOTTOM_OFFSET + BOTTOM_SPACING + bottom.n / 2 + d.x2;
+    if (d.length < needed) {
+      const sections = Math.ceil(needed / (2 * d.threadEnd));
+      errors.push({ code: 'too_short', param: 'sections', message: `Секций: нижняя пара не помещается, нужно не меньше ${sections}` });
+    }
+    if (bottom.n >= collector) {
+      errors.push({ code: 'incompatible', param: 'bottomNominal', message: `Нижняя резьба ${params.bottomNominal} не уже коллектора ${params.nominal}` });
+    }
+    return errors;
+  }
 
   protected create(params: AluminiumRadiatorParams): GeneratedModel {
     const thread = ThreadSizes.require(params.nominal, 'internal');
@@ -67,7 +131,8 @@ export class AluminiumRadiatorGenerator extends BaseGenerator<AluminiumRadiatorP
       for (const part of parts) part.geometry.translate(step * i, 0, 0);
       merger.add(...parts);
     });
-    const title = `Ал.радиатор h${Math.round(h * 1000)} (${params.sections}шт.)`;
+    const bottomSuffix = params.connection === 'bottom' ? ', нижн.' : '';
+    const title = `Ал.радиатор h${Math.round(h * 1000)} (${params.sections}шт.)${bottomSuffix}`;
 
     // Разъёмы на торцах коллекторов, глубина — резьбовой участок x_2.
     // В gl2 точка стояла в центре резьбового участка со сдвигом наружу на 7 мм.
@@ -82,6 +147,31 @@ export class AluminiumRadiatorGenerator extends BaseGenerator<AluminiumRadiatorP
       connector('top-right', right, { x: rightX, y: h / 2, z: 0 }, end),
       connector('bottom-right', right, { x: rightX, y: -h / 2, z: 0 }, end),
     ];
+
+    if (params.connection === 'bottom') {
+      // Патрубок — от внутренней стенки нижнего коллектора вниз; торец резьбы на BOTTOM_THREAD ниже
+      // переднего ребра (или коллектора, если он ниже ребра).
+      const bottom = ThreadSizes.require(params.bottomNominal!, 'internal');
+      const top = -h / 2 - v / 2;
+      const face = -h / 2 - Math.max(n / 2, FIN_DROP) - BOTTOM_THREAD;
+      const [endX, inward] = params.bottomSide === 'left' ? [leftX, 1] : [rightX, -1];
+      const below: [string, number][] = [
+        ['below-outer', endX + inward * BOTTOM_OFFSET],
+        ['below-inner', endX + inward * (BOTTOM_OFFSET + BOTTOM_SPACING)],
+      ];
+      const pipeEnd = { depth: BOTTOM_THREAD, nominal: params.bottomNominal!, joint: 'thread', gender: 'internal' } as const;
+      for (const [id, x] of below) {
+        merger.add(
+          ...orientParts(
+            sleeves.build({ material: 'plastic', length: top - face, outerDiameter: bottom.n, innerDiameter: bottom.v,
+              center: { x: (top - face) / 2, y: 0, z: 0 }, materials: { inner: 'thread' } }),
+            ConnectorFrame.bottom.direction,
+            { x, y: top, z: 0 },
+          ),
+        );
+        connectors.push(connector(id, ConnectorFrame.bottom, { x, y: face, z: 0 }, pipeEnd));
+      }
+    }
 
     return createMeshModel({ title, ...merger.merge(), connectors });
   }

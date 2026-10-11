@@ -3,6 +3,7 @@ import type { GeometryPart } from '../../geometry/MaterialGroupMerger';
 import { sleeves } from '../../geometry/SleeveGeometryBuilder';
 import { ThreadSizes } from '../../sizes/ThreadSizes';
 import type { PartDiameters } from '../../sizes/ThreadSizes';
+import { gaugeHead } from '../equipment/GaugeGenerator';
 
 /** Длина конуса корпуса справа от оси (x_1R в gl2), м. */
 export const VALVE_BODY_STEP = 0.002;
@@ -12,6 +13,10 @@ const HANDLE_THICKNESS = 0.005;
 export const VALVE_NUT_SCALE = 1.236;
 /** Кольца сгона (x_3, x_4 в gl2), м. */
 const UNION_RING = 0.002;
+/** Рычаг: ширина и толщина полосы, м — условно. */
+const LEVER = { width: 0.012, thickness: 0.004 };
+/** Головка ручки с термометром: глубина по Z, м — условно. */
+const HEAD_DEPTH = 0.02;
 
 /** Размеры крана со сгоном: корпус (внутренняя резьба d1), патрубок сгона d2, резьба корпуса x_1. */
 export interface UnionValveLayout {
@@ -52,13 +57,25 @@ export class BallValveParts {
    * справа конус 2 мм и участок right (x_2R) Ø n + 15 мм.
    */
   body(d: PartDiameters, leftHalf: number, right: number): GeometryPart[] {
+    return [...this.bodyInlet(d, leftHalf), ...this.bodyOutlet(d, right)];
+  }
+
+  /** Левая половина корпуса: два участка длиной leftHalf/2 Ø n + 10 мм от оси по −X. */
+  bodyInlet(d: PartDiameters, leftHalf: number): GeometryPart[] {
     const quarter = leftHalf / 2;
     const at = (x: number) => ({ x, y: 0, z: 0 });
     const narrow = { outerDiameter: d.n + 0.01, innerDiameter: d.v };
-    const wide = { outerDiameter: d.n + 0.015, innerDiameter: d.v };
     return [
       ...sleeves.build({ material: 'metal', ...narrow, length: quarter, center: at(-(quarter + quarter / 2)) }),
       ...sleeves.build({ material: 'metal', ...narrow, length: quarter, center: at(-quarter / 2) }),
+    ];
+  }
+
+  /** Правая часть корпуса: конус 2 мм и участок right Ø n + 15 мм по +X. */
+  bodyOutlet(d: PartDiameters, right: number): GeometryPart[] {
+    const at = (x: number) => ({ x, y: 0, z: 0 });
+    const wide = { outerDiameter: d.n + 0.015, innerDiameter: d.v };
+    return [
       ...sleeves.build({ material: 'metal', ...wide, length: VALVE_BODY_STEP, outerDiameterStart: d.n + 0.01, innerDiameterStart: d.v, center: at(VALVE_BODY_STEP / 2) }),
       ...sleeves.build({ material: 'metal', ...wide, length: right, center: at(VALVE_BODY_STEP + right / 2) }),
     ];
@@ -66,20 +83,96 @@ export class BallValveParts {
 
   /** Шток над корпусом и ручка-бабочка длиной handleLength (t1 в gl2). */
   stemAndHandle(d: PartDiameters, handleLength: number): GeometryPart[] {
+    return [...this.stem(d), ...this.butterfly(d, handleLength)];
+  }
+
+  /** Высота основания ручки над осью прохода. */
+  static handleY(d: PartDiameters): number {
+    return d.v / 2 + BallValveParts.stemHeight(d) - 0.01 - 0.006 / 2;
+  }
+
+  /** Шток над корпусом: две ступени по h1/2. */
+  stem(d: PartDiameters): GeometryPart[] {
     const h1 = BallValveParts.stemHeight(d);
     const base = d.v / 2;
     const up = { x: 0, y: 0, z: -Math.PI / 2 };
-    const down = { x: 0, y: 0, z: Math.PI / 2 };
     const at = (y: number) => ({ x: 0, y, z: 0 });
-    const handleY = base + h1 - 0.01 - 0.006 / 2;
-
-    // Бабочка: контур в долях половины длины, как в shar_kran_babochka_1.
-    const scale = handleLength / 2;
-    const outline: [number, number][] = [[0, 0], [1, 0], [1, 0.6], [0.8, 0.6], [0, 0.3], [-0.8, 0.6], [-1, 0.6], [-1, 0]];
-
     return [
       ...sleeves.build({ material: 'metal', length: h1 / 2, outerDiameter: 0.015, innerDiameter: 0, rotation: up, center: at(base + h1 / 4) }),
       ...sleeves.build({ material: 'metal', length: h1 / 2, outerDiameter: 0.01, innerDiameter: 0, rotation: up, center: at(base + (3 * h1) / 4) }),
+    ];
+  }
+
+  /** Ручка-бабочка длиной handleLength на штоке. */
+  butterfly(d: PartDiameters, handleLength: number): GeometryPart[] {
+    const handleY = BallValveParts.handleY(d);
+    // Бабочка: контур в долях половины длины, как в shar_kran_babochka_1.
+    const scale = handleLength / 2;
+    const outline: [number, number][] = [[0, 0], [1, 0], [1, 0.6], [0.8, 0.6], [0, 0.3], [-0.8, 0.6], [-1, 0.6], [-1, 0]];
+    return [
+      ...this.handleHub(d),
+      shapes.build({
+        points: outline.map(([x, y]) => ({ x: x * scale, y: y * scale })),
+        depth: HANDLE_THICKNESS,
+        position: { x: 0, y: handleY, z: -HANDLE_THICKNESS / 2 },
+        material: 'red',
+      }),
+    ];
+  }
+
+  /**
+   * Ручка-рычаг (VT.247 и др.): втулка как у бабочки и плоская полоса над корпусом по +X;
+   * reach — от оси штока до конца рычага.
+   */
+  lever(d: PartDiameters, reach: number): GeometryPart[] {
+    const handleY = BallValveParts.handleY(d);
+    const tail = 0.01;
+    return [
+      ...this.handleHub(d),
+      shapes.build({
+        points: [{ x: -tail, y: 0 }, { x: reach, y: 0 }, { x: reach, y: LEVER.thickness }, { x: -tail, y: LEVER.thickness }],
+        depth: LEVER.width,
+        position: { x: 0, y: handleY, z: -LEVER.width / 2 },
+        material: 'red',
+      }),
+    ];
+  }
+
+  /**
+   * Ручка с термометром (VT.808): чёрная ручка — шейка на штоке, головка Ø dial + 4 мм с циферблатом
+   * термометра спереди (+Z) и полоса-рычаг по +X длиной reach; верх головки — на height над осью прохода.
+   */
+  thermometerHandle(d: PartDiameters, reach: number, height: number, dial: number): GeometryPart[] {
+    const head = dial + 0.004;
+    const centerY = height - head / 2;
+    const neckFrom = d.v / 2 + BallValveParts.stemHeight(d) - 0.01;
+    const up = { x: 0, y: 0, z: -Math.PI / 2 };
+    const face = gaugeHead(dial, HEAD_DEPTH / 2, 'thermometer');
+    // Циферблат с ободком — на лицевой стороне головки.
+    for (const { geometry } of face) geometry.translate(0, centerY, HEAD_DEPTH / 2 + 0.005);
+    return [
+      ...sleeves.build({ material: 'black', length: centerY - neckFrom, outerDiameter: 0.016, innerDiameter: 0, rotation: up,
+        center: { x: 0, y: (neckFrom + centerY) / 2, z: 0 } }),
+      ...sleeves.build({ material: 'black', length: HEAD_DEPTH, outerDiameter: head, innerDiameter: 0,
+        rotation: { x: 0, y: -Math.PI / 2, z: 0 }, center: { x: 0, y: centerY, z: 0 } }),
+      shapes.build({
+        points: [{ x: 0, y: -0.005 }, { x: reach, y: -0.004 }, { x: reach, y: 0.004 }, { x: 0, y: 0.005 }],
+        depth: HEAD_DEPTH * 0.7,
+        position: { x: 0, y: centerY - head / 4, z: -HEAD_DEPTH * 0.35 },
+        material: 'black',
+      }),
+      ...face,
+    ];
+  }
+
+  /** Красная втулка ручки на верхней ступени штока. */
+  private handleHub(d: PartDiameters): GeometryPart[] {
+    const base = d.v / 2;
+    const h1 = BallValveParts.stemHeight(d);
+    const down = { x: 0, y: 0, z: Math.PI / 2 };
+    const at = (y: number) => ({ x: 0, y, z: 0 });
+    const handleY = BallValveParts.handleY(d);
+    return [
       ...sleeves.build({
         length: 0.01,
         outerDiameter: 0.013,
@@ -91,12 +184,6 @@ export class BallValveParts {
         material: 'red',
       }),
       ...sleeves.build({ length: 0.006, outerDiameter: 0.021, innerDiameter: 0.019, rotation: down, center: at(handleY), material: 'red' }),
-      shapes.build({
-        points: outline.map(([x, y]) => ({ x: x * scale, y: y * scale })),
-        depth: HANDLE_THICKNESS,
-        position: { x: 0, y: handleY, z: -HANDLE_THICKNESS / 2 },
-        material: 'red',
-      }),
     ];
   }
 

@@ -147,7 +147,13 @@ export const STEEL_CATALOG: CatalogEntry[] = [
     NIPPLES.map(([nominalLeft, nominalRight, length]) => ({
       label: `${nominalLeft} × ${nominalRight}, ${mm(length)} мм`,
       params: { nominalLeft, nominalRight, length },
-    })),
+    })).concat(
+      // Сдвоенный коллекторный ниппель (позиция 88, версия 2) — VALTEC VT.0606, каталог 2017, с. 205: A = 36 и 45 мм.
+      ([['1', 0.036], ['1 1/4', 0.045]] as const).map(([nominal, length]) => ({
+        label: `сдвоенный ${nominal} × ${nominal}, ${mm(length)} мм (VT.0606)`,
+        params: { nominalLeft: nominal, nominalRight: nominal, length, kind: 'double' as const },
+      })),
+    ),
   ),
   entry(
     'steel.plug',

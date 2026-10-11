@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { GeneratorParamsError } from '../src/lib/index';
-import type { AluminiumRadiatorParams } from '../src/lib/index';
+import { ConnectorMating, GeneratorParamsError } from '../src/lib/index';
+import type { AluminiumRadiatorParams, Connector, GeneratedModel, ModelGenerator } from '../src/lib/index';
 import { AluminiumRadiatorGenerator } from '../src/lib/generators/radiator/AluminiumRadiatorGenerator';
+import { SteelNippleGenerator } from '../src/lib/generators/steel/SteelNippleGenerator';
 import { boundsBox } from './modelHelpers';
 
 // Наборы al_radiator_1 из gl2/createObj/start.js: 6 высот × 1…10 секций.
@@ -108,5 +109,78 @@ describe('радиатор: параметры и ресурсы', () => {
     model.dispose();
     model.dispose();
     expect(disposals).toBe(1);
+  });
+});
+
+const byId = (model: GeneratedModel, id: string): Connector => model.connectors.find((c) => c.id === id)!;
+const codes = <T>(g: ModelGenerator<T>, params: T) => g.validate(params).map(({ code, param }) => `${code}:${param}`);
+
+describe('алюминиевый радиатор radiator.aluminium: нижнее подключение (версия 2)', () => {
+  const base = { sections: 6, dimensions: { x: 0.08, y: 0.5, z: 0.08 }, nominal: '1' } as const;
+  const geometryOf = (model: GeneratedModel) => Array.from(model.geometry.getAttribute('position').array);
+
+  it("параметры версии 1 и явное 'side' — прежняя модель с четырьмя radiator-thread", () => {
+    const old = generator.build(base);
+    const side = generator.build({ ...base, connection: 'side', bottomSide: 'left', bottomNominal: '3/4' });
+    expect(side.connectors).toEqual(old.connectors);
+    expect(old.connectors.map((c) => c.joint)).toEqual(Array(4).fill('radiator-thread'));
+    expect(geometryOf(side)).toEqual(geometryOf(old));
+    expect(side.title).toBe(old.title);
+    old.dispose(); side.dispose();
+  });
+
+  it.each([['right', 1], ['left', -1]] as const)("'bottom' %s: шесть портов, нижние thread вниз через 50 мм у крайнего торца", (bottomSide, sign) => {
+    const side = generator.build(base);
+    const model = generator.build({ ...base, connection: 'bottom', bottomSide, bottomNominal: '1/2' });
+    expect(model.connectors.map((c) => c.id)).toEqual(['bottom-left', 'top-left', 'top-right', 'bottom-right', 'below-outer', 'below-inner']);
+    expect(model.connectors.slice(0, 4)).toEqual(side.connectors);
+    const endX = byId(side, sign > 0 ? 'bottom-right' : 'bottom-left').position.x;
+    const outer = byId(model, 'below-outer');
+    const inner = byId(model, 'below-inner');
+    for (const port of [outer, inner]) {
+      expect(port).toMatchObject({ joint: 'thread', gender: 'internal', nominal: '1/2', depth: 0.01, direction: { x: 0, y: -1, z: 0 } });
+      // Резьба выступает на 10 мм ниже самой низкой точки секций (переднего ребра).
+      expect(port.position.y).toBeCloseTo(side.bounds.min.y - 0.01, 6);
+      expect(port.position.z).toBe(0);
+    }
+    expect(outer.position.x).toBeCloseTo(endX - sign * 0.05, 9);
+    expect(inner.position.x - outer.position.x).toBeCloseTo(-sign * 0.05, 9);
+    expect(model.bounds.min.y).toBeCloseTo(side.bounds.min.y - 0.01, 6);
+    // Габарит по X и Z не меняется: патрубки под коллектором.
+    expect(model.bounds.min.x).toBeCloseTo(side.bounds.min.x, 9);
+    expect(model.bounds.max.x).toBeCloseTo(side.bounds.max.x, 9);
+    expect(model.title).toBe('Ал.радиатор h500 (6шт.), нижн.');
+    side.dispose(); model.dispose();
+  });
+
+  it('нижний номинал не меняет боковые порты', () => {
+    const model = generator.build({ ...base, connection: 'bottom', bottomNominal: '3/4' });
+    expect(model.connectors.slice(0, 4).every((c) => c.nominal === '1' && c.joint === 'radiator-thread')).toBe(true);
+    expect(byId(model, 'below-inner').nominal).toBe('3/4');
+    model.dispose();
+  });
+
+  it('минимальное, типовое и максимальное число секций', () => {
+    const bottom = { ...base, connection: 'bottom', bottomNominal: '1/2' } as const;
+    // 2 секции × 82 мм ≥ 50 + 50 + 10,65 + 21 мм; одна — нет.
+    expect(codes(generator, { ...bottom, sections: 1 })).toEqual(['too_short:sections']);
+    for (const sections of [2, 6, 10]) expect(codes(generator, { ...bottom, sections })).toEqual([]);
+    expect(codes(generator, { ...base, sections: 1, connection: 'side' })).toEqual([]);
+    expect(generator.validate({ ...bottom, sections: 1 })[0].message).toContain('не меньше 2');
+  });
+
+  it('нижняя резьба не шире коллектора; неверное подключение — ошибка', () => {
+    // Коллектор 1": 33,5 × 1,2 = 40,2 мм; 1 1/4 — 42,3 мм.
+    expect(codes(generator, { ...base, connection: 'bottom', bottomNominal: '1 1/4' })).toEqual(['incompatible:bottomNominal']);
+    expect(codes(generator, { ...base, connection: 'bottom', bottomNominal: '1' })).toEqual([]);
+    expect(codes(generator, { ...base, connection: 'top' as 'side' })).toEqual(['unknown_option:connection']);
+  });
+
+  it('обычный ниппель не стыкуется с боковым radiator-thread, стыкуется с нижним патрубком', () => {
+    const model = generator.build({ ...base, connection: 'bottom', bottomNominal: '1/2' });
+    const nipple = new SteelNippleGenerator().build({ nominalLeft: '3/4', nominalRight: '1/2', length: 0.026 });
+    expect(ConnectorMating.check(byId(model, 'bottom-right'), byId(nipple, 'right')).compatible).toBe(false);
+    expect(ConnectorMating.check(byId(model, 'below-outer'), byId(nipple, 'right')).compatible).toBe(true);
+    model.dispose(); nipple.dispose();
   });
 });

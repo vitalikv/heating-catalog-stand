@@ -153,6 +153,12 @@ export const EXTENSION_CATALOG: CatalogEntry[] = [
   entry('mp.nut-adapter', ([['16', '1/2', 45], ['20', '3/4', 52], ['32', '1 1/4', 57]] as const).map(([pipeNominal, threadNominal, a]) => ({
     label: `${pipeNominal} × гайка ${threadNominal} (VTm.222)`, params: { pipeNominal, threadNominal, length: a / 1000 },
   }))),
+  // Угольник под евроконус (позиция 87) — VALTEC VTr.092.NE 3/4 × 3/4, фото-каталог, с. 65; размеры условные.
+  entry('steel.eurocone-elbow', [{ label: '3/4(г) × 3/4 ЕК (VTr.092.NE)', params: { nominal: '3/4', armLength: 0.028 } }]),
+  // Тройник косой под гильзу (позиция 89) — VALTEC VTr.136, фото-каталог, с. 67: ряд размеров; длины условные.
+  entry('steel.y-tee', ([['1/2', 0.06], ['3/4', 0.066], ['1', 0.072]] as const).map(([nominal, length]) => ({
+    label: `${nominal} × 1/2 × ${nominal} (VTr.136)`, params: { nominal, branchNominal: '1/2', length, branchLength: 0.045 },
+  }))),
   // Эксцентрик (позиция 15) — VALTEC VTr.670, каталог 2017, с. 82.
   entry('steel.eccentric', (['cup', 'none'] as const).map((cup) => ({
     label: `1/2 × 3/4, 9 мм (VTr.670)${cup === 'cup' ? ', с чашкой' : ', без чашки'}`,
@@ -231,6 +237,12 @@ export const EXTENSION_CATALOG: CatalogEntry[] = [
   entry('valve.vent-shutoff', [{ label: '1/2(н) × 1/2(в) (VT.539)', params: {} }]),
   // Клапан подпиточный VALTEC VT.515 (позиция 113, каталог 2017, с. 412–413): размеры A, B, C, D — в генераторе.
   entry('valve.make-up', ['1/2', '3/4'].map((nominal) => ({ label: `${nominal} (VT.515)`, params: { nominal } }))),
+  // Гасители гидроударов VALTEC VT.CAR19 / VT.CAR20 (позиция 111, каталог 2017, с. 434–435).
+  entry('equipment.water-hammer-arrester', (['CAR19', 'CAR20'] as const).map((model) => ({
+    label: `G1/2 (VT.${model})${model === 'CAR20' ? ', с манометром' : ''}`, params: { model },
+  }))),
+  // Группа безопасности бойлера VALTEC VT.461 (позиция 112, каталог 2017, с. 440–441).
+  entry('equipment.boiler-safety-group', [{ label: '3/4 × 3/4, слив 1 1/4, 7 бар (VT.461)', params: { setting: 7 } }]),
   // Труба МП по траектории (часть 07): радиус — ручной гиб VALTEC (с. 29) для 16 и 20.
   entry('mp.pipe-path', [
     { label: '16: пространственный угол, R80', params: { nominal: '16', bendRadius: 0.08,

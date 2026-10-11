@@ -59,6 +59,12 @@ import { FlushFilterGenerator } from './equipment/FlushFilterGenerator';
 import { MixingValveGenerator } from './valve/MixingValveGenerator';
 import { GaugeGenerator } from './equipment/GaugeGenerator';
 import { SeparatorGenerator } from './equipment/SeparatorGenerator';
+import { SiphonTubeGenerator } from './equipment/SiphonTubeGenerator';
+import { BoilerSafetyGroupGenerator } from './equipment/BoilerSafetyGroupGenerator';
+import { WaterHammerArresterGenerator } from './equipment/WaterHammerArresterGenerator';
+import { ThermowellGenerator } from './equipment/ThermowellGenerator';
+import { GaugeTapGenerator } from './valve/GaugeTapGenerator';
+import { SteelYTeeGenerator } from './steel/SteelYTeeGenerator';
 import { AirVentGenerator } from './equipment/AirVentGenerator';
 import { VentShutoffValveGenerator } from './valve/VentShutoffValveGenerator';
 import { MpPipePathGenerator } from './mp/MpPipePathGenerator';
@@ -72,6 +78,7 @@ import { SteelExtensionGenerator } from './steel/SteelExtensionGenerator';
 import { SteelRunningNippleGenerator } from './steel/SteelRunningNippleGenerator';
 import { SteelLocknutGenerator } from './steel/SteelLocknutGenerator';
 import { SteelEccentricGenerator } from './steel/SteelEccentricGenerator';
+import { SteelEuroconeElbowGenerator } from './steel/SteelEuroconeElbowGenerator';
 import { SteelHoseAdapterGenerator } from './steel/SteelHoseAdapterGenerator';
 import { PpCapGenerator } from './pp/PpCapGenerator';
 import { PpUnionGenerator } from './pp/PpUnionGenerator';
@@ -144,6 +151,12 @@ function createGenerators() {
   new MixingValveGenerator(),
   new GaugeGenerator(),
   new SeparatorGenerator(),
+  new ThermowellGenerator(),
+  new SiphonTubeGenerator(),
+  new WaterHammerArresterGenerator(),
+  new BoilerSafetyGroupGenerator(),
+  new GaugeTapGenerator(),
+  new SteelYTeeGenerator(),
   new AirVentGenerator(),
   new VentShutoffValveGenerator(),
   new MpPipePathGenerator(),
@@ -157,6 +170,7 @@ function createGenerators() {
   new SteelRunningNippleGenerator(),
   new SteelLocknutGenerator(),
   new SteelEccentricGenerator(),
+  new SteelEuroconeElbowGenerator(),
   new SteelHoseAdapterGenerator(),
   new PpCapGenerator(),
   new PpUnionGenerator(),

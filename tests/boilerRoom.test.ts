@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Connector, GeneratedModel, ModelGenerator } from '../src/lib/index';
 import { BoilerGenerator } from '../src/lib/generators/equipment/BoilerGenerator';
+import { BoilerSafetyGroupGenerator } from '../src/lib/generators/equipment/BoilerSafetyGroupGenerator';
+import { WaterHammerArresterGenerator } from '../src/lib/generators/equipment/WaterHammerArresterGenerator';
 import { CirculationPumpGenerator } from '../src/lib/generators/equipment/CirculationPumpGenerator';
 import { ExpansionTankGenerator } from '../src/lib/generators/equipment/ExpansionTankGenerator';
 import { PumpNutGenerator } from '../src/lib/generators/equipment/PumpNutGenerator';
@@ -188,5 +190,37 @@ describe('группа безопасности equipment.safety-group', () => {
     expect(bottom).toMatchObject({ nominal: '1', joint: 'thread', gender: 'internal' });
     expect(bottom.depth).toBeCloseTo(0.0134, 9);
     expect(model.title).toBe('Группа безопасности');
+  });
+});
+
+describe('гаситель гидроударов equipment.water-hammer-arrester (позиция 111)', () => {
+  const generator = new WaterHammerArresterGenerator();
+
+  it.each([['CAR19', 0.112, 0.084, 0.012], ['CAR20', 0.135, 0.099, 0.02]] as const)('VT.%s: G1/2(н) снизу, высота H и наибольший диаметр по каталогу', (model, h, width, thread) => {
+    const arrester = generator.build({ model });
+    const inlet = byId(arrester, 'inlet');
+    expect(inlet).toMatchObject({ nominal: '1/2', joint: 'thread', gender: 'external', direction: { x: 0, y: -1, z: 0 } });
+    expect(inlet.depth).toBeCloseTo(thread, 9);
+    expect(arrester.bounds.min.y).toBeCloseTo(0, 6);
+    expect(arrester.bounds.max.y).toBeCloseTo(h, 2);
+    expect(arrester.bounds.max.x - arrester.bounds.min.x).toBeCloseTo(width, 3);
+    expect(arrester.title).toBe(`Гаситель гидроударов VT.${model}, G1/2(н)`);
+    if (model === 'CAR20') expect(arrester.materials).toContain('manometer');
+    arrester.dispose();
+  });
+});
+
+describe('группа безопасности бойлера equipment.boiler-safety-group (позиция 112)', () => {
+  it('VT.461: вход 3/4(н) слева на 47,5 мм, к бойлеру 3/4(в) вверх, слив 1 1/4(н) вниз, высота 151 мм, ручка до 53 мм', () => {
+    const group = new BoilerSafetyGroupGenerator().build({ setting: 7 });
+    expect(byId(group, 'cold')).toMatchObject({ nominal: '3/4', gender: 'external', direction: { x: -1, y: 0, z: 0 } });
+    expect(byId(group, 'cold').position.x).toBeCloseTo(-0.0475, 9);
+    expect(byId(group, 'boiler')).toMatchObject({ nominal: '3/4', gender: 'internal', direction: { x: 0, y: 1, z: 0 } });
+    expect(byId(group, 'drain')).toMatchObject({ nominal: '1 1/4', gender: 'external', direction: { x: 0, y: -1, z: 0 } });
+    expect(byId(group, 'boiler').position.y - byId(group, 'drain').position.y).toBeCloseTo(0.151, 9);
+    expect(group.bounds.max.x).toBeCloseTo(0.053, 6);
+    expect(group.bounds.min.x).toBeCloseTo(-0.0475, 6);
+    expect(group.materials).toEqual(expect.arrayContaining(['redFlat', 'black']));
+    group.dispose();
   });
 });

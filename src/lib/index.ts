@@ -31,6 +31,12 @@ export type { StraightStrainerParams } from './generators/equipment/StraightStra
 export type { FlushFilterParams } from './generators/equipment/FlushFilterGenerator';
 export type { GaugeKind, GaugeParams } from './generators/equipment/GaugeGenerator';
 export type { SeparatorKind, SeparatorParams } from './generators/equipment/SeparatorGenerator';
+export type { SiphonTubeParams } from './generators/equipment/SiphonTubeGenerator';
+export type { BoilerSafetyGroupParams } from './generators/equipment/BoilerSafetyGroupGenerator';
+export type { WaterHammerArresterParams } from './generators/equipment/WaterHammerArresterGenerator';
+export type { ThermowellParams } from './generators/equipment/ThermowellGenerator';
+export type { GaugeTapParams } from './generators/valve/GaugeTapGenerator';
+export type { SteelYTeeParams } from './generators/steel/SteelYTeeGenerator';
 export type { AirVentExecution, AirVentParams } from './generators/equipment/AirVentGenerator';
 export type { MpCouplingParams } from './generators/mp/MpCouplingGenerator';
 export type { MpElbowParams } from './generators/mp/MpElbowGenerator';
@@ -83,6 +89,7 @@ export type { SteelExtensionParams } from './generators/steel/SteelExtensionGene
 export type { SteelRunningNippleParams } from './generators/steel/SteelRunningNippleGenerator';
 export type { LocknutNominal, SteelLocknutParams } from './generators/steel/SteelLocknutGenerator';
 export type { SteelEccentricParams } from './generators/steel/SteelEccentricGenerator';
+export type { SteelEuroconeElbowParams } from './generators/steel/SteelEuroconeElbowGenerator';
 export type { SteelHoseAdapterParams } from './generators/steel/SteelHoseAdapterGenerator';
 export type { PpCapParams } from './generators/pp/PpCapGenerator';
 export type { PpUnionEnd, PpUnionParams } from './generators/pp/PpUnionGenerator';

@@ -9,14 +9,69 @@ const radiator = (sections: number, height: number): AluminiumRadiatorParams => 
  * идёт противоположный по названию порт: при паре справа — radiator-left.
  */
 export function steelBottomHBlock(bottomSide: 'right' | 'left', shutoff: 'none' | 'ball' = 'none'): AssemblyDefinition {
+  const radiatorPart: AssemblyPart = { name: 'радиатор', generatorId: 'radiator.steel',
+    params: { dimensions: { x: 0.6, y: 0.5, z: 0.07 }, nominal: '1/2', connection: 'bottom', bottomSide } };
+  return bottomHBlock('Стальной', radiatorPart, bottomSide, shutoff);
+}
+
+/**
+ * Алюминиевый радиатор с нижним подключением (позиция 125, версия 2): та же схема, что у стального, —
+ * ниппели 3/4 × 1/2 в нижние патрубки bottomNominal 1/2, H-блок, замыкание второго порта, евроконус → МП.
+ * Боковые порты закрыты радиаторными воздухоотводчиком и заглушками своей системы radiator-thread.
+ */
+export function aluminiumBottomHBlock(bottomSide: 'right' | 'left', sections = 6): AssemblyDefinition {
+  const radiatorPart: AssemblyPart = { name: 'радиатор', generatorId: 'radiator.aluminium',
+    params: { ...radiator(sections, 0.5), connection: 'bottom', bottomSide, bottomNominal: '1/2' } };
+  const vented = bottomSide === 'right' ? 'top-right' : 'top-left';
+  const closed: AssemblyPart[] = (['bottom-left', 'top-left', 'top-right', 'bottom-right'] as const).map((port) => ({
+    name: port === vented ? 'воздухоотводчик' : `заглушка ${port}`, generatorId: 'radiator.port-fitting',
+    params: { kind: port === vented ? 'vent' : 'plug', portNominal: '1' },
+    attach: { connector: 'radiator', to: 'радиатор', toConnector: port },
+  }));
+  const definition = bottomHBlock('Алюминиевый', radiatorPart, bottomSide, 'none');
+  return { ...definition, parts: [...definition.parts, ...closed] };
+}
+
+/**
+ * Алюминиевый радиатор с нижним боковым подключением (позиция 125, исполнение 'side'): новых портов нет —
+ * в нижние радиаторные отверстия разных торцов переходники 1 → 1/2, угловые термоклапан и настроечный
+ * клапан под евроконус, к ним МП 16; сверху воздухоотводчик и заглушка.
+ */
+export function aluminiumBottomSide(sections = 6): AssemblyDefinition {
+  const adapter = { kind: 'adapter', portNominal: '1', outletNominal: '1/2' } as const;
+  return {
+    label: `Алюминиевый радиатор ${sections} секций, нижнее боковое подключение: переходники, угловые клапаны, евроконус → МП`,
+    parts: [
+      { name: 'радиатор', generatorId: 'radiator.aluminium', params: radiator(sections, 0.5) },
+      { name: 'воздухоотводчик', generatorId: 'radiator.port-fitting', params: { kind: 'vent', portNominal: '1' },
+        attach: { connector: 'radiator', to: 'радиатор', toConnector: 'top-left' } },
+      { name: 'заглушка', generatorId: 'radiator.port-fitting', params: { kind: 'plug', portNominal: '1' },
+        attach: { connector: 'radiator', to: 'радиатор', toConnector: 'top-right' } },
+      { name: 'переходник подачи', generatorId: 'radiator.port-fitting', params: adapter,
+        attach: { connector: 'radiator', to: 'радиатор', toConnector: 'bottom-left' } },
+      { name: 'термоклапан', generatorId: 'valve.thermostatic-angle', params: { nominal: '1/2', armLength: 0.04, head: 'none', pipeEnd: 'eurocone' },
+        attach: { connector: 'radiator', to: 'переходник подачи', toConnector: 'outlet' } },
+      { name: 'термоголовка', generatorId: 'valve.thermostatic-head', params: { setting: '3' },
+        attach: { connector: 'valve', to: 'термоклапан', toConnector: 'head' } },
+      ...euroconePipe('термоклапан', 0.15),
+      { name: 'переходник обратки', generatorId: 'radiator.port-fitting', params: adapter,
+        attach: { connector: 'radiator', to: 'радиатор', toConnector: 'bottom-right' } },
+      { name: 'обратка', generatorId: 'valve.lockshield', params: { nominal: '1/2', armLength: 0.035, configuration: 'angle', pipeEnd: 'eurocone' },
+        attach: { connector: 'radiator', to: 'переходник обратки', toConnector: 'outlet' } },
+      ...euroconePipe('обратка', 0.15),
+    ],
+  };
+}
+
+/** Нижняя пара радиатора: ниппели A и B, H-блок по ниппелю A и замыкание на ниппель B, евроконус → МП на выходах. */
+function bottomHBlock(kind: string, radiatorPart: AssemblyPart, bottomSide: 'right' | 'left', shutoff: 'none' | 'ball'): AssemblyDefinition {
   const nipple = { nominalLeft: '3/4', nominalRight: '1/2', length: 0.026 };
   // С кранами — VALTEC VT.345K (позиция 100): высота A = 49 мм.
   const hBlock = shutoff === 'ball' ? { height: 0.049, shutoff } : { height: 0.06 };
   return {
-    label: `Стальной радиатор снизу (${bottomSide === 'right' ? 'справа' : 'слева'}): ниппели, H-блок${shutoff === 'ball' ? ' с кранами VT.345K' : ''}, евроконус → МП`,
+    label: `${kind} радиатор снизу (${bottomSide === 'right' ? 'справа' : 'слева'}): ниппели, H-блок${shutoff === 'ball' ? ' с кранами VT.345K' : ''}, евроконус → МП`,
     parts: [
-      { name: 'радиатор', generatorId: 'radiator.steel',
-        params: { dimensions: { x: 0.6, y: 0.5, z: 0.07 }, nominal: '1/2', connection: 'bottom', bottomSide } },
+      radiatorPart,
       { name: 'ниппель A', generatorId: 'steel.nipple', params: nipple, attach: { connector: 'right', to: 'радиатор', toConnector: 'below-outer' } },
       { name: 'ниппель B', generatorId: 'steel.nipple', params: nipple, attach: { connector: 'right', to: 'радиатор', toConnector: 'below-inner' } },
       { name: 'H-блок', generatorId: 'valve.radiator-h-block',
@@ -408,6 +463,93 @@ export function pumpModule(): AssemblyDefinition {
   };
 }
 
+/**
+ * Подгонка модуля 106, м: байпас — ниппель между боковым ходом клапана и отводом тройника обратки
+ * (межосевое линий 100 мм, как у VT.VAR 20); returnUp — ниппель обратки за муфтой над ниппелем 200 мм, supplyDown —
+ * ниппель подачи под клапаном: верхние и нижние краны подачи и обратки — на одной высоте.
+ */
+export const PUMP_MIXING_FIT = { bypass: 0.0502, returnUp: 0.0552, supplyDown: 0.1198 };
+
+/**
+ * Насосный модуль со смесительным клапаном 106 по схеме VALTEC VT.VAR 20 (технический каталог 2017, с. 255–256):
+ * две вертикальные линии 1" через 100 мм. Подача (слева) снизу вверх: кран 13 → трёхходовой клапан VT.MIX03
+ * (снизу — от котла, сбоку — байпас из обратки, вверх — смесь) → насос VRS 25/6-180 на гайках → тройник
+ * с термометром → кран 8. Обратка (справа) сверху вниз: кран 9 → тройник с термометром → тройник байпаса →
+ * обратный клапан (поток вниз) → кран 14. Литой корпус, балансировочный и перепускной клапаны VT.VAR 20
+ * не повторяются: модуль собран из деталей каталога. Свободные границы — четыре крана.
+ */
+export function pumpMixingModule(fit = PUMP_MIXING_FIT): AssemblyDefinition {
+  const nipple = (length: number) => ({ nominalLeft: '1', nominalRight: '1', length });
+  const tee = { threadGender: 'internal', nominalLeft: '1', nominalBranch: '1/2', nominalRight: '1', length: 0.06, branchLength: 0.03 };
+  const bypassTee = { ...tee, nominalBranch: '1' };
+  const ball = { ends: 'internal', nominal: '1', length: 0.0625, handleLength: 0.06 };
+  const thermometer = { kind: 'thermometer', diameter: 63, connection: 'back', nominal: '1/2', probe: 0.05 };
+  return {
+    label: 'Насосный модуль со смесительным клапаном 1": VT.MIX03, насос VRS, байпас, обратный клапан, термометры',
+    parts: [
+      // Нижний кран подачи повёрнут на 90° вокруг Z: левый конец вниз (к котлу), правый вверх.
+      { name: 'кран 13', generatorId: 'valve.ball', params: ball, placement: { at: { x: 0, y: 0, z: 0 }, rotation: { x: 0, y: 0, z: 90 } } },
+      { name: 'ниппель клапана', generatorId: 'steel.nipple', params: nipple(fit.supplyDown), attach: { connector: 'left', to: 'кран 13', toConnector: 'right' } },
+      { name: 'смесительный клапан', generatorId: 'valve.mixing', params: { ways: 3, nominal: '1', control: 'handle' },
+        // Разворот на 180°: боковой ход — к обратке (+X), рукоятка — вперёд.
+        attach: { connector: 'right', to: 'ниппель клапана', toConnector: 'right', angle: 180 } },
+      // Ниппель возвращает разворот клапана: мотор насоса и термометр — вперёд.
+      { name: 'ниппель насоса', generatorId: 'steel.nipple', params: nipple(0.044), attach: { connector: 'left', to: 'смесительный клапан', toConnector: 'left', angle: 180 } },
+      { name: 'гайка нижняя', generatorId: 'equipment.pump-nut', params: { pumpNominal: '1 1/2', pipeNominal: '1' },
+        attach: { connector: 'pipe', to: 'ниппель насоса', toConnector: 'right' } },
+      { name: 'насос', generatorId: 'equipment.pump', params: { nominal: '1 1/2', installLength: 0.18, housing: 'vrs', motor: 'small', terminalBox: 'top' },
+        attach: { connector: 'left', to: 'гайка нижняя', toConnector: 'pump' } },
+      { name: 'гайка верхняя', generatorId: 'equipment.pump-nut', params: { pumpNominal: '1 1/2', pipeNominal: '1' },
+        attach: { connector: 'pump', to: 'насос', toConnector: 'right' } },
+      { name: 'ниппель подачи', generatorId: 'steel.nipple', params: nipple(0.044), attach: { connector: 'left', to: 'гайка верхняя', toConnector: 'pipe' } },
+      { name: 'тройник подачи', generatorId: 'steel.tee', params: tee, attach: { connector: 'left', to: 'ниппель подачи', toConnector: 'right', angle: 90 } },
+      { name: 'термометр подачи', generatorId: 'equipment.gauge', params: thermometer, attach: { connector: 'connection', to: 'тройник подачи', toConnector: 'top' } },
+      { name: 'ниппель крана 8', generatorId: 'steel.nipple', params: nipple(0.044), attach: { connector: 'left', to: 'тройник подачи', toConnector: 'right' } },
+      { name: 'кран 8', generatorId: 'valve.ball', params: ball, attach: { connector: 'left', to: 'ниппель крана 8', toConnector: 'right' } },
+      // Байпас: боковой ход клапана → ниппель → отвод тройника обратки.
+      { name: 'ниппель байпаса', generatorId: 'steel.nipple', params: nipple(fit.bypass), attach: { connector: 'left', to: 'смесительный клапан', toConnector: 'top' } },
+      { name: 'тройник байпаса', generatorId: 'steel.tee', params: bypassTee, attach: { connector: 'top', to: 'ниппель байпаса', toConnector: 'right' } },
+      // Труба обратки — ниппель 200 мм, муфта и подгоночный ниппель.
+      { name: 'ниппель обратки', generatorId: 'steel.nipple', params: nipple(0.2), attach: { connector: 'left', to: 'тройник байпаса', toConnector: 'left' } },
+      { name: 'муфта обратки', generatorId: 'steel.coupling', params: { nominalLeft: '1', nominalRight: '1', length: 0.04 },
+        attach: { connector: 'left', to: 'ниппель обратки', toConnector: 'right' } },
+      { name: 'ниппель обратки 2', generatorId: 'steel.nipple', params: nipple(fit.returnUp), attach: { connector: 'left', to: 'муфта обратки', toConnector: 'right' } },
+      { name: 'тройник обратки', generatorId: 'steel.tee', params: tee, attach: { connector: 'right', to: 'ниппель обратки 2', toConnector: 'right', angle: 90 } },
+      { name: 'термометр обратки', generatorId: 'equipment.gauge', params: thermometer, attach: { connector: 'connection', to: 'тройник обратки', toConnector: 'top' } },
+      { name: 'ниппель крана 9', generatorId: 'steel.nipple', params: nipple(0.044), attach: { connector: 'right', to: 'тройник обратки', toConnector: 'left' } },
+      { name: 'кран 9', generatorId: 'valve.ball', params: ball, attach: { connector: 'right', to: 'ниппель крана 9', toConnector: 'left' } },
+      { name: 'ниппель клапана обратки', generatorId: 'steel.nipple', params: nipple(0.044), attach: { connector: 'left', to: 'тройник байпаса', toConnector: 'right' } },
+      { name: 'обратный клапан', generatorId: 'valve.check', params: { nominal: '1', length: 0.058, flow: 'left-to-right' },
+        attach: { connector: 'left', to: 'ниппель клапана обратки', toConnector: 'right' } },
+      { name: 'ниппель крана 14', generatorId: 'steel.nipple', params: nipple(0.044), attach: { connector: 'left', to: 'обратный клапан', toConnector: 'right' } },
+      { name: 'кран 14', generatorId: 'valve.ball', params: ball, attach: { connector: 'left', to: 'ниппель крана 14', toConnector: 'right' } },
+    ],
+  };
+}
+
+/**
+ * Вход холодной воды в бойлер (позиции 111, 112): кран 3/4 → тройник с гасителем гидроударов VT.CAR20 на отводе
+ * 1/2 → группа безопасности VT.461 (вход холодной воды прямо в тройник) → ниппель к патрубку бойлера.
+ * Свободные границы: кран (водопровод), ниппель (бойлер), слив 1 1/4 группы (дренаж через воронку).
+ */
+export function boilerColdInlet(): AssemblyDefinition {
+  return {
+    label: 'Вход в бойлер 3/4: кран, гаситель гидроударов VT.CAR20, группа безопасности VT.461',
+    parts: [
+      { name: 'тройник', generatorId: 'steel.tee',
+        params: { threadGender: 'internal', nominalLeft: '3/4', nominalBranch: '1/2', nominalRight: '3/4', length: 0.052, branchLength: 0.026 } },
+      { name: 'гаситель', generatorId: 'equipment.water-hammer-arrester', params: { model: 'CAR20' },
+        attach: { connector: 'inlet', to: 'тройник', toConnector: 'top' } },
+      { name: 'группа безопасности', generatorId: 'equipment.boiler-safety-group', params: { setting: 7 },
+        attach: { connector: 'cold', to: 'тройник', toConnector: 'right' } },
+      { name: 'ниппель бойлера', generatorId: 'steel.nipple', params: { nominalLeft: '3/4', nominalRight: '3/4', length: 0.026 },
+        attach: { connector: 'left', to: 'группа безопасности', toConnector: 'boiler' } },
+      { name: 'кран', generatorId: 'valve.ball', params: { ends: 'external', nominal: '3/4', length: 0.07, handleLength: 0.053 },
+        attach: { connector: 'right', to: 'тройник', toConnector: 'left' } },
+    ],
+  };
+}
+
 /** Детали модуля 105; start — как ставится нижний кран (явное положение или attach его левого конца). */
 export function pumpModuleParts(start: Pick<AssemblyPart, 'attach' | 'placement'>): AssemblyPart[] {
   const nipple = { nominalLeft: '1', nominalRight: '1', length: 0.044 };
@@ -563,6 +705,74 @@ export function threadedLine(): AssemblyDefinition {
         attach: { connector: 'outlet', to: 'американка В–В', toConnector: 'inlet' } },
       { name: 'удлинитель', generatorId: 'steel.extension', params: { nominal: '1/2', length: 0.03 },
         attach: { connector: 'left', to: 'американка Н–Н', toConnector: 'inlet' } },
+    ],
+  };
+}
+
+/**
+ * Латунная резьба (часть 23a): на магистраль коллектора 1" — сдвоенный ниппель VT.0606 (88) и угловой кран
+ * с полусгоном VT.228 (95), за ним муфта и кран VT.226 наружной резьбой (133); на выход 1 — угольник
+ * под евроконус VTr.092.NE (87), адаптер и МП 16.
+ */
+export function brassThreadNode(): AssemblyDefinition {
+  return {
+    label: 'Коллектор 1": сдвоенный ниппель, угловой кран VT.228, угольник под евроконус, кран VT.226',
+    parts: [
+      { name: 'коллектор', generatorId: 'manifold.brass',
+        params: { nominal: '1', outlets: 3, outletEnd: 'eurocone', outletNominal: '1/2', mainEnd: 'internal', endPorts: 'none', inserts: 'none' } },
+      { name: 'сдвоенный ниппель', generatorId: 'steel.nipple', params: { nominalLeft: '1', nominalRight: '1', length: 0.036, kind: 'double' },
+        attach: { connector: 'right', to: 'коллектор', toConnector: 'main' } },
+      { name: 'кран угловой', generatorId: 'valve.ball-union',
+        params: { nominal: '1', unionNominal: '1 1/4', length: 0.0892, unionLength: 0.037, handleLength: 0.06, configuration: 'angle', inletLength: 0.042 },
+        attach: { connector: 'left', to: 'сдвоенный ниппель', toConnector: 'left' } },
+      { name: 'муфта', generatorId: 'steel.coupling', params: { nominalLeft: '1', nominalRight: '1', length: 0.04 },
+        attach: { connector: 'left', to: 'кран угловой', toConnector: 'right' } },
+      { name: 'кран VT.226', generatorId: 'valve.ball-union',
+        params: { nominal: '1', unionNominal: '1 1/4', length: 0.075, unionLength: 0.037, handleLength: 0.06, valveEnd: 'external' },
+        attach: { connector: 'left', to: 'муфта', toConnector: 'right' } },
+      { name: 'угольник', generatorId: 'steel.eurocone-elbow', params: { nominal: '3/4', armLength: 0.028 },
+        attach: { connector: 'inlet', to: 'коллектор', toConnector: 'out-1', angle: 90 } },
+      { name: 'адаптер', generatorId: 'mp.eurocone-adapter', params: { pipeNominal: '16', euroconeNominal: '3/4', length: 0.026 },
+        attach: { connector: 'eurocone', to: 'угольник', toConnector: 'outlet' } },
+      { name: 'труба', generatorId: 'mp.pipe', params: { nominal: '16', length: 0.15 },
+        attach: { connector: 'start', to: 'адаптер', toConnector: 'pipe' } },
+    ],
+  };
+}
+
+/**
+ * КИП на линии 1/2 (часть 23b): в тройнике — демпферная трубка OR.1809 (92), кран VT.806 (91) и манометр;
+ * дальше по ниппелям — косой тройник VTr.136 (89) с гильзой OR.551 (90), кран VT.808 с термометром в ручке (93)
+ * и кран VT.247 с гнездом датчика (94).
+ */
+export function instrumentLine(): AssemblyDefinition {
+  const nipple = { nominalLeft: '1/2', nominalRight: '1/2', length: 0.022 };
+  return {
+    label: 'КИП 1/2: демпферная трубка, кран VT.806 с манометром, косой тройник с гильзой, краны VT.808 и VT.247',
+    parts: [
+      { name: 'тройник', generatorId: 'steel.tee',
+        params: { threadGender: 'internal', nominalLeft: '1/2', nominalRight: '1/2', nominalBranch: '1/2', length: 0.046, branchLength: 0.023 } },
+      { name: 'трубка', generatorId: 'equipment.siphon-tube', params: { nominal: '1/2', length: 0.167, loopDiameter: 0.062 },
+        attach: { connector: 'process', to: 'тройник', toConnector: 'top' } },
+      { name: 'кран VT.806', generatorId: 'valve.gauge-tap', params: { inlet: 'external', gaugeNominal: '1/4', length: 0.073, handleLength: 0.036 },
+        attach: { connector: 'inlet', to: 'трубка', toConnector: 'gauge' } },
+      { name: 'манометр', generatorId: 'equipment.gauge', params: { kind: 'manometer', diameter: 63, connection: 'bottom', nominal: '1/4', probe: 0.05 },
+        attach: { connector: 'connection', to: 'кран VT.806', toConnector: 'gauge' } },
+      { name: 'ниппель 1', generatorId: 'steel.nipple', params: nipple, attach: { connector: 'left', to: 'тройник', toConnector: 'right' } },
+      { name: 'косой тройник', generatorId: 'steel.y-tee', params: { nominal: '1/2', branchNominal: '1/2', length: 0.06, branchLength: 0.045 },
+        // Отвод с гильзой — вбок, в сторону от демпферной трубки и ручки VT.808.
+        attach: { connector: 'left', to: 'ниппель 1', toConnector: 'right', angle: 90 } },
+      { name: 'гильза', generatorId: 'equipment.thermowell', params: { nominal: '1/2', length: 0.06, socket: 10.5 },
+        attach: { connector: 'process', to: 'косой тройник', toConnector: 'branch' } },
+      // Ниппель 2 возвращает краны в вертикаль после поворота косого тройника.
+      { name: 'ниппель 2', generatorId: 'steel.nipple', params: nipple, attach: { connector: 'left', to: 'косой тройник', toConnector: 'right', angle: -90 } },
+      // Ручка VT.808 развёрнута назад, над косым тройником; рычаг VT.247 — к свободному концу линии.
+      { name: 'кран VT.808', generatorId: 'valve.ball', params: { ends: 'internal', nominal: '1/2', length: 0.0475, handleLength: 0.045, handle: 'thermometer' },
+        attach: { connector: 'right', to: 'ниппель 2', toConnector: 'right' } },
+      { name: 'ниппель 3', generatorId: 'steel.nipple', params: nipple, attach: { connector: 'left', to: 'кран VT.808', toConnector: 'left' } },
+      { name: 'кран VT.247', generatorId: 'valve.ball',
+        params: { ends: 'internal', nominal: '1/2', length: 0.047, handleLength: 0.0905, handle: 'lever', sensorPort: 'M10x1' },
+        attach: { connector: 'left', to: 'ниппель 3', toConnector: 'right' } },
     ],
   };
 }
@@ -936,6 +1146,8 @@ export const STAND_ASSEMBLIES: AssemblyDefinition[] = [
   boilerFilter('equipment.strainer-straight', { nominal: '3/4', ends: 'internal', length: 0.068, height: 0.058, bottom: 'cap' }, 'прямой фильтр 3/4'),
   boilerFilter('equipment.flush-filter', { nominal: '3/4', gauge: 'manometer' }, 'промывной фильтр 3/4 с манометром'),
   pumpModule(),
+  pumpMixingModule(),
+  boilerColdInlet(),
   mixingUnit(),
   floorHeatingNode(),
   boilerRoom(),
@@ -1087,11 +1299,15 @@ export const STAND_ASSEMBLIES: AssemblyDefinition[] = [
   radiatorOnePipeInjector(),
   threadedLine(),
   gaugeAndHoseTee(),
+  brassThreadNode(),
+  instrumentLine(),
   ppLine(),
   ppBrassValves(),
   doubleWallOutlet(),
   steelBottomHBlock('right'),
   steelBottomHBlock('right', 'ball'),
+  aluminiumBottomHBlock('right'),
+  aluminiumBottomSide(),
   manifoldReturnNode(),
   manifoldPair(),
   {

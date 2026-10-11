@@ -5,9 +5,10 @@ import type { SteelNippleParams } from '../src/lib/index';
 import { SteelNippleGenerator } from '../src/lib/generators/steel/SteelNippleGenerator';
 import { boundsBox } from './modelHelpers';
 
-const PRESETS = CATALOG.find((entry) => entry.generatorId === 'steel.nipple')!.items.map(
-  (preset) => preset.params as unknown as SteelNippleParams,
-);
+// Позиции gl2; сдвоенный ниппель версии 2 проверяется отдельно.
+const PRESETS = CATALOG.find((entry) => entry.generatorId === 'steel.nipple')!.items
+  .map((preset) => preset.params as unknown as SteelNippleParams)
+  .filter((params) => params.kind === undefined);
 
 // d и t по таблице sizeRezba, мм. Наружная резьба: n = d − t.
 const PIPE: Record<string, [number, number]> = {
@@ -79,5 +80,48 @@ describe('ниппель: параметры', () => {
     expect(codes({ nominalLeft: '2', nominalRight: '2', length: 0.024 })).toEqual(['too_short:length']);
     expect(generator.build({ nominalLeft: '1', nominalRight: '1/2', length: 0.034 }).title).toBe('Ниппель 1(н)х1/2(н)');
     expect(generator.build({ nominalLeft: '1/2', nominalRight: '1/2', length: 0.022 }).title).toBe('Ниппель 1/2(н)');
+  });
+});
+
+describe('сдвоенный коллекторный ниппель (версия 2, VT.0606)', () => {
+  const codes = (params: SteelNippleParams) => generator.validate(params).map(({ code, param }) => `${code}:${param}`);
+  const plain = { nominalLeft: '1', nominalRight: '1', length: 0.036 } as const;
+
+  it("параметры версии 1 и 'plain' — прежняя модель", () => {
+    const old = generator.build(plain);
+    const explicit = generator.build({ ...plain, kind: 'plain' });
+    expect(Array.from(explicit.geometry.getAttribute('position').array)).toEqual(Array.from(old.geometry.getAttribute('position').array));
+    expect(explicit.connectors).toEqual(old.connectors);
+    old.dispose(); explicit.dispose();
+  });
+
+  it.each([['1', 0.036, 0.016, 0.037], ['1 1/4', 0.045, 0.02, 0.048]] as const)('%s: длина A, шестигранник D × SW по таблице, кольца EPDM, прежние разъёмы', (nominal, a, d, key) => {
+    const params = { nominalLeft: nominal, nominalRight: nominal, length: a, kind: 'double' } as const;
+    expect(codes(params)).toEqual([]);
+    const model = generator.build(params);
+    const old = generator.build({ ...params, kind: 'plain' });
+    expect(model.connectors).toEqual(old.connectors);
+    expect(model.materials).toContain('black');
+    const size = boundsBox(model.bounds).getSize(new Vector3());
+    expect(size.x).toBeCloseTo(a, 6);
+    // Под ключ — расстояние между гранями шестигранника (по Y).
+    expect(size.y).toBeCloseTo(key, 6);
+    // Шестигранник — участок полного габарита по Y длиной D.
+    const position = model.geometry.getAttribute('position');
+    let hexMin = Infinity; let hexMax = -Infinity;
+    for (let i = 0; i < position.count; i++) {
+      if (Math.abs(position.getY(i)) > key / 2 - 1e-6) { hexMin = Math.min(hexMin, position.getX(i)); hexMax = Math.max(hexMax, position.getX(i)); }
+    }
+    expect(hexMax - hexMin).toBeCloseTo(d, 6);
+    expect(model.title).toBe(`Ниппель сдвоенный ${nominal}(н)`);
+    model.dispose(); old.dispose();
+  });
+
+  it('только 1 × 1 и 1 1/4 × 1 1/4; короткий — ошибка', () => {
+    expect(codes({ nominalLeft: '3/4', nominalRight: '3/4', length: 0.036, kind: 'double' })).toEqual(['incompatible:kind']);
+    expect(codes({ nominalLeft: '1', nominalRight: '1 1/4', length: 0.045, kind: 'double' })).toEqual(['incompatible:kind']);
+    // 1": резьба 9,09 мм, половина шестигранника 8 мм.
+    expect(codes({ nominalLeft: '1', nominalRight: '1', length: 0.034, kind: 'double' })).toEqual(['too_short:length']);
+    expect(codes({ nominalLeft: '1', nominalRight: '1', length: 0.0345, kind: 'double' })).toEqual([]);
   });
 });

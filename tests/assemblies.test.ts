@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { Assembly, ConnectorMating, createModelObject, GeneratorRegistry, MaterialLibrary } from '../src/lib/index';
 import type { AssemblyClosureDefinition, AssemblyDefinition, Vector3Data } from '../src/lib/index';
 import { CLOSURE_TOLERANCE } from '../src/lib/assembly/Assembly';
-import { boilerRoom, boilerRoomWithFloor, floorHeatingNode, MANIFOLD_PAIR_OFFSET, manifoldPair, manifoldReturnNode, mixingUnit, pumpModule, STAND_ASSEMBLIES, steelBottomHBlock } from '../src/stand/assemblies';
+import { aluminiumBottomHBlock, aluminiumBottomSide, boilerColdInlet, boilerRoom, brassThreadNode, instrumentLine, boilerRoomWithFloor, floorHeatingNode, MANIFOLD_PAIR_OFFSET, manifoldPair, manifoldReturnNode, mixingUnit, pumpMixingModule, pumpModule, STAND_ASSEMBLIES, steelBottomHBlock } from '../src/stand/assemblies';
 
 const registry = new GeneratorRegistry();
 
@@ -53,9 +53,14 @@ describe('цепочка радиатор → переходник → нипп�
   });
 });
 
-describe('стальной радиатор снизу: H-блок на двух ниппелях', () => {
+describe.each([
+  ['стальной', steelBottomHBlock],
+  ['алюминиевый', (side: 'right' | 'left') => aluminiumBottomHBlock(side)],
+] as const)('%s радиатор снизу: H-блок на двух ниппелях', (_, definitionOf) => {
   it.each(['right', 'left'] as const)('%s: второй порт H-блока встаёт в ниппель B по правилу стыковки', (bottomSide) => {
-    const assembly = new Assembly(registry, steelBottomHBlock(bottomSide));
+    const assembly = new Assembly(registry, definitionOf(bottomSide));
+    expect(assembly.errors).toEqual([]);
+    expect(assembly.closures.every(({ closed }) => closed)).toBe(true);
     expect(assembly.joints.every(({ check }) => check.compatible)).toBe(true);
     const part = (name: string) => assembly.parts.find((placed) => placed.name === name)!;
     const port = (name: string, id: string) => part(name).model.connectors.find((c) => c.id === id)!;
@@ -77,6 +82,47 @@ describe('стальной радиатор снизу: H-блок на двух
       expect(new Vector3().setFromMatrixPosition(part(`труба ${side}`).matrix).y, side).toBeLessThan(hBlockY - 0.05);
     }
     assembly.dispose();
+  });
+});
+
+describe('новые сборки частей 03 и 23', () => {
+  it('новых портов нет, подача и обратка уходят вниз с разных торцов, пересечений нет', () => {
+    const definition = aluminiumBottomSide();
+    const assembly = new Assembly(registry, definition);
+    expect(assembly.errors).toEqual([]);
+    expect(assembly.joints.every(({ check }) => check.compatible)).toBe(true);
+    const part = (name: string) => assembly.parts.find((placed) => placed.name === name)!;
+    expect(part('радиатор').model.connectors).toHaveLength(4);
+    const radiatorBox = part('радиатор').model.bounds;
+    const supply = new Vector3().setFromMatrixPosition(part('труба термоклапан').matrix);
+    const back = new Vector3().setFromMatrixPosition(part('труба обратка').matrix);
+    expect(supply.x).toBeLessThan(radiatorBox.min.x);
+    expect(back.x).toBeGreaterThan(radiatorBox.max.x);
+    for (const pipe of [supply, back]) expect(pipe.y).toBeLessThan(-0.25);
+    expect(overlaps(definition, assembly)).toEqual([]);
+    assembly.dispose();
+  });
+
+  it('часть 23: коллектор с латунной резьбой и линия КИП без пересечений', () => {
+    // Отвод 45° косого тройника даёт широкий габарит. Гильза уходит вбок дальше 25 мм от оси линии
+    // (ниппель и тройник — до 12 мм), рычаг VT.808 — выше 28 мм над осью: касание габаритов без касания формы.
+    const allowed: Record<string, [string, string][]> = {
+      [instrumentLine().label]: [['тройник', 'косой тройник'], ['тройник', 'гильза'], ['ниппель 1', 'гильза'], ['косой тройник', 'кран VT.808']],
+    };
+    for (const definition of [brassThreadNode(), instrumentLine()]) {
+      const assembly = new Assembly(registry, definition);
+      expect(overlaps(definition, assembly, allowed[definition.label]), definition.label).toEqual([]);
+      assembly.dispose();
+    }
+  });
+
+  it('H-блок под алюминиевым радиатором не пересекает детали', () => {
+    for (const side of ['right', 'left'] as const) {
+      const definition = aluminiumBottomHBlock(side);
+      const assembly = new Assembly(registry, definition);
+      expect(overlaps(definition, assembly), side).toEqual([]);
+      assembly.dispose();
+    }
   });
 });
 
@@ -335,6 +381,99 @@ describe('насосный модуль 105 (по подающей линии VA
     expect(world('термоманометр', [0, 0, 1]).z).toBeCloseTo(1, 9);
     expect(world('воздухоотводчик', [0, 1, 0]).y).toBeCloseTo(1, 9);
     expect(portDirection('обратный клапан', 'right').y).toBeCloseTo(1, 9);
+  });
+});
+
+describe('насосный модуль со смесительным клапаном 106 (по схеме VALTEC VT.VAR 20)', () => {
+  const definition = pumpMixingModule();
+  const assembly = new Assembly(registry, definition);
+  const part = (name: string) => assembly.parts.find((placed) => placed.name === name)!;
+  const world = (name: string, local: [number, number, number]) => new Vector3(...local).transformDirection(part(name).matrix);
+  const port = (name: string, id: string) => {
+    const c = part(name).model.connectors.find((connector) => connector.id === id)!;
+    return { position: new Vector3().copy(c.position).applyMatrix4(part(name).matrix), direction: new Vector3().copy(c.direction).transformDirection(part(name).matrix) };
+  };
+
+  it('все стыки совместимы; подача и обратка вертикальны через 100 мм, краны попарно на одной высоте', () => {
+    expect(assembly.errors).toEqual([]);
+    expect(assembly.joints.every(({ check }) => check.compatible)).toBe(true);
+    const [down13, down14, up8, up9] = [port('кран 13', 'left'), port('кран 14', 'right'), port('кран 8', 'right'), port('кран 9', 'left')];
+    for (const end of [down13, down14]) expect(end.direction.y).toBeCloseTo(-1, 9);
+    for (const end of [up8, up9]) expect(end.direction.y).toBeCloseTo(1, 9);
+    expect(down14.position.x - down13.position.x).toBeCloseTo(0.1, 4);
+    expect(up9.position.x - up8.position.x).toBeCloseTo(0.1, 4);
+    expect(down14.position.y).toBeCloseTo(down13.position.y, 4);
+    expect(up9.position.y).toBeCloseTo(up8.position.y, 4);
+    for (const end of [down13, down14, up8, up9]) expect(end.position.z).toBeCloseTo(0, 6);
+  });
+
+  it('клапан: вход от котла снизу, смесь вверх к насосу, байпас — к обратке; обратный клапан — потоком вниз', () => {
+    expect(port('смесительный клапан', 'right').direction.y).toBeCloseTo(-1, 9);
+    expect(port('смесительный клапан', 'left').direction.y).toBeCloseTo(1, 9);
+    expect(port('смесительный клапан', 'top').direction.x).toBeCloseTo(1, 9);
+    expect(port('обратный клапан', 'right').direction.y).toBeCloseTo(-1, 9);
+    // Насос выше клапана, на подаче.
+    expect(port('насос', 'left').position.y).toBeGreaterThan(port('смесительный клапан', 'left').position.y);
+    expect(port('насос', 'left').position.x).toBeCloseTo(0, 6);
+  });
+
+  it('рукоятка клапана, мотор насоса и циферблаты — вперёд; пересечений нет', () => {
+    for (const name of ['смесительный клапан', 'насос', 'термометр подачи', 'термометр обратки']) expect(world(name, [0, 0, 1]).z, name).toBeCloseTo(1, 9);
+    // Погружная часть термометра — в тройнике, поэтому габарит захватывает соседние ниппели; корпус Ø63
+    // начинается в 44 мм перед осью линии, ниппели — в пределах 15 мм: касание габаритов без касания формы.
+    const thermometers: [string, string][] = [['ниппель подачи', 'термометр подачи'], ['термометр подачи', 'ниппель крана 8'],
+      ['ниппель обратки 2', 'термометр обратки'], ['термометр обратки', 'ниппель крана 9']];
+    expect(overlaps(definition, assembly, thermometers)).toEqual([]);
+    // Ближе 40 мм к оси линии по Z у термометра только штуцер и погружная часть — в радиусе 15 мм от оси отвода.
+    for (const [name, tee] of [['термометр подачи', 'тройник подачи'], ['термометр обратки', 'тройник обратки']]) {
+      const axis = port(tee, 'top').position;
+      const position = part(name).model.geometry.getAttribute('position');
+      const point = new Vector3();
+      for (let i = 0; i < position.count; i++) {
+        point.fromBufferAttribute(position, i).applyMatrix4(part(name).matrix);
+        if (point.z < 0.04) expect(Math.hypot(point.x - axis.x, point.y - axis.y), name).toBeLessThan(0.015);
+      }
+    }
+  });
+});
+
+describe('вход холодной воды в бойлер: гаситель гидроударов 111 и группа безопасности 112', () => {
+  const definition = boilerColdInlet();
+  const assembly = new Assembly(registry, definition);
+  const part = (name: string) => assembly.parts.find((placed) => placed.name === name)!;
+  const direction = (name: string, id: string) =>
+    new Vector3().copy(part(name).model.connectors.find((c) => c.id === id)!.direction).transformDirection(part(name).matrix);
+
+  it('стыки совместимы; гаситель вверх, к бойлеру — вверх, слив — вниз, ручка предохранительного клапана — в сторону', () => {
+    expect(assembly.errors).toEqual([]);
+    expect(assembly.joints.every(({ check }) => check.compatible)).toBe(true);
+    expect(direction('гаситель', 'inlet').y).toBeCloseTo(-1, 9);
+    expect(direction('группа безопасности', 'boiler').y).toBeCloseTo(1, 9);
+    expect(direction('группа безопасности', 'drain').y).toBeCloseTo(-1, 9);
+    expect(new Vector3(1, 0, 0).transformDirection(part('группа безопасности').matrix).x).toBeCloseTo(1, 9);
+    // Обод гасителя Ø99 даёт широкий габарит; ниже обода корпус Ø62 — проверка по вершинам ниже.
+    expect(overlaps(definition, assembly, [['гаситель', 'группа безопасности'], ['гаситель', 'кран']])).toEqual([]);
+  });
+
+  it('гаситель не касается группы безопасности, ниппеля и крана: сравнение с его профилем по высоте', () => {
+    const vertices = (name: string) => {
+      const position = part(name).model.geometry.getAttribute('position');
+      return Array.from({ length: position.count }, (_, i) => new Vector3().fromBufferAttribute(position, i).applyMatrix4(part(name).matrix));
+    };
+    // Профиль гасителя: наибольшее удаление от его оси в слоях по 1 мм (с соседними слоями).
+    const axis = new Vector3().setFromMatrixPosition(part('гаситель').matrix);
+    const radial = (v: Vector3) => Math.hypot(v.x - axis.x, v.z - axis.z);
+    const profile = new Map<number, number>();
+    for (const v of vertices('гаситель')) {
+      const layer = Math.round(v.y * 1000);
+      for (const k of [layer - 1, layer, layer + 1]) profile.set(k, Math.max(profile.get(k) ?? 0, radial(v)));
+    }
+    for (const name of ['группа безопасности', 'ниппель бойлера', 'кран']) {
+      for (const v of vertices(name)) {
+        const reach = profile.get(Math.round(v.y * 1000));
+        if (reach !== undefined) expect(radial(v), name).toBeGreaterThan(reach);
+      }
+    }
   });
 });
 
