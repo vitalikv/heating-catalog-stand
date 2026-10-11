@@ -541,6 +541,51 @@ export function radiatorDoubleRegulation(): AssemblyDefinition {
   };
 }
 
+/**
+ * Резьбовые детали части 04a на одной линии 1/2: сгон VTr.653 с контргайкой VTr.656 у начала длинной резьбы
+ * и муфтой на конце, эксцентрик VTr.670 из муфты; с другой стороны — американки В–В (VTr.340) и Н–Н (VTr.728)
+ * и удлинитель VTr.197.
+ */
+export function threadedLine(): AssemblyDefinition {
+  return {
+    label: 'Резьба 1/2: сгон с контргайкой и муфтой, эксцентрик, американки В–В и Н–Н, удлинитель',
+    parts: [
+      { name: 'сгон', generatorId: 'steel.running-nipple', params: { nominal: '1/2', length: 0.1, longThread: 0.04, shortThread: 0.01 } },
+      { name: 'контргайка', generatorId: 'steel.locknut', params: { nominal: '1/2' },
+        attach: { connector: 'thread', to: 'сгон', toConnector: 'locknut' } },
+      { name: 'муфта', generatorId: 'steel.coupling', params: { nominalLeft: '1/2', nominalRight: '1/2', length: 0.03 },
+        attach: { connector: 'left', to: 'сгон', toConnector: 'right' } },
+      { name: 'эксцентрик', generatorId: 'steel.eccentric', params: { nominalLeft: '1/2', nominalRight: '3/4', offset: 0.009, length: 0.043, cup: 'none' },
+        attach: { connector: 'left', to: 'муфта', toConnector: 'right' } },
+      { name: 'американка В–В', generatorId: 'steel.union', params: { nominal: '1/2', armLength: 0.017, configuration: 'straight', ends: 'internal' },
+        attach: { connector: 'outlet', to: 'сгон', toConnector: 'left' } },
+      { name: 'американка Н–Н', generatorId: 'steel.union', params: { nominal: '1/2', armLength: 0.024, configuration: 'straight', ends: 'external' },
+        attach: { connector: 'outlet', to: 'американка В–В', toConnector: 'inlet' } },
+      { name: 'удлинитель', generatorId: 'steel.extension', params: { nominal: '1/2', length: 0.03 },
+        attach: { connector: 'left', to: 'американка Н–Н', toConnector: 'inlet' } },
+    ],
+  };
+}
+
+/** Манометр на футорке VTr.581 1/2 × 1/4 (позиция 16) в тройнике 1/2 и штуцер VTr.654 под шланг на ниппеле (позиция 17). */
+export function gaugeAndHoseTee(): AssemblyDefinition {
+  return {
+    label: 'Тройник 1/2: манометр на футорке 1/2 × 1/4, штуцер под шланг 14',
+    parts: [
+      { name: 'тройник', generatorId: 'steel.tee',
+        params: { threadGender: 'internal', nominalLeft: '1/2', nominalRight: '1/2', nominalBranch: '1/2', length: 0.046, branchLength: 0.023 } },
+      { name: 'футорка', generatorId: 'steel.bushing', params: { outerNominal: '1/2', innerNominal: '1/4', length: 0.014 },
+        attach: { connector: 'left', to: 'тройник', toConnector: 'top' } },
+      { name: 'манометр', generatorId: 'equipment.gauge', params: { kind: 'manometer', diameter: 63, connection: 'bottom', nominal: '1/4', probe: 0.05 },
+        attach: { connector: 'connection', to: 'футорка', toConnector: 'right' } },
+      { name: 'ниппель', generatorId: 'steel.nipple', params: { nominalLeft: '1/2', nominalRight: '1/2', length: 0.022 },
+        attach: { connector: 'left', to: 'тройник', toConnector: 'right' } },
+      { name: 'штуцер', generatorId: 'steel.hose-adapter', params: { nominal: '1/2', hoseNominal: '14', length: 0.044 },
+        attach: { connector: 'thread', to: 'ниппель', toConnector: 'right' } },
+    ],
+  };
+}
+
 export const STAND_ASSEMBLIES: AssemblyDefinition[] = [
   {
     label: 'Радиатор → переходник → ниппель → муфта',
@@ -967,6 +1012,8 @@ export const STAND_ASSEMBLIES: AssemblyDefinition[] = [
   radiatorAxialValve(),
   radiatorDoubleRegulation(),
   radiatorOnePipeInjector(),
+  threadedLine(),
+  gaugeAndHoseTee(),
   steelBottomHBlock('right'),
   steelBottomHBlock('right', 'ball'),
   manifoldReturnNode(),

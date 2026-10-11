@@ -67,13 +67,45 @@ export const EXTENSION_CATALOG: CatalogEntry[] = [
   entry('valve.injector', (['top', 'axial'] as const).map((handle) => ({
     label: `1/2 × 3/4 ЕК (${handle === 'top' ? 'VT.022' : 'VT.025'}), зонд 200 мм`, params: { handle, probeLength: 0.2 },
   }))),
-  entry('steel.union', ['1/2', '3/4', '1'].flatMap((nominal, i) =>
-    (['straight', 'angle'] as const).map((configuration) => ({
+  entry('steel.union', [
+    ...['1/2', '3/4', '1'].flatMap((nominal, i) => (['straight', 'angle'] as const).map((configuration) => ({
       label: `${nominal}, ${configuration === 'straight' ? 'прямая' : 'угловая'}`, params: { nominal, armLength: 0.035 + i * 0.01, configuration },
-    })))),
-  entry('steel.bushing', [['3/4', '1/2'], ['1', '1/2'], ['1', '3/4']].map(([outerNominal, innerNominal]) => ({
-    label: `${outerNominal}(н) × ${innerNominal}(в)`, params: { outerNominal, innerNominal, length: 0.025 },
+    }))),
+    // Версия 2, позиция 132: VALTEC VTr.340 (В–В) и VTr.728 (Н–Н), каталог 2017, с. 71 и 83; armLength = A / 2.
+    ...([['internal', 'В–В', 'VTr.340', [['1/2', 34], ['3/4', 40], ['1', 47], ['1 1/4', 53]]],
+      ['external', 'Н–Н', 'VTr.728', [['1/2', 48], ['3/4', 57], ['1', 69]]]] as const).flatMap(([ends, title, code, sizes]) =>
+      sizes.map(([nominal, a]) => ({
+        label: `${nominal}, ${title} (${code})`, params: { nominal, armLength: a / 2000, configuration: 'straight' as const, ends },
+      }))),
+  ]),
+  // Удлинитель В–Н (позиция 11) — VALTEC VTr.197 / VTr.198.C, каталог 2017, с. 69: длина A, мм.
+  entry('steel.extension', ([['1/2', [20, 25, 30, 35, 40, 50, 60]], ['3/4', [26, 31, 36, 41, 51]], ['1', [27, 32, 37, 42, 52]]] as const)
+    .flatMap(([nominal, lengths]) => lengths.map((a) => ({ label: `${nominal}, A = ${a} мм (VTr.197)`, params: { nominal, length: a / 1000 } })))),
+  // Сгон Н–Н (позиция 12) — VALTEC VTr.653, каталог 2017, с. 79: L1 = 40, L2 = 10 мм.
+  entry('steel.running-nipple', [80, 100, 150, 200, 250].map((a) => ({
+    label: `1/2 × ${a} (VTr.653)`, params: { nominal: '1/2', length: a / 1000, longThread: 0.04, shortThread: 0.01 },
   }))),
+  // Контргайка (позиция 13) — VALTEC VTr.656, каталог 2017, с. 81.
+  entry('steel.locknut', (['1/2', '3/4', '1', '1 1/4', '1 1/2', '2'] as const).map((nominal) => ({
+    label: `${nominal} (VTr.656)`, params: { nominal },
+  }))),
+  // Штуцер под шланг (позиция 17) — VALTEC VTr.654, каталог 2017, с. 80: A = 44 мм.
+  entry('steel.hose-adapter', [
+    ...['10', '12', '14', '16', '18', '20'].map((hoseNominal) => ({ label: `1/2(в) × ${hoseNominal} (VTr.654)`, params: { nominal: '1/2', hoseNominal, length: 0.044 } })),
+    { label: '3/4(в) × 20 (VTr.654)', params: { nominal: '3/4', hoseNominal: '20', length: 0.044 } },
+  ]),
+  // Эксцентрик (позиция 15) — VALTEC VTr.670, каталог 2017, с. 82.
+  entry('steel.eccentric', (['cup', 'none'] as const).map((cup) => ({
+    label: `1/2 × 3/4, 9 мм (VTr.670)${cup === 'cup' ? ', с чашкой' : ', без чашки'}`,
+    params: { nominalLeft: '1/2', nominalRight: '3/4', offset: 0.009, length: 0.043, cup },
+  }))),
+  entry('steel.bushing', [
+    ...[['3/4', '1/2'], ['1', '1/2'], ['1', '3/4']].map(([outerNominal, innerNominal]) => ({
+      label: `${outerNominal}(н) × ${innerNominal}(в)`, params: { outerNominal, innerNominal, length: 0.025 },
+    })),
+    // Переход под манометр (позиция 16) — футорка VALTEC VTr.581 1/2 × 1/4, каталог 2017, с. 74: A = 14 мм.
+    { label: '1/2(н) × 1/4(в), под манометр (VTr.581)', params: { outerNominal: '1/2', innerNominal: '1/4', length: 0.014 } },
+  ]),
   entry('steel.cap', ['1/2', '3/4', '1'].map((nominal, i) => ({ label: `${nominal}(в)`, params: { nominal, length: 0.022 + i * 0.005 } }))),
   entry('valve.drain', ['13', '16', '20'].map((hoseNominal) => ({
     label: `1/2 × шланг ${hoseNominal} мм`, params: { nominal: '1/2', hoseNominal, length: 0.06 },

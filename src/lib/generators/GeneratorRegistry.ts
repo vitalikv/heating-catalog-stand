@@ -68,6 +68,11 @@ import { AxialThermostaticValveGenerator } from './valve/AxialThermostaticValveG
 import { ThermostaticHeadGenerator } from './valve/ThermostaticHeadGenerator';
 import { DoubleRegulationValveGenerator } from './valve/DoubleRegulationValveGenerator';
 import { InjectorValveGenerator } from './valve/InjectorValveGenerator';
+import { SteelExtensionGenerator } from './steel/SteelExtensionGenerator';
+import { SteelRunningNippleGenerator } from './steel/SteelRunningNippleGenerator';
+import { SteelLocknutGenerator } from './steel/SteelLocknutGenerator';
+import { SteelEccentricGenerator } from './steel/SteelEccentricGenerator';
+import { SteelHoseAdapterGenerator } from './steel/SteelHoseAdapterGenerator';
 
 /** Все генераторы библиотеки; порядок — порядок списка на стенде. */
 function createGenerators() {
@@ -141,6 +146,11 @@ function createGenerators() {
   new ThermostaticHeadGenerator(),
   new DoubleRegulationValveGenerator(),
   new InjectorValveGenerator(),
+  new SteelExtensionGenerator(),
+  new SteelRunningNippleGenerator(),
+  new SteelLocknutGenerator(),
+  new SteelEccentricGenerator(),
+  new SteelHoseAdapterGenerator(),
   ] as const;
 }
 

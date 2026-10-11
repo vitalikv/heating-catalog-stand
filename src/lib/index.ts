@@ -74,11 +74,16 @@ export type { BallValveUnionParams } from './generators/valve/BallValveUnionGene
 export type { RegulatingValveHead, RegulatingValveParams } from './generators/valve/RegulatingValveGenerator';
 export type { SteelBushingParams } from './generators/steel/SteelBushingGenerator';
 export type { SteelCapParams } from './generators/steel/SteelCapGenerator';
-export type { SteelUnionParams } from './generators/steel/SteelUnionGenerator';
+export type { SteelUnionEnds, SteelUnionParams } from './generators/steel/SteelUnionGenerator';
 export type { AngleThermostaticValveParams } from './generators/valve/AngleThermostaticValveGenerator';
 export type { StraightThermostaticValveParams } from './generators/valve/StraightThermostaticValveGenerator';
 export type { AxialThermostaticValveParams } from './generators/valve/AxialThermostaticValveGenerator';
 export type { ThermostaticHeadParams, ThermostaticHeadSetting } from './generators/valve/ThermostaticHeadGenerator';
+export type { SteelExtensionParams } from './generators/steel/SteelExtensionGenerator';
+export type { SteelRunningNippleParams } from './generators/steel/SteelRunningNippleGenerator';
+export type { LocknutNominal, SteelLocknutParams } from './generators/steel/SteelLocknutGenerator';
+export type { SteelEccentricParams } from './generators/steel/SteelEccentricGenerator';
+export type { SteelHoseAdapterParams } from './generators/steel/SteelHoseAdapterGenerator';
 export type { DoubleRegulationValveParams } from './generators/valve/DoubleRegulationValveGenerator';
 export type { InjectorValveParams } from './generators/valve/InjectorValveGenerator';
 export type { RadiatorPipeEnd, RadiatorValveForm, RadiatorValveHead } from './generators/valve/RadiatorValveParts';
