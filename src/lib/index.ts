@@ -26,7 +26,9 @@ export type { CirculationPumpParams } from './generators/equipment/CirculationPu
 export type { ExpansionTankParams } from './generators/equipment/ExpansionTankGenerator';
 export type { PumpNutParams } from './generators/equipment/PumpNutGenerator';
 export type { SafetyGroupParams } from './generators/equipment/SafetyGroupGenerator';
-export type { StrainerParams } from './generators/equipment/StrainerGenerator';
+export type { StrainerEnds, StrainerParams } from './generators/equipment/StrainerGenerator';
+export type { StraightStrainerParams } from './generators/equipment/StraightStrainerGenerator';
+export type { FlushFilterParams } from './generators/equipment/FlushFilterGenerator';
 export type { MpCouplingParams } from './generators/mp/MpCouplingGenerator';
 export type { MpElbowParams } from './generators/mp/MpElbowGenerator';
 export type { MpPipeParams } from './generators/mp/MpPipeGenerator';

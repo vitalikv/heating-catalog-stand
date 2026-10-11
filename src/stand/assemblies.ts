@@ -110,6 +110,29 @@ export function manifoldPair(outlets = 4): AssemblyDefinition {
 }
 
 /**
+ * Замена фильтра в обвязке котла (часть 29): котёл → муфта → ниппель вниз → угол → ниппель →
+ * фильтр на горизонтальном участке колбой вниз (монтаж по паспорту VALTEC). Длинный ниппель
+ * опускает фильтр, чтобы манометр промывного фильтра не упирался в котёл.
+ */
+export function boilerFilter(generatorId: 'equipment.strainer-straight' | 'equipment.flush-filter', params: unknown, name: string): AssemblyDefinition {
+  return {
+    label: `Котёл: ${name} на горизонтальном участке`,
+    parts: [
+      { name: 'котёл', generatorId: 'equipment.boiler', params: { dimensions: { x: 0.4, y: 0.73, z: 0.3 }, nominal: '3/4', connection: 'bottom' } },
+      { name: 'муфта', generatorId: 'steel.coupling', params: { nominalLeft: '3/4', nominalRight: '3/4', length: 0.033 },
+        attach: { connector: 'left', to: 'котёл', toConnector: 'bottom-right' } },
+      { name: 'ниппель вниз', generatorId: 'steel.nipple', params: { nominalLeft: '3/4', nominalRight: '3/4', length: 0.12 },
+        attach: { connector: 'left', to: 'муфта', toConnector: 'right' } },
+      { name: 'угол', generatorId: 'steel.elbow-90', params: { threadGender: 'internal', nominal: '3/4', armLength: 0.03 },
+        attach: { connector: 'top', to: 'ниппель вниз', toConnector: 'right' } },
+      { name: 'ниппель', generatorId: 'steel.nipple', params: { nominalLeft: '3/4', nominalRight: '3/4', length: 0.04 },
+        attach: { connector: 'left', to: 'угол', toConnector: 'right' } },
+      { name: 'фильтр', generatorId, params, attach: { connector: 'left', to: 'ниппель', toConnector: 'right' } },
+    ],
+  };
+}
+
+/**
  * Сборки для проверки стыковки. Сначала совместимые стыки, потом заведомо
  * несовместимые (название начинается с «Ошибка») — стенд должен показать причину.
  */
@@ -357,6 +380,22 @@ export const STAND_ASSEMBLIES: AssemblyDefinition[] = [
       },
     ],
   },
+  {
+    // Часть 28: насос VRS по монтажной длине 180 мм, гайки G1 1/2 × 1 и ниппели к трубе.
+    label: 'Насос VRS 25/6-180: гайки 1 1/2 × 1, ниппели',
+    parts: [
+      { name: 'насос', generatorId: 'equipment.pump',
+        params: { nominal: '1 1/2', installLength: 0.18, housing: 'vrs', motor: 'small', terminalBox: 'left' } },
+      ...(['left', 'right'] as const).flatMap((side) => [
+        { name: `гайка ${side}`, generatorId: 'equipment.pump-nut', params: { pumpNominal: '1 1/2', pipeNominal: '1' },
+          attach: { connector: 'pump', to: 'насос', toConnector: side } },
+        { name: `ниппель ${side}`, generatorId: 'steel.nipple', params: { nominalLeft: '1', nominalRight: '1', length: 0.044 },
+          attach: { connector: 'left', to: `гайка ${side}`, toConnector: 'pipe' } },
+      ]),
+    ],
+  },
+  boilerFilter('equipment.strainer-straight', { nominal: '3/4', ends: 'internal', length: 0.068, height: 0.058, bottom: 'cap' }, 'прямой фильтр 3/4'),
+  boilerFilter('equipment.flush-filter', { nominal: '3/4', gauge: 'manometer' }, 'промывной фильтр 3/4 с манометром'),
   {
     label: 'Котёл: фильтр, муфта, бак',
     parts: [

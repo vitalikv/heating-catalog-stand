@@ -1,5 +1,6 @@
 import { entry } from './entry';
 import type { CatalogEntry } from './entry';
+import { FILTER_CATALOG } from './filters';
 import { MANIFOLD_CATALOG } from './manifold';
 
 /** Обобщённые модели вне gl2. Размеры — стартовые параметры для стенда, не паспортные изделия. */
@@ -84,4 +85,5 @@ export const EXTENSION_CATALOG: CatalogEntry[] = [
     label: `3/4 × МП ${pipeNominal} (VT.4420)`, params: { pipeNominal, euroconeNominal: '3/4', length: 0.026 },
   }))),
   ...MANIFOLD_CATALOG,
+  ...FILTER_CATALOG,
 ];

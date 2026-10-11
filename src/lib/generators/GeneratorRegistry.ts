@@ -54,6 +54,8 @@ import { MpCompressionThreadAdapterGenerator } from './mp/MpCompressionThreadAda
 import { MpEuroconeAdapterGenerator } from './mp/MpEuroconeAdapterGenerator';
 import { BrassManifoldGenerator } from './manifold/BrassManifoldGenerator';
 import { ThermoelectricActuatorGenerator } from './valve/ThermoelectricActuatorGenerator';
+import { StraightStrainerGenerator } from './equipment/StraightStrainerGenerator';
+import { FlushFilterGenerator } from './equipment/FlushFilterGenerator';
 
 /** Все генераторы библиотеки; порядок — порядок списка на стенде. */
 function createGenerators() {
@@ -113,6 +115,8 @@ function createGenerators() {
   new MpEuroconeAdapterGenerator(),
   new BrassManifoldGenerator(),
   new ThermoelectricActuatorGenerator(),
+  new StraightStrainerGenerator(),
+  new FlushFilterGenerator(),
   ] as const;
 }
 
