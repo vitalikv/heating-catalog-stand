@@ -50,9 +50,22 @@ export const EXTENSION_CATALOG: CatalogEntry[] = [
   entry('valve.thermostatic-head', (['*', '3', '5'] as const).map((setting) => ({
     label: `M30×1,5 (VT.5000), шкала ${setting}`, params: { setting },
   }))),
-  entry('valve.radiator-h-block', (['straight', 'angle'] as const).map((configuration) => ({
-    label: `3/4, 50 мм, ${configuration === 'straight' ? 'прямой' : 'угловой'}`,
-    params: { radiatorNominal: '3/4', pipeNominal: '3/4', spacing: 0.05, height: 0.06, configuration },
+  entry('valve.radiator-h-block', [
+    ...(['straight', 'angle'] as const).map((configuration) => ({
+      label: `3/4, 50 мм, ${configuration === 'straight' ? 'прямой' : 'угловой'}`,
+      params: { radiatorNominal: '3/4', pipeNominal: '3/4', spacing: 0.05, height: 0.06, configuration },
+    })),
+    // Версия 3, позиция 100: VALTEC VT.345K (каталог 2017, с. 520) — A = 49, B = 50 мм, шаровые краны.
+    { label: '3/4, 50 мм, прямой с кранами (VT.345K)',
+      params: { radiatorNominal: '3/4', pipeNominal: '3/4', spacing: 0.05, height: 0.049, configuration: 'straight', shutoff: 'ball' } },
+  ]),
+  // Кран двойной регулировки (позиция 99) — VALTEC VT.004, каталог 2017, с. 524: A, H, мм.
+  entry('valve.double-regulation', ([['1/2', 52, 82], ['3/4', 62, 88]] as const).map(([nominal, a, h]) => ({
+    label: `${nominal} (VT.004)`, params: { nominal, length: a / 1000, height: h / 1000 },
+  }))),
+  // Инжекторный узел (позиция 101) — VALTEC VT.022 (ручка сверху) и VT.025 (по оси), каталог 2017, с. 566, 569.
+  entry('valve.injector', (['top', 'axial'] as const).map((handle) => ({
+    label: `1/2 × 3/4 ЕК (${handle === 'top' ? 'VT.022' : 'VT.025'}), зонд 200 мм`, params: { handle, probeLength: 0.2 },
   }))),
   entry('steel.union', ['1/2', '3/4', '1'].flatMap((nominal, i) =>
     (['straight', 'angle'] as const).map((configuration) => ({

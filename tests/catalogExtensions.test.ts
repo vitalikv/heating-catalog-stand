@@ -11,7 +11,7 @@ describe('новые модели вне gl2', () => {
   it('все семейства расширений доступны в каталоге', () => {
     expect(EXTENSION_CATALOG.map((entry) => entry.generatorId).sort()).toEqual([
       'equipment.air-vent', 'equipment.flush-filter', 'equipment.gauge', 'equipment.separator', 'equipment.strainer-straight', 'manifold.brass', 'mp.compression-coupling', 'mp.compression-elbow', 'mp.compression-tee', 'mp.compression-thread-adapter', 'mp.eurocone-adapter', 'mp.pipe-path',
-      'steel.bushing', 'steel.cap', 'steel.union', 'valve.check', 'valve.drain',
+      'steel.bushing', 'steel.cap', 'steel.union', 'valve.check', 'valve.double-regulation', 'valve.drain', 'valve.injector',
       'valve.lockshield', 'valve.make-up', 'valve.mixing', 'valve.radiator-h-block', 'valve.thermoelectric-actuator', 'valve.thermostatic-angle',
       'valve.thermostatic-axial', 'valve.thermostatic-head', 'valve.thermostatic-straight', 'valve.vent-shutoff',
     ]);

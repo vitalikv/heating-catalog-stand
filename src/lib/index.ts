@@ -79,6 +79,8 @@ export type { AngleThermostaticValveParams } from './generators/valve/AngleTherm
 export type { StraightThermostaticValveParams } from './generators/valve/StraightThermostaticValveGenerator';
 export type { AxialThermostaticValveParams } from './generators/valve/AxialThermostaticValveGenerator';
 export type { ThermostaticHeadParams, ThermostaticHeadSetting } from './generators/valve/ThermostaticHeadGenerator';
+export type { DoubleRegulationValveParams } from './generators/valve/DoubleRegulationValveGenerator';
+export type { InjectorValveParams } from './generators/valve/InjectorValveGenerator';
 export type { RadiatorPipeEnd, RadiatorValveForm, RadiatorValveHead } from './generators/valve/RadiatorValveParts';
 export type { CheckValveParams } from './generators/valve/CheckValveGenerator';
 export type { DrainValveParams } from './generators/valve/DrainValveGenerator';

@@ -66,6 +66,8 @@ import { MakeUpValveGenerator } from './valve/MakeUpValveGenerator';
 import { StraightThermostaticValveGenerator } from './valve/StraightThermostaticValveGenerator';
 import { AxialThermostaticValveGenerator } from './valve/AxialThermostaticValveGenerator';
 import { ThermostaticHeadGenerator } from './valve/ThermostaticHeadGenerator';
+import { DoubleRegulationValveGenerator } from './valve/DoubleRegulationValveGenerator';
+import { InjectorValveGenerator } from './valve/InjectorValveGenerator';
 
 /** Все генераторы библиотеки; порядок — порядок списка на стенде. */
 function createGenerators() {
@@ -137,6 +139,8 @@ function createGenerators() {
   new StraightThermostaticValveGenerator(),
   new AxialThermostaticValveGenerator(),
   new ThermostaticHeadGenerator(),
+  new DoubleRegulationValveGenerator(),
+  new InjectorValveGenerator(),
   ] as const;
 }
 

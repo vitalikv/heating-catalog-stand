@@ -7,7 +7,7 @@ import type { GeometryPart } from '../../geometry/MaterialGroupMerger';
 import { sleeves } from '../../geometry/SleeveGeometryBuilder';
 import { ParamSchema } from '../../params/ParamSchema';
 import { SEAT_DEPTH } from '../manifold/ManifoldInserts';
-import { orientParts, threadedArm, threadedSize, unionNut, valveHead } from '../ThreadedParts';
+import { EUROCONE_TIP, euroconeArm, orientParts, threadedArm, threadedSize, unionNut, valveHead } from '../ThreadedParts';
 
 /**
  * Форма корпуса: angle — вход снизу, головка вверх; straight — вход слева, головка вверх;
@@ -33,8 +33,6 @@ export interface RadiatorValveShape {
 /** Евроконус выпускается только 1/2 к радиатору × 3/4 ЕК к трубе (VT.031/032/019/020.NER). */
 export const EUROCONE_VALVE_NOMINAL = '1/2';
 const EUROCONE_NOMINAL = '3/4';
-/** Носик евроконуса за резьбой, м — как у H-блока. */
-const EUROCONE_TIP = 0.003;
 /** Посадочное место: шейка до резьбы M30×1,5 и сама резьба, м — условно. */
 const SEAT = { neck: 0.012, neckDiameter: 0.026, diameter: 0.03 };
 const HEAD_NOMINAL = 'M30x1.5';
@@ -96,13 +94,7 @@ function headSeat(height: number): GeometryPart[] {
 
 /** Конец со стороны трубы по +X до reach: внутренняя резьба либо наружная резьба 3/4 с носиком евроконуса. */
 function pipeArm(d: RadiatorValveLayout, pipeEnd: RadiatorPipeEnd | undefined, reach: number): GeometryPart[] {
-  if (pipeEnd !== 'eurocone') return threadedArm(d.pipe, 'internal', reach);
-  const threadEnd = reach - EUROCONE_TIP;
-  return [
-    ...threadedArm(d.pipe, 'external', threadEnd),
-    ...sleeves.build({ material: 'metal', length: EUROCONE_TIP, outerDiameterStart: d.pipe.n, outerDiameter: d.pipe.v,
-      innerDiameter: d.pipe.v * 0.8, center: { x: threadEnd + EUROCONE_TIP / 2, y: 0, z: 0 } }),
-  ];
+  return pipeEnd === 'eurocone' ? euroconeArm(d.pipe, reach) : threadedArm(d.pipe, 'internal', reach);
 }
 
 /**
@@ -134,3 +126,17 @@ export function createRadiatorValve(p: RadiatorValveShape, d: RadiatorValveLayou
   return createMeshModel({ title: `${title} ${nominal}`, ...merger.merge(), connectors });
 }
 
+
+/**
+ * Ручка ручной регулировки по +X от base до top: рифлёный пластиковый маховичок, расширяющийся кверху,
+ * со скруглённым верхом (VALTEC VT.004, VT.022/025) — форма условная.
+ */
+export function radiatorHandle(base: number, top: number, diameter: number): GeometryPart[] {
+  const crown = top - Math.min(0.006, (top - base) / 4);
+  return [
+    ...sleeves.build({ material: 'plastic', length: crown - base, outerDiameterStart: diameter * 0.8, outerDiameter: diameter,
+      innerDiameter: 0, outerSegments: 12, center: { x: (base + crown) / 2, y: 0, z: 0 }, materials: { outer: 'plasticFlat' } }),
+    ...sleeves.build({ material: 'plastic', length: top - crown, outerDiameterStart: diameter, outerDiameter: diameter * 0.7,
+      innerDiameter: 0, center: { x: (crown + top) / 2, y: 0, z: 0 } }),
+  ];
+}

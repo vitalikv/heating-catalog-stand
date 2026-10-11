@@ -1,7 +1,7 @@
 import { Box3, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { Assembly, ConnectorMating, GeneratorRegistry } from '../src/lib/index';
-import { radiatorAxialValve, radiatorStraightValves } from '../src/stand/assemblies';
+import { radiatorAxialValve, radiatorDoubleRegulation, radiatorOnePipeInjector, radiatorStraightValves, steelBottomHBlock } from '../src/stand/assemblies';
 import type { Connector, GeneratedModel, GeneratorId } from '../src/lib/index';
 
 const registry = new GeneratorRegistry();
@@ -168,5 +168,94 @@ describe('радиаторная арматура (часть 24)', () => {
       expect(actuator.min.x).toBeGreaterThan(worldBox(assembly, 'радиатор').max.x);
       assembly.dispose();
     });
+  });
+
+  it('99: КРДП VT.004 — В–В на оси X, длина A и высота H по каталогу', () => {
+    for (const [nominal, a, h] of [['1/2', 0.052, 0.082], ['3/4', 0.062, 0.088]] as const) {
+      const model = build('valve.double-regulation', { nominal, length: a, height: h });
+      expect(port(model, 'left')).toMatchObject({ nominal, joint: 'thread', gender: 'internal', position: { x: -a / 2, y: 0, z: 0 } });
+      expect(port(model, 'right')).toMatchObject({ nominal, joint: 'thread', gender: 'internal', position: { x: a / 2, y: 0, z: 0 } });
+      expect(model.bounds.max.y - model.bounds.min.y).toBeCloseTo(h, 6);
+      expect(model.bounds.max.x - model.bounds.min.x).toBeCloseTo(a, 6);
+      model.dispose();
+    }
+    const generator = registry.get('valve.double-regulation');
+    expect(generator.validate({ ...generator.defaults, length: 0.02, height: 0.03 }).map((e) => e.param)).toEqual(['length', 'height']);
+  });
+
+  it('100: H-блок v3 с кранами VT.345K — порты как без кранов, шлиц вынесен за шар', () => {
+    const generator = registry.get('valve.radiator-h-block');
+    expect(generator.version).toBe(3);
+    const plain = build('valve.radiator-h-block', { height: 0.049 });
+    const ball = build('valve.radiator-h-block', { height: 0.049, shutoff: 'ball' });
+    expect(ball.connectors).toEqual(plain.connectors);
+    expect(port(ball, 'radiator-left').position.y - port(ball, 'pipe-left').position.y).toBeCloseTo(0.049, 9);
+    expect(ball.bounds.max.z).toBeGreaterThan(plain.bounds.max.z);
+    expect(ball.materials).toContain('black');
+    expect(ball.title).toContain('с кранами');
+    expect(generator.validate({ radiatorNominal: '3/4', pipeNominal: '3/4', spacing: 0.05, height: 0.06, configuration: 'straight' } as never)).toEqual([]);
+    plain.dispose(); ball.dispose();
+  });
+
+  it.each(['top', 'axial'] as const)('101: инжекторный узел, ручка %s — A, B, C по VT.022/025, зонд длиной probeLength', (handle) => {
+    const model = build('valve.injector', { handle, probeLength: 0.3 });
+    const radiator = port(model, 'radiator');
+    expect(radiator).toMatchObject({ nominal: '1/2', joint: 'thread', gender: 'external', direction: { x: 1, y: 0, z: 0 } });
+    expect(radiator.position.x).toBeCloseTo(0.0385, 9);
+    for (const id of ['supply', 'return']) {
+      expect(port(model, id)).toMatchObject({ nominal: '3/4', joint: 'eurocone', gender: 'external', direction: { x: 0, y: -1, z: 0 } });
+      expect(port(model, id).position.y).toBeCloseTo(-0.028, 9);
+    }
+    expect(port(model, 'return').position.x - port(model, 'supply').position.x).toBeCloseTo(0.04, 9);
+    expect(model.bounds.max.x).toBeCloseTo(0.0385 + 0.3, 6);
+    if (handle === 'top') expect(model.bounds.max.y).toBeGreaterThan(0.04);
+    else expect(model.bounds.min.x).toBeLessThan(-0.04 - 0.04);
+    const adapter = build('mp.eurocone-adapter');
+    expect(ConnectorMating.check(port(model, 'supply'), port(adapter, 'eurocone')).compatible).toBe(true);
+    model.dispose(); adapter.dispose();
+  });
+});
+
+describe('сборки радиаторной арматуры 24b', () => {
+  const placed = (assembly: Assembly, name: string) => {
+    const part = assembly.parts.find((p) => p.name === name);
+    if (!part) throw new Error(`нет детали ${name}`);
+    return part;
+  };
+  const worldDirection = (assembly: Assembly, name: string, local: [number, number, number]) =>
+    new Vector3(...local).transformDirection(placed(assembly, name).matrix);
+  const worldBox = (assembly: Assembly, name: string) => {
+    const { model, matrix } = placed(assembly, name);
+    return new Box3(new Vector3().copy(model.bounds.min), new Vector3().copy(model.bounds.max)).applyMatrix4(matrix);
+  };
+
+  it.each(['top', 'axial'] as const)('66: однотрубный узел — зонд уходит в нижний коллектор, выходы вниз, ручка %s', (handle) => {
+    const assembly = new Assembly(registry, radiatorOnePipeInjector(handle));
+    expect(assembly.errors).toEqual([]);
+    expect(assembly.joints.every(({ check }) => check.compatible)).toBe(true);
+    // Корпус по +X смотрит на радиатор: зонд (локально +X) идёт внутрь радиатора, выходы — вниз.
+    expect(worldDirection(assembly, 'инжектор', [1, 0, 0]).x).toBeCloseTo(-1, 9);
+    expect(worldDirection(assembly, 'инжектор', [0, -1, 0]).y).toBeCloseTo(-1, 9);
+    const radiator = worldBox(assembly, 'радиатор');
+    const injector = worldBox(assembly, 'инжектор');
+    expect(injector.min.x).toBeGreaterThan(radiator.min.x);
+    expect(injector.min.x).toBeLessThan(radiator.max.x - 0.4);
+    for (const pipe of ['труба supply', 'труба return']) expect(worldBox(assembly, pipe).max.y).toBeLessThan(radiator.min.y);
+    assembly.dispose();
+  });
+
+  it('99: КРДП на ниппеле — ручка вверх, проход горизонтально от радиатора', () => {
+    const assembly = new Assembly(registry, radiatorDoubleRegulation());
+    expect(assembly.joints.every(({ check }) => check.compatible)).toBe(true);
+    expect(worldDirection(assembly, 'КРДП', [0, 1, 0]).y).toBeCloseTo(1, 9);
+    expect(worldBox(assembly, 'КРДП').min.x).toBeGreaterThan(worldBox(assembly, 'радиатор').max.x);
+    assembly.dispose();
+  });
+
+  it('100: H-блок с кранами на стальном радиаторе — второй порт замкнут', () => {
+    const assembly = new Assembly(registry, steelBottomHBlock('right', 'ball'));
+    expect(assembly.joints.every(({ check }) => check.compatible)).toBe(true);
+    expect(assembly.closures.every((closure) => closure.closed)).toBe(true);
+    assembly.dispose();
   });
 });

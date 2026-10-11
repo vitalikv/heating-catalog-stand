@@ -101,3 +101,16 @@ export function valveHead(height: number, thermostatic: boolean, direction: Vect
     innerDiameter: 0, outerSegments: 6, center: { x: start + 0.008, y: 0, z: 0 } });
   return orientParts([...stem, ...cap], direction);
 }
+
+/** Носик евроконуса за наружной резьбой 3/4, м. */
+export const EUROCONE_TIP = 0.003;
+
+/** Выход «евроконус» по +X до reach: наружная резьба и носик EUROCONE_TIP. Глубина порта — size.depth + EUROCONE_TIP. */
+export function euroconeArm(size: ThreadedSize, reach: number): GeometryPart[] {
+  const threadEnd = reach - EUROCONE_TIP;
+  return [
+    ...threadedArm(size, 'external', threadEnd),
+    ...sleeves.build({ material: 'metal', length: EUROCONE_TIP, outerDiameterStart: size.n, outerDiameter: size.v,
+      innerDiameter: size.v * 0.8, center: { x: threadEnd + EUROCONE_TIP / 2, y: 0, z: 0 } }),
+  ];
+}

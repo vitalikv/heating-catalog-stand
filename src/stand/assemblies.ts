@@ -8,17 +8,19 @@ const radiator = (sections: number, height: number): AluminiumRadiatorParams => 
  * При совмещении up H-блок разворачивается на π вокруг вертикали, поэтому к ниппелю A у торца
  * идёт противоположный по названию порт: при паре справа — radiator-left.
  */
-export function steelBottomHBlock(bottomSide: 'right' | 'left'): AssemblyDefinition {
+export function steelBottomHBlock(bottomSide: 'right' | 'left', shutoff: 'none' | 'ball' = 'none'): AssemblyDefinition {
   const nipple = { nominalLeft: '3/4', nominalRight: '1/2', length: 0.026 };
+  // С кранами — VALTEC VT.345K (позиция 100): высота A = 49 мм.
+  const hBlock = shutoff === 'ball' ? { height: 0.049, shutoff } : { height: 0.06 };
   return {
-    label: `Стальной радиатор снизу (${bottomSide === 'right' ? 'справа' : 'слева'}): ниппели, H-блок, евроконус → МП`,
+    label: `Стальной радиатор снизу (${bottomSide === 'right' ? 'справа' : 'слева'}): ниппели, H-блок${shutoff === 'ball' ? ' с кранами VT.345K' : ''}, евроконус → МП`,
     parts: [
       { name: 'радиатор', generatorId: 'radiator.steel',
         params: { dimensions: { x: 0.6, y: 0.5, z: 0.07 }, nominal: '1/2', connection: 'bottom', bottomSide } },
       { name: 'ниппель A', generatorId: 'steel.nipple', params: nipple, attach: { connector: 'right', to: 'радиатор', toConnector: 'below-outer' } },
       { name: 'ниппель B', generatorId: 'steel.nipple', params: nipple, attach: { connector: 'right', to: 'радиатор', toConnector: 'below-inner' } },
       { name: 'H-блок', generatorId: 'valve.radiator-h-block',
-        params: { radiatorNominal: '3/4', pipeNominal: '3/4', spacing: 0.05, height: 0.06, configuration: 'straight' },
+        params: { radiatorNominal: '3/4', pipeNominal: '3/4', spacing: 0.05, configuration: 'straight', ...hBlock },
         attach: { connector: bottomSide === 'right' ? 'radiator-left' : 'radiator-right', to: 'ниппель A', toConnector: 'left' } },
       // Звено «евроконус → МП-труба» (часть 22): обжимной адаптер и отрезок трубы на каждом выходе.
       ...(['left', 'right'] as const).flatMap((side) => [
@@ -491,6 +493,54 @@ export function radiatorAxialValve(): AssemblyDefinition {
   };
 }
 
+/**
+ * Однотрубный узел с байпасом (позиция 66) на инжекторном клапане VT.022 (позиция 101): алюминиевый радиатор,
+ * одноточечное подключение снизу справа через футорку 1 × 1/2, зонд уходит в нижний коллектор. Подача и
+ * обратка стояка — МП 16 через адаптеры евроконуса; остальные порты закрыты воздухоотводчиком и заглушками.
+ */
+export function radiatorOnePipeInjector(handle: 'top' | 'axial' = 'top'): AssemblyDefinition {
+  const sections = 8;
+  return {
+    label: `Однотрубный узел: радиатор ${sections} секций, инжекторный клапан ${handle === 'top' ? 'VT.022' : 'VT.025'}, МП 16`,
+    parts: [
+      { name: 'радиатор', generatorId: 'radiator.aluminium', params: radiator(sections, 0.5) },
+      { name: 'воздухоотводчик', generatorId: 'radiator.port-fitting', params: { kind: 'vent', portNominal: '1' },
+        attach: { connector: 'radiator', to: 'радиатор', toConnector: 'top-left' } },
+      ...(['top-right', 'bottom-left'] as const).map((port) => ({
+        name: `заглушка ${port}`, generatorId: 'radiator.port-fitting' as const, params: { kind: 'plug' as const, portNominal: '1' },
+        attach: { connector: 'radiator', to: 'радиатор', toConnector: port },
+      })),
+      { name: 'футорка', generatorId: 'radiator.port-fitting', params: { kind: 'adapter', portNominal: '1', outletNominal: '1/2' },
+        attach: { connector: 'radiator', to: 'радиатор', toConnector: 'bottom-right' } },
+      // Зонд короче радиатора на две секции: доходит до дальней части нижнего коллектора.
+      { name: 'инжектор', generatorId: 'valve.injector', params: { handle, probeLength: (sections - 2) * 0.08 },
+        attach: { connector: 'radiator', to: 'футорка', toConnector: 'outlet' } },
+      ...(['supply', 'return'] as const).flatMap((port) => [
+        { name: `адаптер ${port}`, generatorId: 'mp.eurocone-adapter' as const, params: { pipeNominal: '16', euroconeNominal: '3/4', length: 0.026 },
+          attach: { connector: 'eurocone', to: 'инжектор', toConnector: port } },
+        { name: `труба ${port}`, generatorId: 'mp.pipe' as const, params: { nominal: '16', length: 0.15 },
+          attach: { connector: 'start', to: `адаптер ${port}`, toConnector: 'pipe' } },
+      ]),
+    ],
+  };
+}
+
+/** Кран двойной регулировки VT.004 (позиция 99) на подаче через ниппель 1/2, угловая обратка. */
+export function radiatorDoubleRegulation(): AssemblyDefinition {
+  return {
+    label: 'Радиатор: кран двойной регулировки VT.004 на ниппеле, угловая обратка',
+    parts: [
+      RADIATOR_PART,
+      { name: 'ниппель', generatorId: 'steel.nipple', params: { nominalLeft: '1/2', nominalRight: '1/2', length: 0.022 },
+        attach: { connector: 'left', to: 'радиатор', toConnector: 'top-right' } },
+      { name: 'КРДП', generatorId: 'valve.double-regulation', params: { nominal: '1/2', length: 0.052, height: 0.082 },
+        attach: { connector: 'left', to: 'ниппель', toConnector: 'right' } },
+      { name: 'обратка', generatorId: 'valve.lockshield', params: { nominal: '1/2', armLength: 0.035, configuration: 'angle' },
+        attach: { connector: 'radiator', to: 'радиатор', toConnector: 'bottom-right' } },
+    ],
+  };
+}
+
 export const STAND_ASSEMBLIES: AssemblyDefinition[] = [
   {
     label: 'Радиатор → переходник → ниппель → муфта',
@@ -915,7 +965,10 @@ export const STAND_ASSEMBLIES: AssemblyDefinition[] = [
   },
   radiatorStraightValves(),
   radiatorAxialValve(),
+  radiatorDoubleRegulation(),
+  radiatorOnePipeInjector(),
   steelBottomHBlock('right'),
+  steelBottomHBlock('right', 'ball'),
   manifoldReturnNode(),
   manifoldPair(),
   {
