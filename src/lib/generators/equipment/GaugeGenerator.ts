@@ -43,6 +43,28 @@ type Layout = { thread: ThreadedSize; radius: number; depth: number; hex: number
 const alongZ = { x: 0, y: -Math.PI / 2, z: 0 };
 const spanZ = (from: number, to: number) => ({ length: to - from, center: { x: 0, y: 0, z: (from + to) / 2 }, rotation: alongZ });
 
+/**
+ * Головка прибора без штуцера: корпус-стакан диаметром diameter и глубиной depth с задней стенкой,
+ * ободок спереди, циферблат утоплен на 3 мм и смотрит на +Z; передний край — z = 0, центр — на оси Z.
+ * Корпус до Ø50 — чёрный (VT.TM), больше — стальной. UV циферблата приведены к эталонному диску.
+ * Общая часть: отдельный прибор (equipment.gauge) и приборы в составе арматуры (VT.515).
+ */
+export function gaugeHead(diameter: number, depth: number, dialMaterial: GaugeKind): GeometryPart[] {
+  const caseMaterial: MaterialKey = diameter <= 0.05 ? 'black' : 'metal';
+  const dial = diameter * DIAL_SHARE;
+  const face = sleeves.build({ material: dialMaterial, ...spanZ(-0.004, -0.003), outerDiameter: dial, innerDiameter: 0 });
+  for (const { geometry } of face) {
+    const uv = geometry.getAttribute('uv');
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * (DIAL_REFERENCE / dial), uv.getY(i) * (DIAL_REFERENCE / dial));
+  }
+  return [
+    ...sleeves.build({ material: caseMaterial, ...spanZ(-depth, 0), outerDiameter: diameter, innerDiameter: dial }),
+    ...sleeves.build({ material: caseMaterial, ...spanZ(-depth, -0.004), outerDiameter: dial, innerDiameter: 0 }),
+    ...sleeves.build({ material: 'metal', ...spanZ(0, BEZEL), outerDiameter: diameter + 0.002, innerDiameter: dial }),
+    ...face,
+  ];
+}
+
 /** Выход штуцера и точка, где он начинается на корпусе. */
 const CONNECTIONS: Readonly<Record<GaugeParams['connection'], { frame: Frame; start: (d: Layout) => { x: number; y: number; z: number } }>> = {
   bottom: { frame: ConnectorFrame.bottom, start: (d) => ({ x: 0, y: -d.radius, z: -d.depth / 2 }) },
@@ -88,23 +110,8 @@ export class GaugeGenerator extends BaseGenerator<GaugeParams, Layout> {
   }
 
   protected create(p: GaugeParams, d: Layout): GeneratedModel {
-    const caseMaterial: MaterialKey = p.diameter <= 50 ? 'black' : 'metal';
-    const dial = 2 * d.radius * DIAL_SHARE;
-    const face = sleeves.build({ material: p.kind, ...spanZ(-0.004, -0.003), outerDiameter: dial, innerDiameter: 0 });
-    for (const { geometry } of face) {
-      const uv = geometry.getAttribute('uv');
-      for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * (DIAL_REFERENCE / dial), uv.getY(i) * (DIAL_REFERENCE / dial));
-    }
-
     const merger = new MaterialGroupMerger();
-    merger.add(
-      // Корпус-стакан с задней стенкой, ободок спереди; циферблат утоплен на 3 мм.
-      ...sleeves.build({ material: caseMaterial, ...spanZ(-d.depth, 0), outerDiameter: 2 * d.radius, innerDiameter: dial }),
-      ...sleeves.build({ material: caseMaterial, ...spanZ(-d.depth, -0.004), outerDiameter: dial, innerDiameter: 0 }),
-      ...sleeves.build({ material: 'metal', ...spanZ(0, BEZEL), outerDiameter: 2 * d.radius + 0.002, innerDiameter: dial }),
-      ...face,
-      ...this.fitting(p, d),
-    );
+    merger.add(...gaugeHead(p.diameter / 1000, d.depth, p.kind), ...this.fitting(p, d));
 
     const { frame, start } = CONNECTIONS[p.connection];
     const reach = NECK + d.hex * 0.6 + d.thread.depth;

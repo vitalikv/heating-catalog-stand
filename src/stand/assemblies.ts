@@ -1,4 +1,4 @@
-import type { AluminiumRadiatorParams, AssemblyDefinition, AssemblyPart } from '../lib/index';
+import type { AluminiumRadiatorParams, AssemblyDefinition, AssemblyPart, Vector3Data } from '../lib/index';
 
 const radiator = (sections: number, height: number): AluminiumRadiatorParams => ({ sections, dimensions: { x: 0.08, y: height, z: 0.08 }, nominal: '1' });
 
@@ -227,7 +227,7 @@ export function floorHeatingNode(outlets = 4, fit = MIXING_UNIT_FIT): AssemblyDe
 /** Доворот стыков обвязки 124, градусы: подобран так, что отводы тройников смотрят вверх или вниз, приборы — вперёд. */
 const BOILER_ROOM_ANGLES = {
   supplyElbow: 180, safetyTee: 0, gaugeTee: 0, riserElbow: 0, module: 0,
-  returnElbow: 0, drainTee: 180, tankTee: 180, separator: 0, strainer: 0,
+  returnElbow: 0, drainTee: 180, tankTee: 180, makeUpElbow: 0, separator: 0, strainer: 0,
 };
 
 /**
@@ -290,7 +290,19 @@ export function boilerRoom(angles = BOILER_ROOM_ANGLES): AssemblyDefinition {
         attach: { connector: 'left', to: 'ниппель отвода бака', toConnector: 'right' } },
       { name: 'бак', generatorId: 'equipment.expansion-tank', params: { diameter: 0.245, height: 0.25, nominal: '3/4', volume: 6 },
         attach: { connector: 'bottom', to: 'сервисный кран бака', toConnector: 'right' } },
-      { name: 'ниппель грязеуловителя', generatorId: 'steel.nipple', params: nipple(0.044), attach: { connector: 'left', to: 'тройник бака', toConnector: 'right' } },
+      // Подпитка рядом с расширительной линией (паспорт VT.515): тройник, угол, клапан горизонтально
+      // над грязеуловителем — пробка фильтра вниз, настроечный винт вверх, циферблат вперёд.
+      { name: 'ниппель подпитки', generatorId: 'steel.nipple', params: nipple(0.1), attach: { connector: 'left', to: 'тройник бака', toConnector: 'right' } },
+      { name: 'тройник подпитки', generatorId: 'steel.tee', params: tee('1/2'), attach: { connector: 'left', to: 'ниппель подпитки', toConnector: 'right' } },
+      { name: 'ниппель отвода подпитки', generatorId: 'steel.nipple', params: nipple(0.06, '1/2'),
+        attach: { connector: 'left', to: 'тройник подпитки', toConnector: 'top' } },
+      { name: 'угол подпитки', generatorId: 'steel.elbow-90', params: { threadGender: 'internal', nominal: '1/2', armLength: 0.023 },
+        attach: { connector: 'top', to: 'ниппель отвода подпитки', toConnector: 'right', angle: angles.makeUpElbow } },
+      { name: 'ниппель клапана подпитки', generatorId: 'steel.nipple', params: nipple(0.03, '1/2'),
+        attach: { connector: 'left', to: 'угол подпитки', toConnector: 'right' } },
+      { name: 'клапан подпитки', generatorId: 'valve.make-up', params: { nominal: '1/2' },
+        attach: { connector: 'outlet', to: 'ниппель клапана подпитки', toConnector: 'right', angle: 180 } },
+      { name: 'ниппель грязеуловителя', generatorId: 'steel.nipple', params: nipple(0.2), attach: { connector: 'left', to: 'тройник подпитки', toConnector: 'right' } },
       { name: 'грязеуловитель', generatorId: 'equipment.separator', params: { kind: 'magnetic', nominal: '1', ends: 'internal' },
         attach: { connector: 'right', to: 'ниппель грязеуловителя', toConnector: 'right', angle: angles.separator } },
       { name: 'ниппель фильтра', generatorId: 'steel.nipple', params: nipple(0.044), attach: { connector: 'right', to: 'грязеуловитель', toConnector: 'left' } },
@@ -302,6 +314,81 @@ export function boilerRoom(angles = BOILER_ROOM_ANGLES): AssemblyDefinition {
     ],
   };
 }
+
+/** Копия описания сборки с префиксом в именах деталей и ссылках на них (attach, relativeTo, closures). */
+function prefixed(definition: AssemblyDefinition, prefix: string): AssemblyDefinition {
+  const name = (value: string) => `${prefix}${value}`;
+  return {
+    label: definition.label,
+    parts: definition.parts.map((part) => ({
+      ...part,
+      name: name(part.name),
+      ...(part.attach ? { attach: { ...part.attach, to: name(part.attach.to) } } : {}),
+      ...(part.placement ? { placement: { ...part.placement, ...(part.placement.relativeTo ? { relativeTo: name(part.placement.relativeTo) } : {}) } } : {}),
+    })),
+    closures: definition.closures?.map((closure) => ({ ...closure, part: name(closure.part), to: name(closure.to) })),
+  };
+}
+
+/** Положение узла тёплого пола (подающей гребёнки) в обвязке 124 со смесительным контуром, м. */
+export const FLOOR_NODE_OFFSET = { x: 1.9, y: 0.25, z: 0 };
+
+/** Переход «обжим МП 26 × наружная резьба 1"» VALTEC VTm.301 (A = 51 мм) — к крану 1" В. */
+const MP26_ADAPTER = { threadGender: 'external', pipeNominal: '26', threadNominal: '1', length: 0.051 };
+
+/**
+ * Обвязка котельной 124 с подключением смесительного контура тёплого пола: обвязка boilerRoom и узел 123
+ * (детали с префиксом «ТП: », подающая гребёнка — явным положением FLOOR_NODE_OFFSET). Подача: верхний кран
+ * насосного модуля → переход VTm.301 → труба МП 26 по траектории → переход → кран подачи котла узла 72.
+ * Обратка: кран обратки котла узла 72 → переход → труба → переход → кран обратки системы котельной.
+ * Трубы стоят явным положением, каждый их конец — замыкание на переход.
+ */
+export function boilerRoomWithFloor(supplyPath: readonly Vector3Data[] = BOILER_FLOOR_SUPPLY, returnPath: readonly Vector3Data[] = BOILER_FLOOR_RETURN): AssemblyDefinition {
+  const room = boilerRoom();
+  const floor = prefixed(floorHeatingNode(), 'ТП: ');
+  floor.parts[0] = { ...floor.parts[0], placement: { at: FLOOR_NODE_OFFSET } };
+  const adapter = (name: string, to: string): AssemblyPart => ({ name, generatorId: 'mp.compression-thread-adapter', params: MP26_ADAPTER,
+    attach: { connector: 'right', to, toConnector: 'left' } });
+  const pipe = (name: string, path: readonly Vector3Data[]): AssemblyPart => ({ name, generatorId: 'mp.pipe-path',
+    params: { nominal: '26', bendRadius: 0.13, path }, placement: { at: { x: 0, y: 0, z: 0 } } });
+  return {
+    label: 'Обвязка котельной 124 со смесительным контуром тёплого пола: котёл, модуль 105, узел 72, гребёнки, трубы МП 26',
+    parts: [
+      ...room.parts,
+      ...floor.parts,
+      { name: 'переход подачи котельной', generatorId: 'mp.compression-thread-adapter', params: MP26_ADAPTER,
+        attach: { connector: 'right', to: 'кран верхний', toConnector: 'right' } },
+      adapter('переход подачи ТП', 'ТП: кран подачи котла'),
+      adapter('переход обратки ТП', 'ТП: кран обратки котла'),
+      adapter('переход обратки котельной', 'кран обратки системы'),
+      pipe('труба подачи ТП', supplyPath),
+      pipe('труба обратки ТП', returnPath),
+    ],
+    closures: [
+      ...(floor.closures ?? []),
+      { part: 'труба подачи ТП', connector: 'start', to: 'переход подачи котельной', toConnector: 'left' },
+      { part: 'труба подачи ТП', connector: 'end', to: 'переход подачи ТП', toConnector: 'left' },
+      { part: 'труба обратки ТП', connector: 'start', to: 'переход обратки ТП', toConnector: 'left' },
+      { part: 'труба обратки ТП', connector: 'end', to: 'переход обратки котельной', toConnector: 'left' },
+    ],
+  };
+}
+
+/**
+ * Трубы МП 26 обвязки со смесительным контуром, м, в координатах котла. Концы — места посадки в
+ * переходах VTm.301 (ввод 19,2 мм). Подача: от насосного модуля вверх до 0,55 м, вправо, вниз со сдвигом
+ * к оси узла 72, вправо в переход. Обратка: от узла 72 влево, вниз под обвязку до −0,85 м с уходом к стене
+ * (под горизонталью подачи оси расходятся на 58 мм при сумме радиусов 26 мм), вперёд
+ * (z 0,35 — перед котельной), влево, наискось к оси крана обратки, вправо в переход.
+ */
+const BOILER_FLOOR_SUPPLY: readonly Vector3Data[] = [
+  { x: 0.64216, y: 0.09787, z: -0.09 }, { x: 0.64216, y: 0.55, z: -0.09 }, { x: 1.0, y: 0.55, z: -0.09 },
+  { x: 1.0, y: 0.25, z: 0 }, { x: 1.32936, y: 0.25, z: 0 },
+];
+const BOILER_FLOOR_RETURN: readonly Vector3Data[] = [
+  { x: 1.33736, y: 0.45002, z: -0.03198 }, { x: 1.15, y: 0.45002, z: -0.03198 }, { x: 1.15, y: -0.85, z: -0.2 },
+  { x: 1.15, y: -0.85, z: 0.35 }, { x: -1.35, y: -0.85, z: 0.35 }, { x: -1.35, y: -0.62208, z: -0.09 }, { x: -1.11645, y: -0.62208, z: -0.09 },
+];
 
 /**
  * Прямой насосный модуль 105 по образцу подающей линии VALTEC VT.VAR 10 (технический каталог 2017,
@@ -353,6 +440,57 @@ export function pumpModuleParts(start: Pick<AssemblyPart, 'attach' | 'placement'
  * Сборки для проверки стыковки. Сначала совместимые стыки, потом заведомо
  * несовместимые (название начинается с «Ошибка») — стенд должен показать причину.
  */
+/** Стальной радиатор 600 × 500 с нижней резьбой 1/2 справа — основа сборок радиаторной арматуры (часть 24). */
+const RADIATOR_PART: AssemblyPart = { name: 'радиатор', generatorId: 'radiator.steel', params: { dimensions: { x: 0.6, y: 0.5, z: 0.07 }, nominal: '1/2' } };
+
+/** Адаптер евроконуса и отрезок МП 16 на входе клапана — звено части 22 (позиция 131). */
+function euroconePipe(valve: string, pipeLength: number): AssemblyPart[] {
+  return [
+    { name: `адаптер ${valve}`, generatorId: 'mp.eurocone-adapter', params: { pipeNominal: '16', euroconeNominal: '3/4', length: 0.026 },
+      attach: { connector: 'eurocone', to: valve, toConnector: 'inlet' } },
+    { name: `труба ${valve}`, generatorId: 'mp.pipe', params: { nominal: '16', length: pipeLength },
+      attach: { connector: 'start', to: `адаптер ${valve}`, toConnector: 'pipe' } },
+  ];
+}
+
+/**
+ * Прямой термоклапан VT.032.NER с термоголовкой VT.5000 сверху и прямой настроечный VT.020.NER снизу (позиции 45, 97, 131):
+ * оба клапана подключены к МП 16 через адаптеры евроконуса.
+ */
+export function radiatorStraightValves(): AssemblyDefinition {
+  return {
+    label: 'Радиатор: прямой термоклапан 1/2 × 3/4 ЕК, термоголовка, обратка 3/4 ЕК, МП 16',
+    parts: [
+      RADIATOR_PART,
+      { name: 'термоклапан', generatorId: 'valve.thermostatic-straight',
+        params: { nominal: '1/2', inletLength: 0.027, radiatorLength: 0.055, head: 'none', pipeEnd: 'eurocone' },
+        attach: { connector: 'radiator', to: 'радиатор', toConnector: 'top-right' } },
+      { name: 'термоголовка', generatorId: 'valve.thermostatic-head', params: { setting: '3' },
+        attach: { connector: 'valve', to: 'термоклапан', toConnector: 'head' } },
+      ...euroconePipe('термоклапан', 0.15),
+      { name: 'обратка', generatorId: 'valve.lockshield', params: { nominal: '1/2', armLength: 0.035, configuration: 'straight', pipeEnd: 'eurocone' },
+        attach: { connector: 'radiator', to: 'радиатор', toConnector: 'bottom-right' } },
+      ...euroconePipe('обратка', 0.15),
+    ],
+  };
+}
+
+/** Осевой термоклапан VT.179 с сервоприводом VT.TE 3040 и угловая обратка (позиции 98, 69): трубы подходят снизу. */
+export function radiatorAxialValve(): AssemblyDefinition {
+  return {
+    label: 'Радиатор: осевой термоклапан 1/2 с сервоприводом, угловая обратка',
+    parts: [
+      RADIATOR_PART,
+      { name: 'термоклапан', generatorId: 'valve.thermostatic-axial', params: { nominal: '1/2', inletLength: 0.026, radiatorLength: 0.0535, head: 'none' },
+        attach: { connector: 'radiator', to: 'радиатор', toConnector: 'top-right' } },
+      { name: 'сервопривод', generatorId: 'valve.thermoelectric-actuator', params: { state: 'closed' },
+        attach: { connector: 'valve', to: 'термоклапан', toConnector: 'head' } },
+      { name: 'обратка', generatorId: 'valve.lockshield', params: { nominal: '1/2', armLength: 0.035, configuration: 'angle' },
+        attach: { connector: 'radiator', to: 'радиатор', toConnector: 'bottom-right' } },
+    ],
+  };
+}
+
 export const STAND_ASSEMBLIES: AssemblyDefinition[] = [
   {
     label: 'Радиатор → переходник → ниппель → муфта',
@@ -633,6 +771,7 @@ export const STAND_ASSEMBLIES: AssemblyDefinition[] = [
   mixingUnit(),
   floorHeatingNode(),
   boilerRoom(),
+  boilerRoomWithFloor(),
   boilerFilter('equipment.separator', { kind: 'combined', nominal: '3/4', ends: 'union' }, 'грязе- и воздухоотделитель 3/4'),
   {
     // Часть 18: приборы на трубе 3/4 — термоманометр и термометр прямо в отводы 1/2, манометр через футорку 1/2 × 1/4.
@@ -774,6 +913,8 @@ export const STAND_ASSEMBLIES: AssemblyDefinition[] = [
         attach: { connector: 'radiator', to: 'радиатор', toConnector: 'bottom-right' } },
     ],
   },
+  radiatorStraightValves(),
+  radiatorAxialValve(),
   steelBottomHBlock('right'),
   manifoldReturnNode(),
   manifoldPair(),

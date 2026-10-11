@@ -81,8 +81,8 @@ export function unionNut(size: ThreadedSize, x: number, material: ThreadedMateri
     innerDiameter: size.n + 0.0005, outerSegments: 6, center: { x, y: 0, z: 0 }, materials: { outer: FINISH[material].flat } });
 }
 
-/** Головка по +Y; height — положение её основания. */
-export function valveHead(height: number, thermostatic: boolean): GeometryPart[] {
+/** Головка по direction (по умолчанию +Y); height — положение её основания. */
+export function valveHead(height: number, thermostatic: boolean, direction: Vector3Data = { x: 0, y: 1, z: 0 }): GeometryPart[] {
   const stem = sleeves.build({ material: 'metal', length: 0.012, outerDiameter: 0.012, innerDiameter: 0,
     center: { x: height + 0.006, y: 0, z: 0 } });
   const start = height + 0.012;
@@ -99,5 +99,5 @@ export function valveHead(height: number, thermostatic: boolean): GeometryPart[]
       innerDiameter: 0, center: { x: start + 0.043, y: 0, z: 0 } }),
   ] : sleeves.build({ material: 'metalFlat', length: 0.016, outerDiameter: 0.021,
     innerDiameter: 0, outerSegments: 6, center: { x: start + 0.008, y: 0, z: 0 } });
-  return orientParts([...stem, ...cap], { x: 0, y: 1, z: 0 });
+  return orientParts([...stem, ...cap], direction);
 }

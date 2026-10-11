@@ -1,9 +1,9 @@
 import { Box3, Group, MathUtils, Matrix4, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { Assembly, ConnectorMating, createModelObject, GeneratorRegistry, MaterialLibrary } from '../src/lib/index';
-import type { AssemblyClosureDefinition, AssemblyDefinition } from '../src/lib/index';
+import type { AssemblyClosureDefinition, AssemblyDefinition, Vector3Data } from '../src/lib/index';
 import { CLOSURE_TOLERANCE } from '../src/lib/assembly/Assembly';
-import { boilerRoom, floorHeatingNode, MANIFOLD_PAIR_OFFSET, manifoldPair, manifoldReturnNode, mixingUnit, pumpModule, STAND_ASSEMBLIES, steelBottomHBlock } from '../src/stand/assemblies';
+import { boilerRoom, boilerRoomWithFloor, floorHeatingNode, MANIFOLD_PAIR_OFFSET, manifoldPair, manifoldReturnNode, mixingUnit, pumpModule, STAND_ASSEMBLIES, steelBottomHBlock } from '../src/stand/assemblies';
 
 const registry = new GeneratorRegistry();
 
@@ -391,6 +391,22 @@ describe('насосно-смесительный узел 72 и полный у
   });
 });
 
+/** Наименьшее расстояние между отрезками ab и cd. */
+function segmentDistance(a: Vector3, b: Vector3, c: Vector3, d: Vector3): number {
+  const u = b.clone().sub(a);
+  const v = d.clone().sub(c);
+  const w = a.clone().sub(c);
+  const [uu, uv, vv, uw, vw] = [u.dot(u), u.dot(v), v.dot(v), u.dot(w), v.dot(w)];
+  const denominator = uu * vv - uv * uv;
+  let s = denominator < 1e-12 ? 0 : Math.min(1, Math.max(0, (uv * vw - vv * uw) / denominator));
+  let t = (uv * s + vw) / vv;
+  if (t < 0 || t > 1) {
+    t = Math.min(1, Math.max(0, t));
+    s = Math.min(1, Math.max(0, (uv * t - uw) / uu));
+  }
+  return a.clone().addScaledVector(u, s).distanceTo(c.clone().addScaledVector(v, t));
+}
+
 /**
  * Пары деталей, чьи габариты пересекаются, кроме состыкованных и замкнутых между собой.
  * Труба по траектории (mp.pipe-path) проверяется точнее: её габарит охватывает чужие детали,
@@ -406,6 +422,22 @@ function overlaps(definition: AssemblyDefinition, assembly: Assembly, allowed: r
     name: part.name, box: new Box3(new Vector3().copy(part.model.bounds.min), new Vector3().copy(part.model.bounds.max)).applyMatrix4(part.matrix),
   }));
   const paths = new Set(definition.parts.filter((part) => part.generatorId === 'mp.pipe-path').map((part) => part.name));
+  /** Осевая ломаная трубы по траектории в координатах сборки и её радиус. */
+  const axis = (pipe: string) => {
+    const part = assembly.parts.find((placed) => placed.name === pipe)!;
+    const params = definition.parts.find((described) => described.name === pipe)!.params as { nominal: string; path: Vector3Data[] };
+    return { radius: Number(params.nominal) / 2000, points: params.path.map((point) => new Vector3().copy(point).applyMatrix4(part.matrix)) };
+  };
+  /** Две трубы по траектории: оси не ближе суммы радиусов (по отрезкам ломаных, дуги — внутри углов). */
+  const pipesTouch = (a: string, b: string) => {
+    const [pa, pb] = [axis(a), axis(b)];
+    for (let i = 0; i + 1 < pa.points.length; i++) {
+      for (let j = 0; j + 1 < pb.points.length; j++) {
+        if (segmentDistance(pa.points[i], pa.points[i + 1], pb.points[j], pb.points[j + 1]) < pa.radius + pb.radius) return true;
+      }
+    }
+    return false;
+  };
   const touches = (pipe: string, box: Box3) => {
     const part = assembly.parts.find((placed) => placed.name === pipe)!;
     const position = part.model.geometry.getAttribute('position');
@@ -416,7 +448,9 @@ function overlaps(definition: AssemblyDefinition, assembly: Assembly, allowed: r
   const found: string[] = [];
   boxes.forEach((a, i) => boxes.slice(i + 1).forEach((b) => {
     if (linked.has(`${a.name}|${b.name}`) || !a.box.intersectsBox(b.box)) return;
-    if (paths.has(a.name) ? !touches(a.name, b.box) : paths.has(b.name) && !touches(b.name, a.box)) return;
+    if (paths.has(a.name) && paths.has(b.name)) {
+      if (!pipesTouch(a.name, b.name)) return;
+    } else if (paths.has(a.name) ? !touches(a.name, b.box) : paths.has(b.name) && !touches(b.name, a.box)) return;
     found.push(`${a.name} × ${b.name}`);
   }));
   return found;
@@ -434,7 +468,7 @@ describe('типовая обвязка котельной 124', () => {
     expect(assembly.errors).toEqual([]);
     expect(assembly.joints.every(({ check }) => check.compatible)).toBe(true);
     for (const name of ['котёл', 'насос', 'обратный клапан', 'группа безопасности', 'бак', 'сервисный кран бака', 'грязеуловитель', 'фильтр',
-      'термоманометр подачи', 'кран заполнения/слива', 'воздухоотводчик']) expect(part(name), name).toBeDefined();
+      'термоманометр подачи', 'кран заполнения/слива', 'клапан подпитки', 'воздухоотводчик']) expect(part(name), name).toBeDefined();
   });
 
   it('подача вправо и вверх через насосный модуль, обратка влево; отводы и приборы ориентированы', () => {
@@ -448,6 +482,10 @@ describe('типовая обвязка котельной 124', () => {
     expect(world('фильтр', [0, 1, 0]).y).toBeCloseTo(1, 9);
     expect(world('термоманометр подачи', [0, 0, 1]).z).toBeCloseTo(1, 9);
     expect(world('насос', [0, 0, 1]).z).toBeCloseTo(1, 9);
+    // Клапан подпитки VT.515: горизонтально, редуктор вверх, циферблат вперёд; вход — от водопровода.
+    expect(world('клапан подпитки', [0, 1, 0]).y).toBeCloseTo(1, 9);
+    expect(world('клапан подпитки', [0, 0, 1]).z).toBeCloseTo(1, 9);
+    expect(portDirection('клапан подпитки', 'inlet').x).toBeCloseTo(-1, 9);
   });
 
   it('габариты деталей не пересекаются', () => {
@@ -482,5 +520,23 @@ describe('обвязка 124: замена насоса, фильтра и от�
     expect(assembly.joints.every(({ check }) => check.compatible)).toBe(true);
     expect(overlaps(definition, assembly)).toEqual([]);
     assembly.dispose();
+  });
+});
+
+describe('обвязка 124 со смесительным контуром тёплого пола (124 + 72 + 123)', () => {
+  const definition = boilerRoomWithFloor();
+  const assembly = new Assembly(registry, definition);
+
+  it('все стыки совместимы, все замыкания сходятся: узел 123 и обе трубы МП 26', () => {
+    expect(assembly.errors).toEqual([]);
+    expect(assembly.joints.every(({ check }) => check.compatible)).toBe(true);
+    expect(assembly.closures).toHaveLength(7);
+    for (const closure of assembly.closures) expect(closure.closed, closure.label).toBe(true);
+  });
+
+  it('пересечений нет, кроме допущенных касаний узла 123', () => {
+    expect(overlaps(definition, assembly, [
+      ['ТП: подающий', 'ТП: воздухоотводчик подачи'], ['ТП: обратный', 'ТП: воздухоотводчик обратки'], ['ТП: угол байпаса 1', 'ТП: угол байпаса 2'],
+    ])).toEqual([]);
   });
 });

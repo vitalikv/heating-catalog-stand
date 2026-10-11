@@ -62,6 +62,10 @@ import { SeparatorGenerator } from './equipment/SeparatorGenerator';
 import { AirVentGenerator } from './equipment/AirVentGenerator';
 import { VentShutoffValveGenerator } from './valve/VentShutoffValveGenerator';
 import { MpPipePathGenerator } from './mp/MpPipePathGenerator';
+import { MakeUpValveGenerator } from './valve/MakeUpValveGenerator';
+import { StraightThermostaticValveGenerator } from './valve/StraightThermostaticValveGenerator';
+import { AxialThermostaticValveGenerator } from './valve/AxialThermostaticValveGenerator';
+import { ThermostaticHeadGenerator } from './valve/ThermostaticHeadGenerator';
 
 /** Все генераторы библиотеки; порядок — порядок списка на стенде. */
 function createGenerators() {
@@ -129,6 +133,10 @@ function createGenerators() {
   new AirVentGenerator(),
   new VentShutoffValveGenerator(),
   new MpPipePathGenerator(),
+  new MakeUpValveGenerator(),
+  new StraightThermostaticValveGenerator(),
+  new AxialThermostaticValveGenerator(),
+  new ThermostaticHeadGenerator(),
   ] as const;
 }
 
