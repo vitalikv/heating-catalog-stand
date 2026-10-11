@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { Assembly, ConnectorMating, createModelObject, GeneratorRegistry, MaterialLibrary } from '../src/lib/index';
 import type { AssemblyClosureDefinition, AssemblyDefinition } from '../src/lib/index';
 import { CLOSURE_TOLERANCE } from '../src/lib/assembly/Assembly';
-import { MANIFOLD_PAIR_OFFSET, manifoldPair, STAND_ASSEMBLIES, steelBottomHBlock } from '../src/stand/assemblies';
+import { boilerRoom, floorHeatingNode, MANIFOLD_PAIR_OFFSET, manifoldPair, manifoldReturnNode, mixingUnit, pumpModule, STAND_ASSEMBLIES, steelBottomHBlock } from '../src/stand/assemblies';
 
 const registry = new GeneratorRegistry();
 
@@ -310,6 +310,177 @@ describe('замыкания вне дерева attach', () => {
     expect(assembly.closures[0].gap).toBeGreaterThan(0.01);
     assembly.setAngle('H-блок', 0);
     expect(assembly.closures[0].closed).toBe(true);
+    assembly.dispose();
+  });
+});
+
+describe('насосный модуль 105 (по подающей линии VALTEC VT.VAR 10)', () => {
+  const assembly = new Assembly(registry, pumpModule());
+  const part = (name: string) => assembly.parts.find((placed) => placed.name === name)!;
+  const world = (name: string, local: [number, number, number]) => new Vector3(...local).transformDirection(part(name).matrix);
+  const portDirection = (name: string, id: string) =>
+    new Vector3().copy(part(name).model.connectors.find((c) => c.id === id)!.direction).transformDirection(part(name).matrix);
+
+  it('все стыки совместимы, линия вертикальна', () => {
+    expect(assembly.errors).toEqual([]);
+    expect(assembly.joints.every(({ check }) => check.compatible)).toBe(true);
+    expect(portDirection('кран нижний', 'left').y).toBeCloseTo(-1, 9);
+    expect(portDirection('кран верхний', 'right').y).toBeCloseTo(1, 9);
+    expect(portDirection('насос', 'left').y).toBeCloseTo(-1, 9);
+  });
+
+  it('мотор насоса и циферблат — вперёд, воздухоотводчик — колбой вверх, клапан — потоком вверх', () => {
+    expect(world('насос', [0, 0, 1]).z).toBeCloseTo(1, 9);
+    expect(world('насос', [0, 1, 0]).y).toBeCloseTo(0, 9);
+    expect(world('термоманометр', [0, 0, 1]).z).toBeCloseTo(1, 9);
+    expect(world('воздухоотводчик', [0, 1, 0]).y).toBeCloseTo(1, 9);
+    expect(portDirection('обратный клапан', 'right').y).toBeCloseTo(1, 9);
+  });
+});
+
+describe('концевой узел 70: отсекающий клапан VT.539 и воздухоотводчик VT.502.NH', () => {
+  it('колба воздухоотводчика не задевает сервопривод последнего выхода', () => {
+    const assembly = new Assembly(registry, manifoldReturnNode(4));
+    const box = (name: string) => {
+      const part = assembly.parts.find((placed) => placed.name === name)!;
+      return new Box3(new Vector3().copy(part.model.bounds.min), new Vector3().copy(part.model.bounds.max)).applyMatrix4(part.matrix);
+    };
+    expect(assembly.joints.every(({ check }) => check.compatible)).toBe(true);
+    expect(box('воздухоотводчик').intersectsBox(box('привод 4'))).toBe(false);
+    assembly.dispose();
+  });
+});
+
+describe('насосно-смесительный узел 72 и полный узел тёплого пола 123', () => {
+  const portWorld = (assembly: Assembly, name: string, id: string) => {
+    const part = assembly.parts.find((placed) => placed.name === name)!;
+    const c = part.model.connectors.find((connector) => connector.id === id)!;
+    return { position: new Vector3().copy(c.position).applyMatrix4(part.matrix), direction: new Vector3().copy(c.direction).transformDirection(part.matrix) };
+  };
+
+  it('72 отдельно: стыки совместимы, обратная линия выше подачи на 200 мм и на 32 мм ближе к стене', () => {
+    const assembly = new Assembly(registry, mixingUnit());
+    expect(assembly.errors).toEqual([]);
+    expect(assembly.joints.every(({ check }) => check.compatible)).toBe(true);
+    const supply = portWorld(assembly, 'ниппель T11', 'right');
+    const ret = portWorld(assembly, 'муфта обратки', 'right');
+    expect(ret.position.y - supply.position.y).toBeCloseTo(MANIFOLD_PAIR_OFFSET.y, 3);
+    expect(ret.position.z - supply.position.z).toBeCloseTo(MANIFOLD_PAIR_OFFSET.z, 3);
+    expect(ret.direction.x).toBeCloseTo(1, 9);
+    // Смесительный клапан: горячий ход — к котлу (−X), байпас — вверх.
+    expect(portWorld(assembly, 'смесительный клапан', 'left').direction.x).toBeCloseTo(-1, 9);
+    expect(portWorld(assembly, 'смесительный клапан', 'top').direction.y).toBeCloseTo(1, 9);
+    assembly.dispose();
+  });
+
+  it('123: узел 72 на подающей гребёнке, обратная линия замыкается на обратную гребёнку', () => {
+    const definition = floorHeatingNode();
+    const assembly = new Assembly(registry, definition);
+    expect(assembly.errors).toEqual([]);
+    expect(assembly.joints.every(({ check }) => check.compatible)).toBe(true);
+    // Обратная линия узла 72 и оба конца петли контура.
+    expect(assembly.closures).toHaveLength(3);
+    for (const closure of assembly.closures) {
+      expect(closure.closed, closure.label).toBe(true);
+      expect(closure.gap, closure.label).toBeLessThan(CLOSURE_TOLERANCE.gap);
+    }
+    // Свободные границы: краны котла (T1, T2) и концы МП-контура.
+    expect(portWorld(assembly, 'кран подачи котла', 'left').direction.x).toBeCloseTo(-1, 9);
+    expect(portWorld(assembly, 'кран обратки котла', 'left').direction.x).toBeCloseTo(-1, 9);
+    assembly.dispose();
+  });
+});
+
+/**
+ * Пары деталей, чьи габариты пересекаются, кроме состыкованных и замкнутых между собой.
+ * Труба по траектории (mp.pipe-path) проверяется точнее: её габарит охватывает чужие детали,
+ * поэтому в габарит другой детали не должна попадать ни одна вершина поверхности трубы.
+ */
+function overlaps(definition: AssemblyDefinition, assembly: Assembly, allowed: readonly [string, string][] = []): string[] {
+  const linked = new Set<string>();
+  const link = (a: string, b: string) => { linked.add(`${a}|${b}`); linked.add(`${b}|${a}`); };
+  for (const part of definition.parts) if (part.attach) link(part.name, part.attach.to);
+  for (const closure of definition.closures ?? []) link(closure.part, closure.to);
+  for (const [a, b] of allowed) link(a, b);
+  const boxes = assembly.parts.map((part) => ({
+    name: part.name, box: new Box3(new Vector3().copy(part.model.bounds.min), new Vector3().copy(part.model.bounds.max)).applyMatrix4(part.matrix),
+  }));
+  const paths = new Set(definition.parts.filter((part) => part.generatorId === 'mp.pipe-path').map((part) => part.name));
+  const touches = (pipe: string, box: Box3) => {
+    const part = assembly.parts.find((placed) => placed.name === pipe)!;
+    const position = part.model.geometry.getAttribute('position');
+    const point = new Vector3();
+    for (let i = 0; i < position.count; i++) if (box.containsPoint(point.fromBufferAttribute(position, i).applyMatrix4(part.matrix))) return true;
+    return false;
+  };
+  const found: string[] = [];
+  boxes.forEach((a, i) => boxes.slice(i + 1).forEach((b) => {
+    if (linked.has(`${a.name}|${b.name}`) || !a.box.intersectsBox(b.box)) return;
+    if (paths.has(a.name) ? !touches(a.name, b.box) : paths.has(b.name) && !touches(b.name, a.box)) return;
+    found.push(`${a.name} × ${b.name}`);
+  }));
+  return found;
+}
+
+describe('типовая обвязка котельной 124', () => {
+  const definition = boilerRoom();
+  const assembly = new Assembly(registry, definition);
+  const part = (name: string) => assembly.parts.find((placed) => placed.name === name)!;
+  const world = (name: string, local: [number, number, number]) => new Vector3(...local).transformDirection(part(name).matrix);
+  const portDirection = (name: string, id: string) =>
+    new Vector3().copy(part(name).model.connectors.find((c) => c.id === id)!.direction).transformDirection(part(name).matrix);
+
+  it('все стыки совместимы, обязательный состав на месте', () => {
+    expect(assembly.errors).toEqual([]);
+    expect(assembly.joints.every(({ check }) => check.compatible)).toBe(true);
+    for (const name of ['котёл', 'насос', 'обратный клапан', 'группа безопасности', 'бак', 'сервисный кран бака', 'грязеуловитель', 'фильтр',
+      'термоманометр подачи', 'кран заполнения/слива', 'воздухоотводчик']) expect(part(name), name).toBeDefined();
+  });
+
+  it('подача вправо и вверх через насосный модуль, обратка влево; отводы и приборы ориентированы', () => {
+    expect(portDirection('ниппель подачи', 'right').x).toBeCloseTo(1, 9);
+    expect(portDirection('кран верхний', 'right').y).toBeCloseTo(1, 9);
+    expect(portDirection('кран обратки системы', 'left').x).toBeCloseTo(-1, 9);
+    expect(world('группа безопасности', [0, 1, 0]).y).toBeCloseTo(1, 9);
+    expect(world('бак', [0, 1, 0]).y).toBeCloseTo(1, 9);
+    expect(portDirection('тройник слива', 'top').y).toBeCloseTo(-1, 9);
+    expect(world('грязеуловитель', [0, 1, 0]).y).toBeCloseTo(1, 9);
+    expect(world('фильтр', [0, 1, 0]).y).toBeCloseTo(1, 9);
+    expect(world('термоманометр подачи', [0, 0, 1]).z).toBeCloseTo(1, 9);
+    expect(world('насос', [0, 0, 1]).z).toBeCloseTo(1, 9);
+  });
+
+  it('габариты деталей не пересекаются', () => {
+    expect(overlaps(definition, assembly)).toEqual([]);
+  });
+});
+
+describe('узел тёплого пола 123: пересечения', () => {
+  it('габариты не пересекаются, кроме торца гребёнки под воздухоотводчиком и углов 45° на коротком ниппеле', () => {
+    const definition = floorHeatingNode();
+    const assembly = new Assembly(registry, definition);
+    expect(overlaps(definition, assembly, [
+      ['подающий', 'воздухоотводчик подачи'], ['обратный', 'воздухоотводчик обратки'], ['угол байпаса 1', 'угол байпаса 2'],
+    ])).toEqual([]);
+    assembly.dispose();
+  });
+});
+
+describe('обвязка 124: замена насоса, фильтра и отделителя', () => {
+  const replace = (definition: AssemblyDefinition, name: string, generatorId: string, params: unknown): AssemblyDefinition => ({
+    ...definition, parts: definition.parts.map((part) => (part.name === name ? { ...part, generatorId, params } : part)),
+  });
+
+  it.each([
+    ['насос VRS 25/8-180 (большой мотор)', 'насос', 'equipment.pump', { nominal: '1 1/2', installLength: 0.18, housing: 'vrs', motor: 'large', terminalBox: 'top' }],
+    ['промывной фильтр VT.389 1"', 'фильтр', 'equipment.flush-filter', { nominal: '1', gauge: 'manometer' }],
+    ['грязе- и воздухоотделитель', 'грязеуловитель', 'equipment.separator', { kind: 'combined', nominal: '1', ends: 'internal' }],
+  ] as const)('%s: стыки совместимы, пересечений нет', (_, name, generatorId, params) => {
+    const definition = replace(boilerRoom(), name, generatorId, params);
+    const assembly = new Assembly(registry, definition);
+    expect(assembly.errors).toEqual([]);
+    expect(assembly.joints.every(({ check }) => check.compatible)).toBe(true);
+    expect(overlaps(definition, assembly)).toEqual([]);
     assembly.dispose();
   });
 });

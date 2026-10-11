@@ -90,6 +90,20 @@ export const EXTENSION_CATALOG: CatalogEntry[] = [
   ...MANIFOLD_CATALOG,
   ...FILTER_CATALOG,
   ...INSTRUMENT_CATALOG,
+  // Автоматический воздухоотводчик VALTEC VT.502 (NH, NV, NA) и отсекающий клапан VT.539 — части 26.
+  entry('equipment.air-vent', (['NH', 'NV', 'NA'] as const).map((execution) => ({
+    label: `1/2 (VT.502.${execution}), ${{ NH: 'выпуск сбоку', NV: 'выпуск сверху', NA: 'угловой' }[execution]}`, params: { execution },
+  }))),
+  entry('valve.vent-shutoff', [{ label: '1/2(н) × 1/2(в) (VT.539)', params: {} }]),
+  // Труба МП по траектории (часть 07): радиус — ручной гиб VALTEC (с. 29) для 16 и 20.
+  entry('mp.pipe-path', [
+    { label: '16: пространственный угол, R80', params: { nominal: '16', bendRadius: 0.08,
+      path: [{ x: 0, y: 0, z: 0 }, { x: 0.3, y: 0, z: 0 }, { x: 0.3, y: 0.3, z: 0 }, { x: 0.3, y: 0.3, z: 0.3 }] } },
+    { label: '16: петля 0,6 × 0,4 м, R80', params: { nominal: '16', bendRadius: 0.08,
+      path: [{ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0.4 }, { x: 0.6, y: 0, z: 0.4 }, { x: 0.6, y: 0, z: 0.05 }, { x: 0.05, y: 0, z: 0.05 }] } },
+    { label: '20: обвод, R100', params: { nominal: '20', bendRadius: 0.1,
+      path: [{ x: 0, y: 0, z: 0 }, { x: 0.25, y: 0, z: 0 }, { x: 0.25, y: 0.2, z: 0 }, { x: 0.55, y: 0.2, z: 0 }, { x: 0.55, y: 0, z: 0 }, { x: 0.8, y: 0, z: 0 }] } },
+  ]),
   // Смесительные клапаны VALTEC VT.MIX03/04 (каталог 2017, с. 371, 375): размеры A, D, E — в генераторе по номиналу.
   entry('valve.mixing', ([3, 4] as const).flatMap((ways) => ['3/4', '1', '1 1/4'].map((nominal) => ({
     label: `${ways}-ходовой ${nominal} (VT.MIX0${ways})`, params: { ways, nominal, control: 'handle' as const },

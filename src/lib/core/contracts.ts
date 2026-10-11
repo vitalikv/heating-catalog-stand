@@ -99,6 +99,11 @@ export type ParamSpec = ParamSpecBase &
     /** Длина в метрах; интерфейс показывает её в миллиметрах. Границы включительно. */
     | { kind: 'length'; min: number; max: number; step: number }
     | { kind: 'integer'; min: number; max: number }
+    /**
+     * Пространственный путь: массив точек Vector3Data, м (ломаная; изгибы скругляет генератор).
+     * Точек от minPoints до maxPoints, каждая координата по модулю не больше extent.
+     */
+    | { kind: 'path'; minPoints: number; maxPoints: number; extent: number }
   );
 
 export interface ParamSpecBase {

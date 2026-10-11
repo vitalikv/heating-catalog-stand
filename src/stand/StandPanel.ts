@@ -1,7 +1,7 @@
 import type GUI from 'lil-gui';
 import type { Controller } from 'lil-gui';
 import { ParamSchema } from '../lib/index';
-import type { CatalogEntry, CatalogItem, ModelGenerator, ParamSpec } from '../lib/index';
+import type { CatalogEntry, CatalogItem, ModelGenerator, ParamSpec, Vector3Data } from '../lib/index';
 
 /** Параметры на панели: правятся по ключам ParamSpec. */
 export type StandParams = Record<string, unknown>;
@@ -43,7 +43,9 @@ export class StandPanel {
   private paramsFolder: GUI;
   /** Значения полей в единицах панели (мм для длин), по ключу ParamSpec.key. */
   private ui: Record<string, string | number> = {};
-  private controls = new Map<ParamSpec, Controller>();
+  /** Точки путей (ParamSpec kind 'path') в мм, по ключу. */
+  private paths: Record<string, Vector3Data[]> = {};
+  private controls = new Map<ParamSpec, { show(visible: boolean): unknown }>();
 
   constructor(
     gui: GUI,
@@ -115,9 +117,11 @@ export class StandPanel {
   private applyPreset(reframe: boolean): void {
     const preset = this.presetParams();
     this.ui = {};
+    this.paths = {};
     for (const spec of this.entry.generator.paramSpecs) {
       const value = ParamSchema.get(preset, spec.key);
-      if (spec.kind === 'length') this.ui[spec.key] = toMm(Number(value));
+      if (spec.kind === 'path') this.paths[spec.key] = (value as Vector3Data[]).map(({ x, y, z }) => ({ x: toMm(x), y: toMm(y), z: toMm(z) }));
+      else if (spec.kind === 'length') this.ui[spec.key] = toMm(Number(value));
       // Неактивный в наборе выбор (выход у заглушки) — первый вариант, чтобы его можно было включить.
       else if (spec.kind === 'choice') this.ui[spec.key] = spec.options.find((option) => option === value) ?? spec.options[0];
       else this.ui[spec.key] = value as number;
@@ -132,11 +136,39 @@ export class StandPanel {
 
     this.controls = new Map();
     for (const spec of this.entry.generator.paramSpecs) {
-      this.controls.set(spec, this.addControl(spec).onChange(() => this.emit(false)));
+      if (spec.kind === 'path') this.controls.set(spec, this.addPath(spec));
+      else this.controls.set(spec, this.addControl(spec).onChange(() => this.emit(false)));
     }
   }
 
-  private addControl(spec: ParamSpec): Controller {
+  /** Путь: папка с полями x, y, z каждой точки, мм, и кнопками добавления и удаления точки. */
+  private addPath(spec: Extract<ParamSpec, { kind: 'path' }>): GUI {
+    const folder = this.paramsFolder.addFolder(`${spec.label}, мм`);
+    const points = this.paths[spec.key];
+    points.forEach((point, i) => {
+      for (const axis of ['x', 'y', 'z'] as const) {
+        folder.add(point, axis).name(`${i + 1}: ${axis}`).onChange(() => this.emit(false));
+      }
+    });
+    const edit = (change: () => void) => () => {
+      change();
+      this.rebuildParamsFolder();
+      this.emit(false);
+    };
+    if (points.length < spec.maxPoints) {
+      // Новая точка — продолжение последнего отрезка на 100 мм.
+      folder.add({ add: edit(() => {
+        const [a, b] = [points[points.length - 2], points[points.length - 1]];
+        const length = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z) || 1;
+        const scale = 100 / length;
+        points.push({ x: b.x + (b.x - a.x) * scale, y: b.y + (b.y - a.y) * scale, z: b.z + (b.z - a.z) * scale });
+      }) }, 'add').name('Добавить точку');
+    }
+    if (points.length > spec.minPoints) folder.add({ remove: edit(() => points.pop()) }, 'remove').name('Удалить последнюю');
+    return folder;
+  }
+
+  private addControl(spec: Exclude<ParamSpec, { kind: 'path' }>): Controller {
     switch (spec.kind) {
       case 'choice': {
         const options = Object.fromEntries(spec.options.map((option) => [spec.optionLabels?.[option] ?? String(option), option]));
@@ -160,6 +192,10 @@ export class StandPanel {
     // Параметры каталога типизированы по генератору; панель правит их как запись по ключам.
     const params = structuredClone(this.presetParams()) as StandParams;
     for (const spec of this.entry.generator.paramSpecs) {
+      if (spec.kind === 'path') {
+        ParamSchema.set(params, spec.key, this.paths[spec.key].map(({ x, y, z }) => ({ x: Number(x) / 1000, y: Number(y) / 1000, z: Number(z) / 1000 })));
+        continue;
+      }
       const value = this.ui[spec.key];
       ParamSchema.set(params, spec.key, spec.kind === 'length' ? Number(value) / 1000 : value);
     }

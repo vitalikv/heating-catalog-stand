@@ -59,6 +59,9 @@ import { FlushFilterGenerator } from './equipment/FlushFilterGenerator';
 import { MixingValveGenerator } from './valve/MixingValveGenerator';
 import { GaugeGenerator } from './equipment/GaugeGenerator';
 import { SeparatorGenerator } from './equipment/SeparatorGenerator';
+import { AirVentGenerator } from './equipment/AirVentGenerator';
+import { VentShutoffValveGenerator } from './valve/VentShutoffValveGenerator';
+import { MpPipePathGenerator } from './mp/MpPipePathGenerator';
 
 /** Все генераторы библиотеки; порядок — порядок списка на стенде. */
 function createGenerators() {
@@ -123,6 +126,9 @@ function createGenerators() {
   new MixingValveGenerator(),
   new GaugeGenerator(),
   new SeparatorGenerator(),
+  new AirVentGenerator(),
+  new VentShutoffValveGenerator(),
+  new MpPipePathGenerator(),
   ] as const;
 }
 

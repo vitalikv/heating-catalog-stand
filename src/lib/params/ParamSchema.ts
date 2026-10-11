@@ -62,6 +62,24 @@ export class ParamSchema {
     return spec.when.values.includes(String(ParamSchema.get(params, spec.when.key)));
   }
 
+  /** Путь: массив точек {x, y, z} с конечными координатами; число точек и координаты — в границах схемы. */
+  private static checkPath(spec: Extract<ParamSpec, { kind: 'path' }>, value: unknown): ValidationError | null {
+    const param = spec.key;
+    const isPoint = (point: unknown) => typeof point === 'object' && point !== null
+      && (['x', 'y', 'z'] as const).every((axis) => Number.isFinite((point as Record<string, unknown>)[axis]));
+    if (!Array.isArray(value) || !value.every(isPoint)) {
+      return { code: 'not_a_path', param, message: `${spec.label}: нужен массив точек {x, y, z}` };
+    }
+    if (value.length < spec.minPoints || value.length > spec.maxPoints) {
+      return { code: 'path_points', param, message: `${spec.label}: точек ${value.length} — нужно ${spec.minPoints}…${spec.maxPoints}` };
+    }
+    const index = value.findIndex((point: Record<string, number>) => Math.max(Math.abs(point.x), Math.abs(point.y), Math.abs(point.z)) > spec.extent);
+    if (index >= 0) {
+      return { code: 'out_of_range', param, message: `${spec.label}: точка ${index + 1} дальше ${toMm(spec.extent)} мм от начала координат` };
+    }
+    return null;
+  }
+
   private static check(spec: ParamSpec, value: unknown): ValidationError | null {
     const param = spec.key;
 
@@ -69,6 +87,8 @@ export class ParamSchema {
       if ((typeof value === 'string' || typeof value === 'number') && spec.options.includes(value)) return null;
       return { code: 'unknown_option', param, message: `${spec.label}: недопустимое значение '${String(value)}'` };
     }
+
+    if (spec.kind === 'path') return ParamSchema.checkPath(spec, value);
 
     if (typeof value !== 'number' || !Number.isFinite(value)) {
       return { code: 'not_a_number', param, message: `${spec.label}: нужно число, получено '${String(value)}'` };
