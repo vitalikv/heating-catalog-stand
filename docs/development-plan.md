@@ -9,9 +9,9 @@
 > устройство библиотеки — [ARCHITECTURE.md](ARCHITECTURE.md).
 
 Документ самодостаточен: всё, что нужно для работы над стендом, собрано здесь.
-Исходные планы лежат в `skeleton-wf/docs/heating/`:
-`heating-generator-stand-mvp.md` (первый шаг) и `heating-catalog-stand-plan.md`
-(долгосрочный). При расхождении для этого репозитория главный этот документ.
+Исходный план — `skeleton-wf/docs/heating/heating-catalog-stand-plan.md`
+(план первого шага `heating-generator-stand-mvp.md` удалён 17.10.2026, текст —
+в истории Git skeleton-wf). При расхождении для этого репозитория главный этот документ.
 
 Перенос остального каталога после пилота — [catalog-porting-plan.md](catalog-porting-plan.md).
 

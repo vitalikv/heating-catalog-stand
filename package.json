@@ -9,6 +9,8 @@
     "preview": "vite preview",
     "benchmark:million": "npm run build && vite preview --host 0.0.0.0 --port 4174 --strictPort --open /?benchmark=million",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.lib.json",
+    "build:lib": "node scripts/build-lib.mjs",
+    "verify:lib": "node scripts/verify-lib-package.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },

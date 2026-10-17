@@ -1,0 +1,27 @@
+{
+  "name": "@ingplan/heating-generators",
+  "version": "0.1.0",
+  "description": "Параметрические генераторы деталей отопления для three.js: модели как данные, материалы, стыковка, каталог.",
+  "private": true,
+  "type": "module",
+  "main": "./index.js",
+  "types": "./types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./types/index.d.ts",
+      "import": "./index.js"
+    },
+    "./textures/*": "./textures/*",
+    "./manifest.json": "./manifest.json",
+    "./package.json": "./package.json"
+  },
+  "peerDependencies": {
+    "three": "~0.182.0",
+    "@types/three": "~0.182.0"
+  },
+  "peerDependenciesMeta": {
+    "@types/three": {
+      "optional": true
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  // Декларации типов пакета библиотеки (`npm run build:lib`): те же правила,
+  // что у tsconfig.lib.json, но с выпуском .d.ts.
+  "extends": "./tsconfig.lib.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "rootDir": "src/lib",
+    "outDir": "dist-lib/package/types"
+  },
+  "include": ["src/lib"]
+}

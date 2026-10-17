@@ -5,6 +5,7 @@
 Устройство библиотеки — [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); история работ —
 `docs/development-plan.md`, `docs/catalog-porting-plan.md`, `docs/library-refactoring-plan.md`.
 Расширение каталога — [единый план с реестром, карточками и чек-листами](docs/catalog-expansion-plan.md). Замеры FPS — [docs/benchmark.md](docs/benchmark.md).
+Перенос библиотеки в `src-heating` — [docs/transfer/README.md](docs/transfer/README.md).
 
 Не требует OpenServer, PHP или БД и не импортирует код соседних проектов.
 
@@ -16,6 +17,8 @@ npm run dev        # стенд в браузере
 npm run typecheck  # строгая проверка типов (стенд + библиотека без DOM)
 npm test           # тесты генераторов в node
 npm run build      # проверка типов и сборка в dist/
+npm run build:lib  # пакет библиотеки и архив npm pack в dist-lib/ (lib-package/README.md)
+npm run verify:lib # проверка архива на чистой установке
 ```
 
 ## Структура
