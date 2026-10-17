@@ -28,7 +28,10 @@ const three = JSON.parse(await readFile(path.join(root, 'node_modules/three/pack
 const generators = new lib.GeneratorRegistry().list()
   .map((generator) => ({ id: generator.id, version: generator.version }))
   .sort((a, b) => a.id.localeCompare(b.id));
-const manifest = { name: pkg.name, version: pkg.version, three: three.version, generators };
+const assemblies = lib.ASSEMBLY_RECIPES
+  .map((recipe) => ({ id: recipe.id, version: recipe.version, ...(recipe.variants && { variants: recipe.variants.map((variant) => variant.key) }) }))
+  .sort((a, b) => a.id.localeCompare(b.id));
+const manifest = { name: pkg.name, version: pkg.version, three: three.version, generators, assemblies };
 await writeFile(path.join(pkgDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 
 // npm на Windows — cmd-обёртка; при запуске через `npm run` путь к самому npm известен.
@@ -39,5 +42,5 @@ const archive = npmCli
   : execFileSync('npm', packArgs, { cwd: root, encoding: 'utf8', shell: true });
 
 const files = await readdir(pkgDir, { recursive: true });
-console.log(`${pkg.name}@${pkg.version}: генераторов ${generators.length}, файлов ${files.length}`);
+console.log(`${pkg.name}@${pkg.version}: генераторов ${generators.length}, сборок ${assemblies.length}, файлов ${files.length}`);
 console.log(`архив: ${path.join('dist-lib', archive.trim().split(/\r?\n/).pop())}`);

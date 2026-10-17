@@ -34,7 +34,7 @@ export class SteelManifoldGenerator extends BaseGenerator<SteelManifoldParams> {
   readonly version = 1;
   readonly title = 'Коллектор стальной';
   readonly paramSpecs: readonly ParamSpec[] = [
-    specs.threadGender('threadGender', 'Резьба выходов'),
+    specs.threadGender('threadGender', 'Вид резьбы выходов'),
     specs.threadNominal('nominal', 'Резьба трубы'),
     specs.threadNominal('outletNominal', 'Резьба выходов'),
     { kind: 'integer', key: 'outlets', label: 'Выходов', min: 1, max: 10 },

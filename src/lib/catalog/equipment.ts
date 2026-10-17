@@ -42,11 +42,12 @@ export const EQUIPMENT_CATALOG: CatalogEntry[] = [
     [
       ...['1', '1 1/4', '1 1/2', '2'].map((nominal) => ({ label: nominal, params: { nominal } })),
       // Версия 2: VALTEC VRS (технический каталог 2017, с. 674–678) — DN25 с G1 1/2, DN32 с G2,
-      // монтажная длина 130 или 180 мм; мотор x/8 — крупнее.
-      ...([['25/4', '1 1/2', 130], ['25/6', '1 1/2', 130], ['25/4', '1 1/2', 180], ['25/6', '1 1/2', 180], ['25/8', '1 1/2', 180],
-        ['32/4', '2', 180], ['32/6', '2', 180], ['32/8', '2', 180]] as const).map(([model, nominal, length]) => ({
+      // монтажная длина 130 или 180 мм; мотор x/8 — крупнее. Модели /4 и /6 различаются напором,
+      // а не размерами, — у них одна позиция.
+      ...([['25/4, 25/6', '1 1/2', 130, 'small'], ['25/4, 25/6', '1 1/2', 180, 'small'], ['25/8', '1 1/2', 180, 'large'],
+        ['32/4, 32/6', '2', 180, 'small'], ['32/8', '2', 180, 'large']] as const).map(([model, nominal, length, motor]) => ({
         label: `VRS ${model}-${length}`,
-        params: { nominal, installLength: length / 1000, housing: 'vrs', motor: model.endsWith('/8') ? 'large' : 'small', terminalBox: 'left' } as const,
+        params: { nominal, installLength: length / 1000, housing: 'vrs', motor, terminalBox: 'left' } as const,
       })),
     ],
   ),

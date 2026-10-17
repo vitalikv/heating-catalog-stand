@@ -123,6 +123,8 @@ export type {
 } from './assembly/Assembly';
 export { ConnectorMating } from './assembly/ConnectorMating';
 export type { MatingCheck } from './assembly/ConnectorMating';
+export { ASSEMBLY_RECIPES } from './assembly/recipes/recipes';
+export type { AssemblyRecipe, AssemblyRecipeVariant } from './assembly/recipes/AssemblyRecipe';
 
 // Схема параметров и таблицы размеров.
 export { ParamSchema } from './params/ParamSchema';

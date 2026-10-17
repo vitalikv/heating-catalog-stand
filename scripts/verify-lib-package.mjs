@@ -47,7 +47,7 @@ try {
     import { Object3D } from 'three';
     import { readFile } from 'node:fs/promises';
     import { fileURLToPath } from 'node:url';
-    import { CATALOG, GeneratorRegistry, MaterialLibrary, createModelObject } from '${pkg.name}';
+    import { ASSEMBLY_RECIPES, Assembly, CATALOG, GeneratorRegistry, MaterialLibrary, createModelObject } from '${pkg.name}';
     const manifest = JSON.parse(await readFile(fileURLToPath(import.meta.resolve('${pkg.name}/manifest.json')), 'utf8'));
     const registry = new GeneratorRegistry();
     const materials = new MaterialLibrary();
@@ -64,18 +64,33 @@ try {
       if (!(object instanceof Object3D)) failed.push(generator.id + ': чужой экземпляр three');
       model.dispose();
     }
+    const recipes = ASSEMBLY_RECIPES.map((r) => r.id + '@' + r.version).sort();
+    const expectedRecipes = manifest.assemblies.map((r) => r.id + '@' + r.version).sort();
+    if (JSON.stringify(recipes) !== JSON.stringify(expectedRecipes)) throw new Error('manifest.json расходится с рецептами сборок');
+    for (const recipe of ASSEMBLY_RECIPES) {
+      const listed = manifest.assemblies.find((r) => r.id === recipe.id);
+      const keys = (recipe.variants ?? []).map((v) => v.key);
+      if (JSON.stringify(listed?.variants ?? []) !== JSON.stringify(keys)) failed.push(recipe.id + ': исполнения расходятся с manifest.json');
+      for (const key of keys.length ? keys : [undefined]) {
+        const assembly = new Assembly(registry, recipe.build(key));
+        const broken = [...assembly.errors, ...assembly.joints.filter((j) => !j.check.compatible).map((j) => j.label),
+          ...assembly.closures.filter((c) => !c.closed).map((c) => c.label)];
+        if (broken.length) failed.push(recipe.id + (key ? ' ' + key : '') + ': ' + broken[0]);
+        assembly.dispose();
+      }
+    }
     materials.dispose();
     for (const file of ['rezba_1.png', 'manometr.png', 'termometr.png', 'termomanometr.png']) {
       await readFile(fileURLToPath(import.meta.resolve('${pkg.name}/textures/' + file)));
     }
     let closed = false;
     try { await import('${pkg.name}/generators/GeneratorRegistry.js'); } catch { closed = true; }
-    console.log(JSON.stringify({ generators: listed.length, catalog: CATALOG.length, failed, closed }));
+    console.log(JSON.stringify({ generators: listed.length, assemblies: recipes.length, catalog: CATALOG.length, failed, closed }));
   `);
   const result = JSON.parse(execFileSync(process.execPath, ['run.mjs'], { cwd: consumer, encoding: 'utf8' }).trim().split('\n').pop());
   assert.deepEqual(result.failed, []);
   assert.equal(result.closed, true, 'внутренний модуль открыт снаружи');
-  console.log(`ok: ${result.generators} генераторов строят модели, каталог — ${result.catalog} позиций, текстуры на месте`);
+  console.log(`ok: ${result.generators} генераторов строят модели, рецептов сборок: ${result.assemblies}, все собираются, каталог — ${result.catalog} позиций, текстуры на месте`);
 
   await writeFile(path.join(consumer, 'check.ts'), `
     import { GeneratorRegistry, MaterialLibrary, createModelObject, type ParamSpec, type GeneratedModel } from '${pkg.name}';

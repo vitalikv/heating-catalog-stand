@@ -66,7 +66,7 @@ export class BallValveGenerator extends BaseGenerator<BallValveParams, PartDiame
     },
     specs.threadNominal('nominal', 'Резьба'),
     specs.length('length', 'Длина', { max: 0.3 }),
-    specs.length('handleLength', 'Ручка', { min: 0.01, step: 0.001 }),
+    specs.length('handleLength', 'Длина ручки', { min: 0.01, step: 0.001 }),
     { kind: 'choice', key: 'handle', label: 'Ручка', options: ['butterfly', 'lever', 'thermometer'],
       optionLabels: { butterfly: 'бабочка', lever: 'рычаг', thermometer: 'с термометром' }, addedIn: 2 },
     { kind: 'choice', key: 'sensorPort', label: 'Гнездо датчика', options: ['none', 'M10x1'], optionLabels: { none: 'нет', M10x1: 'M10×1 снизу' }, addedIn: 2 },

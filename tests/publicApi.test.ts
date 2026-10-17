@@ -7,6 +7,7 @@ describe('публичный API', () => {
     expect(Object.keys(lib).sort()).toEqual(
       [
         'Assembly',
+        'ASSEMBLY_RECIPES',
         'CATALOG',
         'ConnectorMating',
         'createModelObject',

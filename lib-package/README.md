@@ -11,7 +11,7 @@
 | `index.js` | ESM-модуль библиотеки; `three` в него не входит |
 | `types/` | Декларации типов; точка входа `types/index.d.ts` |
 | `textures/*.png` | Текстуры материалов (таблица ниже) |
-| `manifest.json` | Версия пакета, версия three и список генераторов: ID и версия |
+| `manifest.json` | Версия пакета, версия three, списки генераторов и рецептов сборок: ID, версия, ключи исполнений |
 
 Импорт — только из корня пакета: `import { GeneratorRegistry } from '@ingplan/heating-generators'`.
 Внутренние модули (классы генераторов, геометрия) наружу не открыты.
@@ -38,6 +38,35 @@ materials.dispose();   // материалы и текстуры — владе�
 ```
 
 Генераторы не обращаются к DOM и работают в воркере.
+
+## Готовые узлы
+
+`ASSEMBLY_RECIPES` — производственные рецепты сборок: `id` (`assembly.pump-module`),
+`version`, `title`, необязательные исполнения `variants` (`{ key, label }`, например
+число выходов коллектора) и `build(key?)`, который отдаёт новое `AssemblyDefinition`;
+без ключа — первое исполнение. Каждый рецепт — одна связанная группа: все детали
+присоединены друг к другу (`attach`), явное положение — только у первой.
+
+| ID | Узел | Исполнения |
+| --- | --- | --- |
+| `assembly.pump-module` | насосный модуль прямой 1" | — |
+| `assembly.pump-mixing-module` | насосный модуль со смесительным клапаном 1" | — |
+| `assembly.manifold-supply` | коллектор подающий с расходомерами в сборе | выходов 3–12 |
+| `assembly.manifold-return` | коллектор обратный под сервоприводы в сборе | выходов 3–12 |
+Собирает узел `Assembly`: модели и матрицы деталей в координатах узла,
+проверенные стыки и замыкания.
+
+```ts
+import { ASSEMBLY_RECIPES, Assembly } from '@ingplan/heating-generators';
+
+const recipe = ASSEMBLY_RECIPES.find((r) => r.id === 'assembly.pump-module');
+const assembly = new Assembly(registry, recipe.build());
+// assembly.parts: { name, model, matrix }[]; assembly.joints, assembly.errors
+assembly.dispose();
+```
+
+Имена деталей в рецепте — часть его версии: по ним узел сопоставляется
+с деталями и свободными разъёмами.
 
 ## Текстуры
 
@@ -71,7 +100,9 @@ const { failed } = await loadMaterialTextures(materials, (file) => urls[file]);
 - **Версия пакета** — в `package.json`; растёт с каждым выпуском.
 - **Версия генератора** — `generator.version`, хранится в проекте вместе
   с параметрами детали. Список — `manifest.json`.
-- ID генератора после появления сохранённых проектов не меняется.
+- **Версия рецепта** — `recipe.version`; растёт, когда меняются состав или
+  положение деталей узла. Список — `manifest.json`.
+- ID генератора и рецепта после появления сохранённых проектов не меняется.
 
 ## Выпуск
 
