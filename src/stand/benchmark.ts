@@ -1,5 +1,5 @@
-import { Box3, Group, InstancedMesh, Matrix4, Mesh, TextureLoader, Vector3 } from 'three';
-import { createModelObject, GeneratorRegistry, MaterialLibrary } from '../lib/index';
+import { Box3, Group, InstancedMesh, Matrix4, Mesh, Vector3 } from 'three';
+import { createModelObject, GeneratorRegistry, loadMaterialTextures, MaterialLibrary } from '../lib/index';
 import { Viewer } from './Viewer';
 
 const info = document.getElementById('info')!;
@@ -23,20 +23,9 @@ const durationMs = 30000;
 const warnings: string[] = [];
 info.textContent = `Подготовка ${countLabel} моделей…`;
 
-const textureJobs: [string, (texture: Awaited<ReturnType<TextureLoader['loadAsync']>>) => void][] = [
-  ['rezba_1.png', (texture: Awaited<ReturnType<TextureLoader['loadAsync']>>) => materials.setThreadTexture(texture)],
-  ['manometr.png', (texture: Awaited<ReturnType<TextureLoader['loadAsync']>>) => materials.setManometerTexture(texture)],
-  ['termometr.png', (texture: Awaited<ReturnType<TextureLoader['loadAsync']>>) => materials.setDialTexture('thermometer', texture)],
-  ['termomanometr.png', (texture: Awaited<ReturnType<TextureLoader['loadAsync']>>) => materials.setDialTexture('thermomanometer', texture)],
-];
-await Promise.all(textureJobs.map(async ([file, apply]) => {
-  try {
-    const texture = await new TextureLoader().loadAsync(`${import.meta.env.BASE_URL}textures/${file}`);
-    apply(texture);
-  } catch {
-    warnings.push(`Не загружена текстура ${file}`);
-  }
-}));
+// Текстуры — общим загрузчиком библиотеки, как в редакторе.
+const textures = await loadMaterialTextures(materials, (file) => `${import.meta.env.BASE_URL}textures/${file}`);
+for (const { url } of textures.failed) warnings.push(`Не загружена текстура ${url}`);
 
 const generators = new GeneratorRegistry().list();
 const models = generators.map((generator) => generator.build(generator.defaults));

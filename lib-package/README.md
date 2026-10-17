@@ -41,17 +41,23 @@ materials.dispose();   // материалы и текстуры — владе�
 
 ## Текстуры
 
-Библиотека текстуры не грузит: их загружает потребитель и передаёт готовыми
-(`setThreadTexture`, `setManometerTexture`, `setDialTexture`). Файлы лежат
-в пакете, чтобы версии кода и ресурсов не расходились. В Vite:
+Файлы лежат в пакете, чтобы версии кода и ресурсов не расходились; список по
+ключам — `MATERIAL_TEXTURE_FILES`. Загружает их `loadMaterialTextures` —
+одинаково в главном потоке и в воркере (ImageBitmapLoader, без DOM). Адрес
+файла даёт потребитель; в Vite:
 
 ```ts
 import threadUrl from '@ingplan/heating-generators/textures/rezba_1.png?url';
+// ... так же остальные три
+const urls = { 'rezba_1.png': threadUrl, /* ... */ };
+const { failed } = await loadMaterialTextures(materials, (file) => urls[file]);
 ```
 
-В воркере `TextureLoader` не работает (нет `Image`) — нужен `ImageBitmapLoader`;
-у `ImageBitmap` ориентация задаётся `imageOrientation: 'flipY'`, а `flipY`
-текстуры игнорируется.
+Текстуры переходят во владение `MaterialLibrary` вместе с `ImageBitmap`:
+замена и `dispose()` закрывают bitmap, текстура после `dispose()` освобождается
+сразу. Не загрузившаяся текстура оставляет материал без карты и попадает
+в `failed`. Задать текстуру вручную по-прежнему можно (`setThreadTexture`,
+`setManometerTexture`, `setDialTexture`).
 
 | Файл | Материал | Источник |
 | --- | --- | --- |
@@ -70,4 +76,5 @@ import threadUrl from '@ingplan/heating-generators/textures/rezba_1.png?url';
 ## Выпуск
 
 На стенде: `npm run typecheck`, `npm test`, затем `npm run build:lib`
-(архив в `dist-lib/`) и `npm run verify:lib` (проверка архива на чистой установке).
+(архив в `dist-lib/`) и `npm run verify:lib` (проверка архива на чистой установке
+и в настоящем web worker через headless Chrome).

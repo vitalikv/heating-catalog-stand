@@ -1,7 +1,7 @@
 import GUI from 'lil-gui';
-import { Box3, MathUtils, Mesh, TextureLoader, Vector3 } from 'three';
+import { Box3, MathUtils, Mesh, Vector3 } from 'three';
 import type { Object3D } from 'three';
-import { Assembly, CATALOG, createModelObject, GeneratorRegistry, MaterialLibrary } from '../lib/index';
+import { Assembly, CATALOG, createModelObject, GeneratorRegistry, loadMaterialTextures, MaterialLibrary } from '../lib/index';
 import { STAND_ASSEMBLIES } from './assemblies';
 import { AssemblyView } from './AssemblyView';
 import { boundsBox, ModelInspector } from './ModelInspector';
@@ -230,23 +230,16 @@ display.add(viewer.grid, 'visible').name('Сетка');
 display.add(viewer.axes, 'visible').name('Оси');
 display.add({ frame: frameCurrent }, 'frame').name('Показать модель целиком');
 
-// Текстура грузится в стенде и передаётся в библиотеку готовой (п. 5 плана).
-new TextureLoader()
-  .loadAsync(`${import.meta.env.BASE_URL}textures/rezba_1.png`)
-  .then((texture) => materials.setThreadTexture(texture))
-  .catch(() => {
-    textureWarning = 'Текстура резьбы не загружена: textures/rezba_1.png';
+// Текстуры — общим загрузчиком библиотеки, как в редакторе: ImageBitmap,
+// работает и в воркере. Без текстуры резьба гладкая, а циферблат белый.
+void loadMaterialTextures(materials, (file) => `${import.meta.env.BASE_URL}textures/${file}`).then(({ failed }) => {
+  for (const { key, url } of failed) {
+    if (key !== 'thread') {
+      console.warn(`Текстура циферблата не загружена: ${url}`);
+      continue;
+    }
+    textureWarning = `Текстура резьбы не загружена: ${url}`;
     if (assembly) showAssembly(assemblyState.index);
     else if (lastBuild) rebuild(lastBuild.generatorId, lastBuild.params, false);
-  });
-// Циферблаты приборов; без текстуры материалы просто белые.
-new TextureLoader()
-  .loadAsync(`${import.meta.env.BASE_URL}textures/manometr.png`)
-  .then((texture) => materials.setManometerTexture(texture))
-  .catch(() => console.warn('Текстура манометра не загружена: textures/manometr.png'));
-for (const [key, file] of [['thermometer', 'termometr.png'], ['thermomanometer', 'termomanometr.png']] as const) {
-  new TextureLoader()
-    .loadAsync(`${import.meta.env.BASE_URL}textures/${file}`)
-    .then((texture) => materials.setDialTexture(key, texture))
-    .catch(() => console.warn(`Текстура циферблата не загружена: textures/${file}`));
-}
+  }
+});

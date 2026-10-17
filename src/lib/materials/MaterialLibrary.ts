@@ -37,13 +37,17 @@ const THREADED: readonly MaterialKey[] = ['thread', 'bronzeThread'];
 /**
  * Общие материалы генераторов. Модели только ссылаются на них, поэтому
  * dispose() модели их не освобождает — это делает владелец библиотеки.
- * Текстура передаётся готовой: загрузка зависит от среды (стенд, воркер).
- * Переданная текстура переходит во владение библиотеки.
+ * Текстура передаётся готовой — её загружает потребитель, например
+ * loadMaterialTextures. Переданная текстура переходит во владение библиотеки:
+ * при замене и в dispose() она освобождается вместе с ImageBitmap, если он
+ * под ней. Текстура, пришедшая после dispose(), сразу освобождается — так
+ * загрузка, закончившаяся после закрытия сцены, ничего не оставляет.
  */
 export class MaterialLibrary {
   private readonly materials: Record<MaterialKey, MeshPhongMaterial>;
   private threadTexture: Texture | null = null;
   private readonly dialTextures: Record<DialKey, Texture | null> = { manometer: null, thermometer: null, thermomanometer: null };
+  private disposed = false;
 
   constructor(threadTexture: Texture | null = null) {
     const metal = () => this.create(METAL_COLOR, METAL_SPECULAR, METAL_SHININESS);
@@ -82,7 +86,11 @@ export class MaterialLibrary {
   /** Без текстуры материалы резьбы выглядят как metal и bronze, но остаются отдельными. */
   setThreadTexture(texture: Texture | null): void {
     if (texture === this.threadTexture) return;
-    this.threadTexture?.dispose();
+    if (this.disposed) {
+      releaseTexture(texture);
+      return;
+    }
+    releaseTexture(this.threadTexture);
     this.threadTexture = texture;
 
     if (texture) {
@@ -111,7 +119,11 @@ export class MaterialLibrary {
    */
   setDialTexture(key: DialKey, texture: Texture | null): void {
     if (texture === this.dialTextures[key]) return;
-    this.dialTextures[key]?.dispose();
+    if (this.disposed) {
+      releaseTexture(texture);
+      return;
+    }
+    releaseTexture(this.dialTextures[key]);
     this.dialTextures[key] = texture;
 
     if (texture) {
@@ -128,11 +140,12 @@ export class MaterialLibrary {
   }
 
   dispose(): void {
+    this.disposed = true;
     for (const material of Object.values(this.materials)) material.dispose();
-    this.threadTexture?.dispose();
+    releaseTexture(this.threadTexture);
     this.threadTexture = null;
     for (const key of Object.keys(this.dialTextures) as DialKey[]) {
-      this.dialTextures[key]?.dispose();
+      releaseTexture(this.dialTextures[key]);
       this.dialTextures[key] = null;
     }
   }
@@ -140,4 +153,15 @@ export class MaterialLibrary {
   private create(color: number, specular: number, shininess: number): MeshPhongMaterial {
     return new MeshPhongMaterial({ color: new Color(color), specular: new Color(specular), shininess, side: DoubleSide });
   }
+}
+
+/**
+ * Освобождает текстуру и картинку под ней, если это ImageBitmap: его память
+ * не отдают ни texture.dispose(), ни сборщик мусора вовремя.
+ */
+function releaseTexture(texture: Texture | null): void {
+  if (!texture) return;
+  texture.dispose();
+  const image = texture.image as { close?: unknown } | null;
+  if (image && typeof image.close === 'function') (image as { close(): void }).close();
 }

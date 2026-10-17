@@ -12,6 +12,8 @@ describe('публичный API', () => {
         'createModelObject',
         'GeneratorParamsError',
         'GeneratorRegistry',
+        'loadMaterialTextures',
+        'MATERIAL_TEXTURE_FILES',
         'MaterialLibrary',
         'MpPipeSizes',
         'ParamSchema',

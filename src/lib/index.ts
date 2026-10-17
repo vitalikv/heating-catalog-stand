@@ -112,6 +112,8 @@ export type { ThermoelectricActuatorParams } from './generators/valve/Thermoelec
 
 // Материалы и объект сцены.
 export { MaterialLibrary } from './materials/MaterialLibrary';
+export { MATERIAL_TEXTURE_FILES, loadMaterialTextures } from './materials/MaterialTextures';
+export type { MaterialTextureKey, MaterialTexturesResult } from './materials/MaterialTextures';
 export { createModelObject } from './scene/ModelObject';
 
 // Стыковка и сборки.

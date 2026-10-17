@@ -4,7 +4,9 @@
 // - в модуле нет кода three, и объекты сцены строятся из three потребителя;
 // - каждый генератор из manifest.json строит модель по своим умолчаниям;
 // - текстуры доступны по экспорту пакета;
-// - типы проходят tsc у потребителя, а внутренние модули закрыты.
+// - типы проходят tsc у потребителя, а внутренние модули закрыты;
+// - в настоящем web worker (headless Chrome) строятся модели, грузятся
+//   текстуры и рисуется циферблат — scripts/lib-worker-check.mjs.
 // Запуск: npm run build:lib && npm run verify:lib
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -12,6 +14,7 @@ import { mkdtemp, readFile, rm, symlink, writeFile, mkdir } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { runInWorker } from './lib-worker-check.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const pkg = JSON.parse(await readFile(path.join(root, 'lib-package/package.json'), 'utf8'));
@@ -98,6 +101,19 @@ try {
   }));
   execFileSync(process.execPath, [path.join(root, 'node_modules/typescript/bin/tsc'), '-p', 'tsconfig.json'], { cwd: consumer, stdio: 'inherit' });
   console.log('ok: декларации пакета проходят tsc у потребителя, внутренние модули закрыты');
+
+  const worker = await runInWorker(consumer, pkg.name);
+  assert.equal(worker.error, undefined, worker.error);
+  assert.deepEqual([worker.document, worker.image], ['undefined', 'undefined'], 'у воркера нашёлся DOM');
+  assert.deepEqual(worker.failed, []);
+  assert.equal(worker.built, result.generators);
+  assert.deepEqual(worker.textures.failed, []);
+  assert.equal(worker.textures.loaded.length, 4);
+  // Шкала циферблата — тёмные деления и цифры; белый циферблат без карты их не имеет.
+  assert.ok(worker.dialTextured > 0.02 && worker.dialTextured > worker.dialPlain * 4,
+    `циферблат в воркере без шкалы: ${worker.dialTextured} против ${worker.dialPlain}`);
+  console.log(`ok: в web worker ${worker.built} генераторов строят модели, текстуры грузятся,`
+    + ` циферблат со шкалой (тёмного ${(worker.dialTextured * 100).toFixed(1)}% против ${(worker.dialPlain * 100).toFixed(1)}%)`);
 } finally {
   await rm(consumer, { recursive: true, force: true });
 }
