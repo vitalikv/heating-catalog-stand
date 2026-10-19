@@ -501,7 +501,7 @@ describe('насосно-смесительный узел 72 и полный у
     const assembly = new Assembly(registry, mixingUnit());
     expect(assembly.errors).toEqual([]);
     expect(assembly.joints.every(({ check }) => check.compatible)).toBe(true);
-    const supply = portWorld(assembly, 'ниппель T11', 'right');
+    const supply = portWorld(assembly, 'ниппель подачи', 'right');
     const ret = portWorld(assembly, 'муфта обратки', 'right');
     expect(ret.position.y - supply.position.y).toBeCloseTo(MANIFOLD_PAIR_OFFSET.y, 3);
     expect(ret.position.z - supply.position.z).toBeCloseTo(MANIFOLD_PAIR_OFFSET.z, 3);

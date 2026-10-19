@@ -1,4 +1,6 @@
 import { ASSEMBLY_RECIPES } from '../lib/index';
+import { MIXING_UNIT_FIT, mixingUnitParts } from '../lib/assembly/recipes/mixingUnit';
+import { bottomHBlockParts } from '../lib/assembly/recipes/radiatorHBlock';
 import type { AluminiumRadiatorParams, AssemblyDefinition, AssemblyPart, Vector3Data } from '../lib/index';
 
 /** Производственный рецепт библиотеки по ID: стенд показывает те же узлы, что идут в пакет. */
@@ -73,29 +75,20 @@ export function aluminiumBottomSide(sections = 6): AssemblyDefinition {
   };
 }
 
-/** Нижняя пара радиатора: ниппели A и B, H-блок по ниппелю A и замыкание на ниппель B, евроконус → МП на выходах. */
+/**
+ * Нижняя пара радиатора: детали и замыкание — из производственного рецепта узла радиатора
+ * (`bottomHBlockParts` библиотеки), на стенде к адаптерам добавлены отрезки МП.
+ */
 function bottomHBlock(kind: string, radiatorPart: AssemblyPart, bottomSide: 'right' | 'left', shutoff: 'none' | 'ball'): AssemblyDefinition {
-  const nipple = { nominalLeft: '3/4', nominalRight: '1/2', length: 0.026 };
-  // С кранами — VALTEC VT.345K (позиция 100): высота A = 49 мм.
-  const hBlock = shutoff === 'ball' ? { height: 0.049, shutoff } : { height: 0.06 };
+  const { parts, closures } = bottomHBlockParts(radiatorPart, bottomSide, shutoff);
   return {
     label: `${kind} радиатор снизу (${bottomSide === 'right' ? 'справа' : 'слева'}): ниппели, H-блок${shutoff === 'ball' ? ' с кранами VT.345K' : ''}, евроконус → МП`,
     parts: [
-      radiatorPart,
-      { name: 'ниппель A', generatorId: 'steel.nipple', params: nipple, attach: { connector: 'right', to: 'радиатор', toConnector: 'below-outer' } },
-      { name: 'ниппель B', generatorId: 'steel.nipple', params: nipple, attach: { connector: 'right', to: 'радиатор', toConnector: 'below-inner' } },
-      { name: 'H-блок', generatorId: 'valve.radiator-h-block',
-        params: { radiatorNominal: '3/4', pipeNominal: '3/4', spacing: 0.05, configuration: 'straight', ...hBlock },
-        attach: { connector: bottomSide === 'right' ? 'radiator-left' : 'radiator-right', to: 'ниппель A', toConnector: 'left' } },
-      // Звено «евроконус → МП-труба» (часть 22): обжимной адаптер и отрезок трубы на каждом выходе.
-      ...(['left', 'right'] as const).flatMap((side) => [
-        { name: `адаптер ${side}`, generatorId: 'mp.eurocone-adapter', params: { pipeNominal: '16', euroconeNominal: '3/4', length: 0.026 },
-          attach: { connector: 'eurocone', to: 'H-блок', toConnector: `pipe-${side}` } },
-        { name: `труба ${side}`, generatorId: 'mp.pipe', params: { nominal: '16', length: 0.15 },
-          attach: { connector: 'start', to: `адаптер ${side}`, toConnector: 'pipe' } },
-      ]),
+      ...parts,
+      ...(['left', 'right'] as const).map((side): AssemblyPart => ({ name: `труба ${side}`, generatorId: 'mp.pipe', params: { nominal: '16', length: 0.15 },
+        attach: { connector: 'start', to: `адаптер ${side}`, toConnector: 'pipe' } })),
     ],
-    closures: [{ part: 'H-блок', connector: bottomSide === 'right' ? 'radiator-right' : 'radiator-left', to: 'ниппель B', toConnector: 'left' }],
+    closures,
   };
 }
 
@@ -198,59 +191,9 @@ export function boilerFilter(generatorId: 'equipment.strainer-straight' | 'equip
   };
 }
 
-/** Подбираемые длины узла 72, м: вертикальный и диагональный ниппели байпаса, муфта обратки. */
-export const MIXING_UNIT_FIT = { bypass: 0.0537, jog: 0.0247, returnCoupling: 0.0512 };
-
-/**
- * Насосно-смесительный узел 72 по схеме VALTEC для VT.MIX03 (технический каталог 2017, с. 371,
- * пример 4): подача котла → кран → трёхходовой клапан (left — горячий, right — смешанный) →
- * ниппель → гайка → насос VRS 25/6-180 → гайка → anchor (подающая гребёнка или её ниппель).
- * Ход top клапана — байпас вверх, к тройнику обратной линии: ниппель, два угла 45° (сдвиг к стене
- * на 32 мм, как у обратной гребёнки на VTc.IV130), ниппель. Тройник: left — кран к котлу,
- * right — ниппель и муфта к обратной гребёнке (свободная граница T21 «муфта обратки».right).
- * fit — длины, подобранные под замыкание на обратной гребёнке пары (сборка 123).
- */
-export function mixingUnitParts(anchor: { to: string; toConnector: string }, fit = MIXING_UNIT_FIT): AssemblyPart[] {
-  const nipple = (length: number) => ({ nominalLeft: '1', nominalRight: '1', length });
-  const tee = { threadGender: 'internal', nominalLeft: '1', nominalBranch: '1', nominalRight: '1', length: 0.06, branchLength: 0.03 };
-  const elbow = { nominal: '1', armLength: 0.016 };
-  const ball = { ends: 'internal', nominal: '1', length: 0.0625, handleLength: 0.06 };
-  return [
-    { name: 'гайка подачи', generatorId: 'equipment.pump-nut', params: { pumpNominal: '1 1/2', pipeNominal: '1' },
-      attach: { connector: 'pipe', to: anchor.to, toConnector: anchor.toConnector } },
-    { name: 'насос узла', generatorId: 'equipment.pump', params: { nominal: '1 1/2', installLength: 0.18, housing: 'vrs', motor: 'small', terminalBox: 'left' },
-      attach: { connector: 'right', to: 'гайка подачи', toConnector: 'pump' } },
-    { name: 'гайка клапана', generatorId: 'equipment.pump-nut', params: { pumpNominal: '1 1/2', pipeNominal: '1' },
-      attach: { connector: 'pump', to: 'насос узла', toConnector: 'left' } },
-    { name: 'ниппель клапана', generatorId: 'steel.nipple', params: nipple(0.044), attach: { connector: 'right', to: 'гайка клапана', toConnector: 'pipe' } },
-    { name: 'смесительный клапан', generatorId: 'valve.mixing', params: { ways: 3, nominal: '1', control: 'handle' },
-      attach: { connector: 'right', to: 'ниппель клапана', toConnector: 'left' } },
-    { name: 'ниппель подачи котла', generatorId: 'steel.nipple', params: nipple(0.044), attach: { connector: 'right', to: 'смесительный клапан', toConnector: 'left' } },
-    { name: 'кран подачи котла', generatorId: 'valve.ball', params: ball, attach: { connector: 'right', to: 'ниппель подачи котла', toConnector: 'left' } },
-    // Байпас: вверх от клапана, сдвиг к стене двумя углами 45°, вверх в отвод тройника.
-    { name: 'ниппель байпаса', generatorId: 'steel.nipple', params: nipple(0.044), attach: { connector: 'left', to: 'смесительный клапан', toConnector: 'top' } },
-    { name: 'угол байпаса 1', generatorId: 'steel.elbow-45', params: elbow, attach: { connector: 'right', to: 'ниппель байпаса', toConnector: 'right', angle: 90 } },
-    { name: 'ниппель сдвига', generatorId: 'steel.nipple', params: nipple(fit.jog), attach: { connector: 'left', to: 'угол байпаса 1', toConnector: 'left' } },
-    { name: 'угол байпаса 2', generatorId: 'steel.elbow-45', params: elbow, attach: { connector: 'left', to: 'ниппель сдвига', toConnector: 'right', angle: 180 } },
-    { name: 'ниппель к тройнику', generatorId: 'steel.nipple', params: nipple(fit.bypass), attach: { connector: 'left', to: 'угол байпаса 2', toConnector: 'right' } },
-    { name: 'тройник обратки', generatorId: 'steel.tee', params: tee, attach: { connector: 'top', to: 'ниппель к тройнику', toConnector: 'right', angle: 90 } },
-    { name: 'ниппель обратки котла', generatorId: 'steel.nipple', params: nipple(0.044), attach: { connector: 'right', to: 'тройник обратки', toConnector: 'left' } },
-    { name: 'кран обратки котла', generatorId: 'valve.ball', params: ball, attach: { connector: 'right', to: 'ниппель обратки котла', toConnector: 'left' } },
-    { name: 'ниппель обратки', generatorId: 'steel.nipple', params: nipple(0.2), attach: { connector: 'left', to: 'тройник обратки', toConnector: 'right' } },
-    { name: 'муфта обратки', generatorId: 'steel.coupling', params: { nominalLeft: '1', nominalRight: '1', length: fit.returnCoupling },
-      attach: { connector: 'left', to: 'ниппель обратки', toConnector: 'right' } },
-  ];
-}
-
-/** Узел 72 отдельно: ниппель T11 в начале координат вместо подающей гребёнки. */
+/** Узел 72 отдельно — производственный рецепт библиотеки. */
 export function mixingUnit(): AssemblyDefinition {
-  return {
-    label: 'Насосно-смесительный узел 1": клапан VT.MIX03, насос VRS, байпас, краны котла',
-    parts: [
-      { name: 'ниппель T11', generatorId: 'steel.nipple', params: { nominalLeft: '1', nominalRight: '1', length: 0.044 } },
-      ...mixingUnitParts({ to: 'ниппель T11', toConnector: 'left' }),
-    ],
-  };
+  return recipe('assembly.mixing-unit').build();
 }
 
 /**
@@ -463,27 +406,9 @@ export function pumpMixingModule(): AssemblyDefinition {
   return recipe('assembly.pump-mixing-module').build();
 }
 
-/**
- * Вход холодной воды в бойлер (позиции 111, 112): кран 3/4 → тройник с гасителем гидроударов VT.CAR20 на отводе
- * 1/2 → группа безопасности VT.461 (вход холодной воды прямо в тройник) → ниппель к патрубку бойлера.
- * Свободные границы: кран (водопровод), ниппель (бойлер), слив 1 1/4 группы (дренаж через воронку).
- */
+/** Вход холодной воды в бойлер (позиции 111, 112) — производственный рецепт библиотеки. */
 export function boilerColdInlet(): AssemblyDefinition {
-  return {
-    label: 'Вход в бойлер 3/4: кран, гаситель гидроударов VT.CAR20, группа безопасности VT.461',
-    parts: [
-      { name: 'тройник', generatorId: 'steel.tee',
-        params: { threadGender: 'internal', nominalLeft: '3/4', nominalBranch: '1/2', nominalRight: '3/4', length: 0.052, branchLength: 0.026 } },
-      { name: 'гаситель', generatorId: 'equipment.water-hammer-arrester', params: { model: 'CAR20' },
-        attach: { connector: 'inlet', to: 'тройник', toConnector: 'top' } },
-      { name: 'группа безопасности', generatorId: 'equipment.boiler-safety-group', params: { setting: 7 },
-        attach: { connector: 'cold', to: 'тройник', toConnector: 'right' } },
-      { name: 'ниппель бойлера', generatorId: 'steel.nipple', params: { nominalLeft: '3/4', nominalRight: '3/4', length: 0.026 },
-        attach: { connector: 'left', to: 'группа безопасности', toConnector: 'boiler' } },
-      { name: 'кран', generatorId: 'valve.ball', params: { ends: 'external', nominal: '3/4', length: 0.07, handleLength: 0.053 },
-        attach: { connector: 'right', to: 'тройник', toConnector: 'left' } },
-    ],
-  };
+  return recipe('assembly.boiler-cold-inlet').build();
 }
 
 /** Детали модуля 105 из рецепта; start — как ставится нижний кран вместо положения из рецепта. */
