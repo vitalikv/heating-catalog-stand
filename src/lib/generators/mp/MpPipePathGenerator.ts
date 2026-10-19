@@ -11,7 +11,7 @@ export interface MpPipePathParams {
   nominal: string;
   /** Осевая линия — ломаная, м, в координатах модели; изгибы скругляются радиусом bendRadius. */
   path: Vector3Data[];
-  /** Радиус изгиба по оси трубы, м. */
+  /** Радиус изгиба по оси трубы, м; 0 — углы острые, без скругления (как ломаная в редакторе). */
   bendRadius: number;
 }
 
@@ -32,6 +32,7 @@ const BEND: Readonly<Record<string, { hand: number; tool: number }>> = {
  * концы — как у прямой трубы mp.pipe (наружный 'mp-press': пресс- и обжимные фитинги).
  * Глубина конца — прямой участок у торца: фитинг не садится на изгиб.
  * Радиус меньше гиба трубогибом отклоняется; меньше ручного — предупреждение.
+ * Радиус 0 — острые углы «на ус»: ломаная без скруглений, проверок гиба нет.
  */
 export class MpPipePathGenerator extends BaseGenerator<MpPipePathParams> {
   readonly id = 'mp.pipe-path';
@@ -40,7 +41,7 @@ export class MpPipePathGenerator extends BaseGenerator<MpPipePathParams> {
   readonly paramSpecs: readonly ParamSpec[] = [
     specs.mpNominal('nominal'),
     { kind: 'path', key: 'path', label: 'Траектория', minPoints: 2, maxPoints: 16, extent: 10 },
-    specs.length('bendRadius', 'Радиус изгиба', { min: 0.04, max: 1, step: 0.005 }),
+    specs.length('bendRadius', 'Радиус изгиба', { min: 0, max: 1, step: 0.005 }),
   ];
   readonly defaults: MpPipePathParams = {
     nominal: '16', bendRadius: 0.08,
@@ -49,7 +50,7 @@ export class MpPipePathGenerator extends BaseGenerator<MpPipePathParams> {
 
   protected override relations(p: MpPipePathParams): ValidationError[] {
     const minimum = BEND[p.nominal].tool;
-    if (p.bendRadius < minimum - 1e-9) {
+    if (p.bendRadius > 0 && p.bendRadius < minimum - 1e-9) {
       return [{ code: 'too_small', param: 'bendRadius', message: `Радиус изгиба: меньше ${minimum * 1000} мм (трубогиб VALTEC для ${p.nominal})` }];
     }
     return PipePathBuilder.analyze(p.path, p.bendRadius, Number(p.nominal) / 1000).map((issue) => ({ code: issue.code, param: 'path', message: issue.message }));
@@ -63,11 +64,11 @@ export class MpPipePathGenerator extends BaseGenerator<MpPipePathParams> {
       id, position: side.position, direction: side.direction, up: side.up, depth: side.straight, nominal: p.nominal, joint: 'mp-press', gender: 'external',
     });
     const model = createMeshModel({
-      title: `Труба МП ${p.nominal} по траектории (${Math.round(pipe.length * 100) / 100}м, R${Math.round(p.bendRadius * 1000)})`,
+      title: `Труба МП ${p.nominal} по траектории (${Math.round(pipe.length * 100) / 100}м, ${p.bendRadius > 0 ? `R${Math.round(p.bendRadius * 1000)}` : 'острые углы'})`,
       ...merger.merge(),
       connectors: [end('start', pipe.start), end('end', pipe.end)],
     });
-    if (p.bendRadius < BEND[p.nominal].hand - 1e-9) {
+    if (p.bendRadius > 0 && p.bendRadius < BEND[p.nominal].hand - 1e-9) {
       model.warnings.push(`Радиус ${Math.round(p.bendRadius * 1000)} мм меньше ручного гиба VALTEC (${BEND[p.nominal].hand * 1000} мм) — нужен кондуктор или трубогиб`);
     }
     return model;

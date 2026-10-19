@@ -70,6 +70,38 @@ describe('PipePathBuilder', () => {
     a.geometry.dispose(); b.geometry.dispose();
   });
 
+  it('острые углы (радиус 0): длина по ломаной, прямой участок — весь крайний отрезок, без щели', () => {
+    const points = [v(0, 0, 0), v(0.3, 0, 0), v(0.3, 0.3, 0), v(0.3, 0.3, 0.3)];
+    const pipe = PipePathBuilder.build(points, 0, 0.016);
+    expect(pipe.length).toBeCloseTo(0.9, 12);
+    expect(pipe.start.straight).toBeCloseTo(0.3, 12);
+    expect(pipe.end.straight).toBeCloseTo(0.3, 12);
+    expect(pipe.end.direction.z).toBeCloseTo(1, 9);
+    // 3 участка × 12 граней × 2 треугольника: пара колец угла участка не даёт.
+    const position = pipe.geometry.getAttribute('position');
+    expect(position.count).toBe(3 * 72);
+    // Стык «на ус»: торец первого участка и начало второго — одни и те же точки в плоскости x + y = 0,3.
+    const ring = (strip: number, end: 0 | 1) => Array.from({ length: 12 }, (_, j) =>
+      new Vector3().fromBufferAttribute(position, strip * 72 + j * 6 + (end === 0 ? 0 : 2)));
+    const first = ring(0, 1);
+    const second = ring(1, 0);
+    first.forEach((point, j) => {
+      expect(point.distanceTo(second[j])).toBeLessThan(1e-6);
+      expect(point.x + point.y).toBeCloseTo(0.3, 6);
+    });
+    // Нормали — каждого отрезка свои, перпендикулярны его оси.
+    const normal = pipe.geometry.getAttribute('normal');
+    for (let i = 0; i < 72; i++) expect(new Vector3().fromBufferAttribute(normal, i).x).toBeCloseTo(0, 6);
+    pipe.geometry.dispose();
+  });
+
+  it('острый угол 45°: проверка гибов не мешает коротким отрезкам', () => {
+    const points = [v(0, 0, 0), v(0.05, 0, 0), v(0.1, 0, 0.05), v(0.1, 0, 0.06)];
+    expect(PipePathBuilder.analyze(points, 0, 0.016)).toEqual([]);
+    expect(PipePathBuilder.analyze(points, 0.08, 0.016).map((issue) => issue.code)).toContain('segment_too_short');
+    PipePathBuilder.build(points, 0, 0.016).geometry.dispose();
+  });
+
   it.each([
     ['нулевой отрезок', [v(0, 0, 0), v(0, 0, 0), v(0.3, 0, 0)], 'zero_segment'],
     ['разворот на 180°', [v(0, 0, 0), v(0.3, 0, 0), v(0.1, 0, 0)], 'reversal'],
@@ -117,6 +149,15 @@ describe('труба МП по траектории mp.pipe-path (позиция
     const hand = build({ bendRadius: 0.08 });
     expect(hand.warnings).toEqual([]);
     hand.dispose();
+  });
+
+  it('радиус 0 — острые углы: ни ошибки трубогиба, ни предупреждения', () => {
+    expect(generator.validate({ ...generator.defaults, bendRadius: 0 })).toEqual([]);
+    const sharp = build({ bendRadius: 0 });
+    expect(sharp.warnings).toEqual([]);
+    expect(port(sharp, 'start').depth).toBeCloseTo(0.3, 12);
+    sharp.dispose();
+    expect(generator.validate({ ...generator.defaults, bendRadius: 0.01 }).map((e) => e.code)).toEqual(['too_small']);
   });
 
   it('ошибки траектории — по параметру path', () => {

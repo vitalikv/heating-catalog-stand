@@ -33,6 +33,8 @@ export interface PipePathResult {
 interface Sample {
   position: Vector3;
   tangent: Vector3;
+  /** Острый угол (радиус 0): нормаль плоскости стыка «на ус» — кольцо сечения ложится в неё. */
+  miter?: Vector3;
 }
 
 /** Без −0: у осевых направлений нулевые компоненты сравниваются как обычный ноль. */
@@ -41,7 +43,7 @@ const mm = (meters: number) => (meters * 1000).toFixed(1);
 
 /**
  * Труба по пространственной траектории: ломаная points, изгибы скруглены дугами радиуса bendRadius
- * по осевой. Сечение — окружность diameter, ориентация переносится вдоль пути параллельно
+ * по осевой; при bendRadius = 0 углы острые — отрезки стыкуются «на ус» по биссектрисе угла. Сечение — окружность diameter, ориентация переносится вдоль пути параллельно
  * (без скачков и закрутки). Труба открытая, как прямая труба; UV — в метрах: u — длина по оси,
  * v — длина по окружности.
  *
@@ -119,6 +121,7 @@ export class PipePathBuilder {
 
   /** Точки осевой с касательными: прямые участки и дуги изгибов; совпадающие соседние точки не повторяются. */
   private static centerline(p: Vector3[], radius: number): Sample[] {
+    if (radius <= 0) return PipePathBuilder.miterLine(p);
     const samples: Sample[] = [];
     const push = (position: Vector3, tangent: Vector3) => {
       const previous = samples[samples.length - 1];
@@ -152,6 +155,26 @@ export class PipePathBuilder {
   }
 
   /**
+   * Осевая с острыми углами: в каждом угле два кольца в одной точке — конец входящего отрезка
+   * и начало выходящего, оба в плоскости биссектрисы. Точки колец совпадают (перенос сечения
+   * поворотом и отражение в плоскости стыка дают одно и то же), нормали у каждого отрезка свои —
+   * ребро угла чёткое, щели нет.
+   */
+  private static miterLine(p: Vector3[]): Sample[] {
+    const samples: Sample[] = [{ position: p[0].clone(), tangent: p[1].clone().sub(p[0]).normalize() }];
+    for (let i = 1; i < p.length - 1; i++) {
+      const before = p[i].clone().sub(p[i - 1]).normalize();
+      const after = p[i + 1].clone().sub(p[i]).normalize();
+      if (before.dot(after) > 1 - 1e-12) continue;
+      const miter = before.clone().add(after).normalize();
+      samples.push({ position: p[i].clone(), tangent: before, miter }, { position: p[i].clone(), tangent: after, miter });
+    }
+    const last = p.length - 1;
+    samples.push({ position: p[last].clone(), tangent: p[last].clone().sub(p[last - 1]).normalize() });
+    return samples;
+  }
+
+  /**
    * Опорные векторы сечения: начальный — проекция +Y на плоскость сечения (у вертикального начала —
    * проекция +X), дальше — параллельный перенос поворотом от касательной к касательной.
    */
@@ -179,13 +202,18 @@ export class PipePathBuilder {
       return Array.from({ length: RADIAL_SEGMENTS + 1 }, (_, j) => {
         const angle = (2 * Math.PI * j) / RADIAL_SEGMENTS;
         const out = n.clone().multiplyScalar(Math.cos(angle)).addScaledVector(b, Math.sin(angle));
-        return { position: sample.position.clone().addScaledVector(out, radius), normal: out, v: angle * radius };
+        const position = sample.position.clone().addScaledVector(out, radius);
+        // Острый угол: точка окружности сдвигается вдоль оси в плоскость стыка.
+        if (sample.miter) position.addScaledVector(sample.tangent, -out.dot(sample.miter) * radius / sample.tangent.dot(sample.miter));
+        return { position, normal: out, v: angle * radius };
       });
     });
     const along = [0];
     for (let k = 1; k < samples.length; k++) along.push(along[k - 1] + samples[k].position.distanceTo(samples[k - 1].position));
 
-    const quads = (samples.length - 1) * RADIAL_SEGMENTS;
+    // Пара колец острого угла стоит в одной точке: участка между ними нет.
+    const strips = samples.slice(1).map((sample, k) => sample.position.distanceTo(samples[k].position) >= EPS);
+    const quads = strips.filter(Boolean).length * RADIAL_SEGMENTS;
     const position = new Float32Array(quads * 18);
     const normal = new Float32Array(quads * 18);
     const uv = new Float32Array(quads * 12);
@@ -198,6 +226,7 @@ export class PipePathBuilder {
       vertex++;
     };
     for (let k = 0; k < samples.length - 1; k++) {
+      if (!strips[k]) continue;
       for (let j = 0; j < RADIAL_SEGMENTS; j++) {
         put(k, j); put(k, j + 1); put(k + 1, j);
         put(k, j + 1); put(k + 1, j + 1); put(k + 1, j);
