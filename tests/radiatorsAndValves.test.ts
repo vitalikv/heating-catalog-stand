@@ -30,6 +30,36 @@ describe('стальной радиатор radiator.steel', () => {
     expect(model.title).toBe('Ст.радиатор h500 (0.8м)');
   });
 
+  it('крышки, торцы и окантовка корпуса смотрят наружу', () => {
+    // Площадь пластика корпуса в плоскости `at`, смотрящего лицевой стороной в `sign`;
+    // −1 — там есть вывернутая грань: односторонний материал её не рисует.
+    const facingArea = (model: GeneratedModel, axis: 'x' | 'y' | 'z', sign: 1 | -1, at: number) => {
+      const position = model.geometry.getAttribute('position');
+      const plastic = model.geometry.groups[model.materials.indexOf('plastic')];
+      const [a, b, c] = [new Vector3(), new Vector3(), new Vector3()];
+      let area = 0;
+      for (let i = plastic.start; i < plastic.start + plastic.count; i += 3) {
+        a.fromBufferAttribute(position, i);
+        b.fromBufferAttribute(position, i + 1);
+        c.fromBufferAttribute(position, i + 2);
+        if ([a, b, c].some((v) => Math.abs(v[axis] - at) > 1e-6)) continue;
+        const normal = b.clone().sub(a).cross(c.clone().sub(a));
+        if (normal[axis] * sign > 0) area += normal.length() / 2;
+        else return -1;
+      }
+      return area;
+    };
+    const model = generator.build({ dimensions: { x: 0.8, y: 0.5, z: 0.07 }, nominal: '1/2' });
+    const box = boundsBox(model.bounds);
+    const height = 0.5 + 0.04 + 0.0213;
+    expect(facingArea(model, 'y', 1, height / 2)).toBeCloseTo(0.8 * 0.07, 6);
+    expect(facingArea(model, 'y', -1, -height / 2)).toBeCloseTo(0.8 * 0.07, 6);
+    expect(facingArea(model, 'x', -1, -0.4)).toBeCloseTo(height * 0.07, 6);
+    expect(facingArea(model, 'x', 1, 0.4)).toBeCloseTo(height * 0.07, 6);
+    expect(facingArea(model, 'z', 1, box.max.z)).toBeGreaterThan(0);
+    expect(facingArea(model, 'z', -1, box.min.z)).toBeGreaterThan(0);
+  });
+
   it('размеры вне схемы — ошибки', () => {
     expect(codes(generator, { dimensions: { x: 0.05, y: 0.5, z: 0.07 }, nominal: '1/2' })).toEqual(['out_of_range:dimensions.x']);
     expect(codes(generator, { dimensions: { x: 0.8, y: 0.5, z: 0.01 }, nominal: '1/2' })).toEqual(['out_of_range:dimensions.z']);

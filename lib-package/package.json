@@ -1,6 +1,6 @@
 {
   "name": "@ingplan/heating-generators",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Параметрические генераторы деталей отопления для three.js: модели как данные, материалы, стыковка, каталог.",
   "private": true,
   "type": "module",

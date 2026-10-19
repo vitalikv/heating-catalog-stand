@@ -40,12 +40,21 @@ const BOTTOM_SPACING = 0.05;
 /** От торца корпуса до оси ближнего нижнего порта, м. */
 const BOTTOM_OFFSET = 0.05;
 
+const UP: Vector3Data = { x: 0, y: 1, z: 0 };
+const DOWN: Vector3Data = { x: 0, y: -1, z: 0 };
+const LEFT: Vector3Data = { x: -1, y: 0, z: 0 };
+const RIGHT: Vector3Data = { x: 1, y: 0, z: 0 };
+const FRONT: Vector3Data = { x: 0, y: 0, z: 1 };
+const BACK: Vector3Data = { x: 0, y: 0, z: -1 };
+
 /** Плоскость PlaneGeometry: сначала повороты по порядку, потом сдвиг. */
 interface PlaneOptions {
   width: number;
   height: number;
   rotate?: ('x' | 'y' | 'z')[];
   position: Vector3Data;
+  /** Куда смотрит лицевая сторона: наружу корпуса или в выемку ребра. */
+  facing: Vector3Data;
   material: MaterialKey;
 }
 
@@ -171,17 +180,17 @@ export class SteelRadiatorGenerator extends BaseGenerator<SteelRadiatorParams, L
   /** Короб без боковых стенок и окантовка спереди и сзади. */
   private housing(length: number, height: number, depth: number): GeometryPart[] {
     const planes: PlaneOptions[] = [
-      { width: length, height: depth, rotate: ['x'], position: { x: 0, y: -height / 2, z: 0 }, material: 'plastic' },
-      { width: length, height: depth, rotate: ['x'], position: { x: 0, y: height / 2, z: 0 }, material: 'plastic' },
-      { width: height, height: depth, rotate: ['z', 'y'], position: { x: -length / 2, y: 0, z: 0 }, material: 'plastic' },
-      { width: height, height: depth, rotate: ['z', 'y'], position: { x: length / 2, y: 0, z: 0 }, material: 'plastic' },
+      { width: length, height: depth, rotate: ['x'], position: { x: 0, y: -height / 2, z: 0 }, facing: DOWN, material: 'plastic' },
+      { width: length, height: depth, rotate: ['x'], position: { x: 0, y: height / 2, z: 0 }, facing: UP, material: 'plastic' },
+      { width: height, height: depth, rotate: ['z', 'y'], position: { x: -length / 2, y: 0, z: 0 }, facing: LEFT, material: 'plastic' },
+      { width: height, height: depth, rotate: ['z', 'y'], position: { x: length / 2, y: 0, z: 0 }, facing: RIGHT, material: 'plastic' },
     ];
-    for (const z of [depth / 2, -depth / 2]) {
+    for (const [z, facing] of [[depth / 2, FRONT], [-depth / 2, BACK]] as const) {
       planes.push(
-        { width: length, height: FRAME, position: { x: 0, y: -height / 2 + FRAME / 2, z }, material: 'plastic' },
-        { width: length, height: FRAME, position: { x: 0, y: height / 2 - FRAME / 2, z }, material: 'plastic' },
-        { width: height, height: FRAME, rotate: ['z'], position: { x: -length / 2 + FRAME / 2, y: 0, z }, material: 'plastic' },
-        { width: height, height: FRAME, rotate: ['z'], position: { x: length / 2 - FRAME / 2, y: 0, z }, material: 'plastic' },
+        { width: length, height: FRAME, position: { x: 0, y: -height / 2 + FRAME / 2, z }, facing, material: 'plastic' },
+        { width: length, height: FRAME, position: { x: 0, y: height / 2 - FRAME / 2, z }, facing, material: 'plastic' },
+        { width: height, height: FRAME, rotate: ['z'], position: { x: -length / 2 + FRAME / 2, y: 0, z }, facing, material: 'plastic' },
+        { width: height, height: FRAME, rotate: ['z'], position: { x: length / 2 - FRAME / 2, y: 0, z }, facing, material: 'plastic' },
       );
     }
     return planes.map((plane) => this.plane(plane));
@@ -198,15 +207,15 @@ export class SteelRadiatorGenerator extends BaseGenerator<SteelRadiatorParams, L
     const wall = face - RIB_DEPTH / 2;
     const offset = -length / 2 + FRAME + width / 2;
     const planes: PlaneOptions[] = [
-      { width, height: RIB_FRAME, position: { x: 0, y: -height / 2 + RIB_FRAME / 2, z: face }, material: 'plastic' },
-      { width, height: RIB_FRAME, position: { x: 0, y: height / 2 - RIB_FRAME / 2, z: face }, material: 'plastic' },
-      { width: height, height: RIB_FRAME, rotate: ['z'], position: { x: -width / 2 + RIB_FRAME / 2, y: 0, z: face }, material: 'plastic' },
-      { width: height, height: RIB_FRAME, rotate: ['z'], position: { x: width / 2 - RIB_FRAME / 2, y: 0, z: face }, material: 'plastic' },
-      { width: innerWidth, height: RIB_DEPTH, rotate: ['x'], position: { x: 0, y: -height / 2 + RIB_FRAME, z: wall }, material: 'plasticGrey' },
-      { width: innerWidth, height: RIB_DEPTH, rotate: ['x'], position: { x: 0, y: height / 2 - RIB_FRAME, z: wall }, material: 'plasticGrey' },
-      { width: innerHeight, height: RIB_DEPTH, rotate: ['z', 'y'], position: { x: -width / 2 + RIB_FRAME, y: 0, z: wall }, material: 'plasticGrey' },
-      { width: innerHeight, height: RIB_DEPTH, rotate: ['z', 'y'], position: { x: width / 2 - RIB_FRAME, y: 0, z: wall }, material: 'plasticGrey' },
-      { width: innerWidth, height: innerHeight, position: { x: 0, y: 0, z: face - RIB_DEPTH }, material: 'plastic' },
+      { width, height: RIB_FRAME, position: { x: 0, y: -height / 2 + RIB_FRAME / 2, z: face }, facing: FRONT, material: 'plastic' },
+      { width, height: RIB_FRAME, position: { x: 0, y: height / 2 - RIB_FRAME / 2, z: face }, facing: FRONT, material: 'plastic' },
+      { width: height, height: RIB_FRAME, rotate: ['z'], position: { x: -width / 2 + RIB_FRAME / 2, y: 0, z: face }, facing: FRONT, material: 'plastic' },
+      { width: height, height: RIB_FRAME, rotate: ['z'], position: { x: width / 2 - RIB_FRAME / 2, y: 0, z: face }, facing: FRONT, material: 'plastic' },
+      { width: innerWidth, height: RIB_DEPTH, rotate: ['x'], position: { x: 0, y: -height / 2 + RIB_FRAME, z: wall }, facing: UP, material: 'plasticGrey' },
+      { width: innerWidth, height: RIB_DEPTH, rotate: ['x'], position: { x: 0, y: height / 2 - RIB_FRAME, z: wall }, facing: DOWN, material: 'plasticGrey' },
+      { width: innerHeight, height: RIB_DEPTH, rotate: ['z', 'y'], position: { x: -width / 2 + RIB_FRAME, y: 0, z: wall }, facing: RIGHT, material: 'plasticGrey' },
+      { width: innerHeight, height: RIB_DEPTH, rotate: ['z', 'y'], position: { x: width / 2 - RIB_FRAME, y: 0, z: wall }, facing: LEFT, material: 'plasticGrey' },
+      { width: innerWidth, height: innerHeight, position: { x: 0, y: 0, z: face - RIB_DEPTH }, facing: FRONT, material: 'plastic' },
     ];
     return planes.map((plane) => {
       const part = this.plane({ ...plane, position: { ...plane.position, x: plane.position.x + offset } });
@@ -216,13 +225,30 @@ export class SteelRadiatorGenerator extends BaseGenerator<SteelRadiatorParams, L
     });
   }
 
-  /** Плоскость с родными UV PlaneGeometry; повороты на π/2 по списку, как в gl2. */
+  /**
+   * Плоскость с родными UV PlaneGeometry; повороты на π/2 по списку, как в gl2.
+   * Плоскость односторонняя: если после поворотов она смотрит не в `facing`,
+   * обход треугольников разворачивается. В gl2 материал был двусторонним,
+   * и вывернутые грани не было видно; полупрозрачный предпросмотр редактора
+   * рисует только лицевую сторону — сверху радиатор пропадал.
+   */
   private plane(options: PlaneOptions): GeometryPart {
     const indexed = new PlaneGeometry(options.width, options.height);
     for (const axis of options.rotate ?? []) {
       if (axis === 'x') indexed.rotateX(Math.PI / 2);
       else if (axis === 'y') indexed.rotateY(Math.PI / 2);
       else if (axis === 'z') indexed.rotateZ(Math.PI / 2);
+    }
+    const normals = indexed.getAttribute('normal');
+    const { facing } = options;
+    if (normals.getX(0) * facing.x + normals.getY(0) * facing.y + normals.getZ(0) * facing.z < 0) {
+      const index = indexed.getIndex()!;
+      for (let i = 0; i < index.count; i += 3) {
+        const second = index.getX(i + 1);
+        index.setX(i + 1, index.getX(i + 2));
+        index.setX(i + 2, second);
+      }
+      for (let i = 0; i < normals.count; i++) normals.setXYZ(i, -normals.getX(i), -normals.getY(i), -normals.getZ(i));
     }
     const { x, y, z } = options.position;
     indexed.translate(x, y, z);
