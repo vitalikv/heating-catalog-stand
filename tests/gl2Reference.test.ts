@@ -23,7 +23,7 @@ interface ReferenceRow {
 const TOLERANCE = 1e-6;
 
 /**
- * Генераторы, у которых треугольников меньше или больше, чем в gl2 (журнал, п. 12).
+ * Генераторы, у которых треугольников меньше или больше, чем в gl2 (docs/gl2-differences.md).
  * В r116 примитивы Geometry (SphereGeometry, CylinderGeometry) проходят mergeVertices
  * с точностью 0,1 мм и теряют вырожденные треугольники; у сплошных втулок в gl2 — вырожденный
  * внутренний цилиндр и отверстие из NaN.
@@ -52,7 +52,7 @@ const TRIANGLES_DIFFER: Record<string, string> = {
 };
 
 /**
- * Генераторы библиотеки без эталона: в gl2 это не функция-генератор (журнал, п. 12).
+ * Генераторы библиотеки без эталона: в gl2 это не функция-генератор (docs/gl2-differences.md).
  * createTubeWF_1 создаёт объект редактора TubeN по точкам пути, без типа трубы и разъёмов.
  */
 const NOT_IN_GL2: Record<string, string> = {
@@ -60,7 +60,7 @@ const NOT_IN_GL2: Record<string, string> = {
   'mp.pipe': 'объект редактора TubeN (createTubeWF_1)',
 };
 
-/** Названия, которые сознательно отличаются от gl2 (журнал, п. 12). */
+/** Названия, которые сознательно отличаются от gl2 (docs/gl2-differences.md). */
 const TITLE_DIFFERS = new Set(['al_zagl_radiator_1', 'gr_bez_1']);
 
 const registry = new GeneratorRegistry();

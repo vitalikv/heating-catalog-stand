@@ -1,11 +1,16 @@
 # heating-catalog-stand
 
 Независимый стенд для переноса и проверки параметрических моделей отопления
-из старого проекта `3d-stroyka/gl2` и библиотека генераторов `src/lib` для редактора.
-Устройство библиотеки — [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); история работ —
-`docs/development-plan.md`, `docs/catalog-porting-plan.md`, `docs/library-refactoring-plan.md`.
-Расширение каталога — [единый план с реестром, карточками и чек-листами](docs/catalog-expansion-plan.md). Замеры FPS — [docs/benchmark.md](docs/benchmark.md).
-Перенос библиотеки в `src-heating` — [docs/transfer/README.md](docs/transfer/README.md).
+из старого проекта `3d-stroyka/gl2` и библиотека генераторов `src/lib` для редактора
+`skeleton-wf/src-heating`.
+
+Документация — [карта документов](docs/README.md). Главное:
+
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — устройство библиотеки, контракт, как добавить генератор;
+- [docs/library-usage.md](docs/library-usage.md) — как пользоваться библиотекой и освобождать ресурсы;
+- [docs/roadmap.md](docs/roadmap.md) — открытые задачи;
+- [docs/catalog-expansion-plan.md](docs/catalog-expansion-plan.md) — реестр, карточки и чек-листы новых позиций;
+- [docs/transfer/README.md](docs/transfer/README.md) — пакет и подключение к редактору.
 
 Не требует OpenServer, PHP или БД и не импортирует код соседних проектов.
 
@@ -28,7 +33,8 @@ npm run verify:lib # проверка архива на чистой устан�
 арматура, оборудование. «Все группы» показывает полный список объектов.
 Выбор объекта открывает его в 3D; параметры можно менять и сбрасывать к выбранному набору.
 
-- `src/lib` — библиотека генераторов: 84 генератора — весь каталог `gl2` (40) и новые модели.
+- `src/lib` — библиотека генераторов: 88 генераторов — весь каталог `gl2` (40) и новые модели,
+  855 позиций каталога и 7 готовых узлов (`ASSEMBLY_RECIPES`).
   Новые позиции и ограничения — [docs/catalog-extensions.md](docs/catalog-extensions.md) и
   [docs/catalog-expansion-plan.md](docs/catalog-expansion-plan.md). Не обращается к `window`,
   `document` и рендереру: `tsconfig.lib.json` проверяет её без DOM,
@@ -42,11 +48,11 @@ npm run verify:lib # проверка архива на чистой устан�
     params/       ParamSchema, общие описания параметров specs
     sizes/        таблицы размеров: ThreadSizes, PpPipeSizes, MpPipeSizes
     geometry/     построители кусков геометрии и слияние по материалам
-    materials/    MaterialLibrary — материалы по ключам
+    materials/    MaterialLibrary — материалы по ключам; loadMaterialTextures — текстуры
     scene/        createModelObject — модель + материалы → объект сцены
-    assembly/     ConnectorMating, Assembly — стыковка и сборки
+    assembly/     ConnectorMating, Assembly — стыковка и сборки; recipes/ — готовые узлы
     catalog/      позиции каталога (CATALOG) по семействам
-    generators/   steel/, pp/, mp/, radiator/, valve/, equipment/; GeneratorRegistry
+    generators/   steel/, pp/, mp/, radiator/, valve/, equipment/, manifold/; GeneratorRegistry
     legacy/       перевод ID и параметров gl2 — только для сверки
   ```
 
@@ -57,9 +63,11 @@ npm run verify:lib # проверка архива на чистой устан�
 - `tests` — тесты vitest в среде node; `tests/fixtures/gl2-reference.json` —
   эталон моделей `gl2` для теста `gl2Reference`, `tests/fixtures/gl2Presets.ts` — наборы
   `start.js` в формате `gl2` (исходник каталога и сверки).
-- `scripts` — сверка с `gl2` через headless Chrome (`gl2-compare.mjs`, `gl2-snapshot.mjs`).
-  Нужны `gl2` в OpenServer, `npx vite --port 5199` и Chrome с `--remote-debugging-port=9223`;
-  для обычной работы и тестов не нужны. Порядок — `docs/catalog-porting-plan.md`, п. 5.
+- `scripts` — сборка и проверка пакета (`build-lib.mjs`, `verify-lib-package.mjs`,
+  `lib-worker-check.mjs`), сверка с `gl2` через headless Chrome (`gl2-compare.mjs`, `gl2-snapshot.mjs`)
+  и снимок новых моделей (`extensions-snapshot.mjs`). Для сверки нужны `gl2` в OpenServer,
+  `npx vite --port 5199` и Chrome с CDP; для обычной работы и тестов не нужны.
+  Порядок — [docs/gl2-verification.md](docs/gl2-verification.md).
 
 ## Версии
 
