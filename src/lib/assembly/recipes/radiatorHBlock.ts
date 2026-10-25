@@ -9,12 +9,13 @@ type Shutoff = 'none' | 'ball';
  * H-блок ставится по ниппелю A, второй его порт замыкается на ниппель B (closures). При совмещении up
  * H-блок разворачивается на π вокруг вертикали, поэтому к ниппелю A у торца идёт противоположный по
  * названию порт: при паре справа — radiator-left. На выходах H-блока — адаптеры евроконуса под МП 16.
- * Отрезков трубы в узле нет: трубу к адаптерам прокладывают.
+ * Отрезков трубы в узле нет: трубу к адаптерам прокладывают. pipeNominal — МП под адаптеры (16 или 20).
  */
 export function bottomHBlockParts(
   radiator: AssemblyPart,
   bottomSide: BottomSide,
   shutoff: Shutoff,
+  pipeNominal: '16' | '20' = '16',
 ): { parts: AssemblyPart[]; closures: AssemblyClosureDefinition[] } {
   const nipple = { nominalLeft: '3/4', nominalRight: '1/2', length: 0.026 };
   // С кранами — VALTEC VT.345K (позиция 100): высота A = 49 мм.
@@ -29,7 +30,7 @@ export function bottomHBlockParts(
         attach: { connector: bottomSide === 'right' ? 'radiator-left' : 'radiator-right', to: 'ниппель A', toConnector: 'left' } },
       // Звено «евроконус → МП-труба» (часть 22): обжимной адаптер на каждом выходе.
       ...(['left', 'right'] as const).map((side): AssemblyPart => ({
-        name: `адаптер ${side}`, generatorId: 'mp.eurocone-adapter', params: { pipeNominal: '16', euroconeNominal: '3/4', length: 0.026 },
+        name: `адаптер ${side}`, generatorId: 'mp.eurocone-adapter', params: { pipeNominal, euroconeNominal: '3/4', length: 0.026 },
         attach: { connector: 'eurocone', to: 'H-блок', toConnector: `pipe-${side}` },
       })),
     ],

@@ -19,6 +19,7 @@ describe('публичный API', () => {
         'MpPipeSizes',
         'ParamSchema',
         'PpPipeSizes',
+        'radiatorPipework',
         'ThreadSizes',
       ].sort(),
     );

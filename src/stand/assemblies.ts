@@ -1,6 +1,7 @@
 import { ASSEMBLY_RECIPES } from '../lib/index';
 import { MIXING_UNIT_FIT, mixingUnitParts } from '../lib/assembly/recipes/mixingUnit';
 import { bottomHBlockParts } from '../lib/assembly/recipes/radiatorHBlock';
+import { radiatorPipework } from '../lib/assembly/recipes/radiatorPipework';
 import type { AluminiumRadiatorParams, AssemblyDefinition, AssemblyPart, Vector3Data } from '../lib/index';
 
 /** Производственный рецепт библиотеки по ID: стенд показывает те же узлы, что идут в пакет. */
@@ -73,6 +74,21 @@ export function aluminiumBottomSide(sections = 6): AssemblyDefinition {
       ...euroconePipe('обратка', 0.15),
     ],
   };
+}
+
+/** Обвязка радиатора библиотеки (`radiatorPipework`) — по одному примеру на подключение. */
+function pipeworkSamples(): AssemblyDefinition[] {
+  const steel = { generatorId: 'radiator.steel', params: { dimensions: { x: 1, y: 0.5, z: 0.07 }, nominal: '1/2' } } as const;
+  const aluminium = { generatorId: 'radiator.aluminium', params: { ...radiator(8, 0.5) } } as const;
+  const mp16 = { system: 'mp', nominal: '16' } as const;
+  const base = { side: 'left', valves: 'angle', supply: 'thermostatic', return: 'lockshield', pipe: mp16 } as const;
+  return [
+    radiatorPipework(steel, { ...base, connection: 'side' }),
+    radiatorPipework(steel, { ...base, connection: 'diagonal', side: 'right', valves: 'straight', pipe: { system: 'pp', nominal: '20' } }),
+    radiatorPipework(aluminium, { ...base, connection: 'side', supply: 'ball', return: 'ball' }),
+    radiatorPipework(steel, { ...base, connection: 'bottom', side: 'right' }),
+    radiatorPipework(aluminium, { ...base, connection: 'injector' }),
+  ].map(({ definition }) => ({ ...definition, label: `Обвязка: ${definition.label}` }));
 }
 
 /**
@@ -1145,6 +1161,7 @@ export const STAND_ASSEMBLIES: AssemblyDefinition[] = [
   steelBottomHBlock('right', 'ball'),
   aluminiumBottomHBlock('right'),
   aluminiumBottomSide(),
+  ...pipeworkSamples(),
   manifoldReturnNode(),
   manifoldPair(),
   {

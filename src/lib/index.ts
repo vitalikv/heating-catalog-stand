@@ -125,6 +125,10 @@ export { ConnectorMating } from './assembly/ConnectorMating';
 export type { MatingCheck } from './assembly/ConnectorMating';
 export { ASSEMBLY_RECIPES } from './assembly/recipes/recipes';
 export type { AssemblyRecipe, AssemblyRecipeVariant } from './assembly/recipes/AssemblyRecipe';
+export { radiatorPipework } from './assembly/recipes/radiatorPipework';
+export type {
+  RadiatorPipework, RadiatorPipeworkConnection, RadiatorPipeworkOptions, RadiatorPipeworkPort, RadiatorPipeworkRadiator,
+} from './assembly/recipes/radiatorPipework';
 
 // Схема параметров и таблицы размеров.
 export { ParamSchema } from './params/ParamSchema';
