@@ -1,5 +1,5 @@
 {
-  "package": "0.6.0",
+  "package": "0.7.0",
   "generators": {
     "equipment.air-vent": 1,
     "equipment.boiler": 1,
@@ -92,6 +92,7 @@
   },
   "assemblies": {
     "assembly.boiler-cold-inlet": 1,
+    "assembly.boiler-unit": 1,
     "assembly.manifold-return": 1,
     "assembly.manifold-supply": 1,
     "assembly.mixing-unit": 1,

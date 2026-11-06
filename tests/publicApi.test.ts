@@ -8,6 +8,7 @@ describe('публичный API', () => {
       [
         'Assembly',
         'ASSEMBLY_RECIPES',
+        'boilerPipework',
         'CATALOG',
         'ConnectorMating',
         'createModelObject',

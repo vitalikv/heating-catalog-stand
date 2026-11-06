@@ -91,6 +91,12 @@ function pipeworkSamples(): AssemblyDefinition[] {
   ].map(({ definition }) => ({ ...definition, label: `Обвязка: ${definition.label}` }));
 }
 
+/** Котёл с обвязкой — производственный рецепт библиотеки, все исполнения (что встроено в котёл). */
+function boilerUnitSamples(): AssemblyDefinition[] {
+  const unit = recipe('assembly.boiler-unit');
+  return (unit.variants ?? []).map(({ key, label }) => ({ ...unit.build(key), label: `Котёл с обвязкой: ${label}` }));
+}
+
 /**
  * Нижняя пара радиатора: детали и замыкание — из производственного рецепта узла радиатора
  * (`bottomHBlockParts` библиотеки), на стенде к адаптерам добавлены отрезки МП.
@@ -1162,6 +1168,7 @@ export const STAND_ASSEMBLIES: AssemblyDefinition[] = [
   aluminiumBottomHBlock('right'),
   aluminiumBottomSide(),
   ...pipeworkSamples(),
+  ...boilerUnitSamples(),
   manifoldReturnNode(),
   manifoldPair(),
   {

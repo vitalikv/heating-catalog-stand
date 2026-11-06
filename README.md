@@ -34,7 +34,8 @@ npm run verify:lib # проверка архива на чистой устан�
 Выбор объекта открывает его в 3D; параметры можно менять и сбрасывать к выбранному набору.
 
 - `src/lib` — библиотека генераторов: 88 генераторов — весь каталог `gl2` (40) и новые модели,
-  855 позиций каталога и 7 готовых узлов (`ASSEMBLY_RECIPES`).
+  855 позиций каталога, 9 готовых узлов (`ASSEMBLY_RECIPES`) и функции обвязки радиатора
+  и котла (`radiatorPipework`, `boilerPipework`).
   Новые позиции и ограничения — [docs/catalog-extensions.md](docs/catalog-extensions.md) и
   [docs/catalog-expansion-plan.md](docs/catalog-expansion-plan.md). Не обращается к `window`,
   `document` и рендереру: `tsconfig.lib.json` проверяет её без DOM,

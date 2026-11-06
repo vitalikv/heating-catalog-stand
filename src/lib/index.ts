@@ -126,6 +126,10 @@ export type { MatingCheck } from './assembly/ConnectorMating';
 export { ASSEMBLY_RECIPES } from './assembly/recipes/recipes';
 export type { AssemblyRecipe, AssemblyRecipeVariant } from './assembly/recipes/AssemblyRecipe';
 export { radiatorPipework } from './assembly/recipes/radiatorPipework';
+export { boilerPipework } from './assembly/recipes/boilerPipework';
+export type {
+  BoilerPipework, BoilerPipeworkBoiler, BoilerPipeworkBuiltIn, BoilerPipeworkOptions, BoilerPipeworkPort,
+} from './assembly/recipes/boilerPipework';
 export type {
   RadiatorPipework, RadiatorPipeworkConnection, RadiatorPipeworkOptions, RadiatorPipeworkPort, RadiatorPipeworkRadiator,
 } from './assembly/recipes/radiatorPipework';
