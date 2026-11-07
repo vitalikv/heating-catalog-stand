@@ -1,3 +1,5 @@
+import { RUNNING_NIPPLES_3_4 } from '../../catalog/extensions';
+import { threadedSize } from '../../generators/ThreadedParts';
 import type { AssemblyDefinition, AssemblyPart } from '../Assembly';
 import type { AssemblyRecipe, AssemblyRecipeVariant } from './AssemblyRecipe';
 
@@ -17,10 +19,27 @@ export interface BoilerPipeworkBuiltIn {
   safetyGroup: boolean;
 }
 
+/**
+ * Переходник потребителя с резьбы выноса на его трубу (МП, ПП): деталь и её разъёмы — на
+ * внутреннюю резьбу 3/4 отвода тройника и угольника (`thread`, наружная 3/4) и под трубу (`pipe`).
+ */
+export interface BoilerPipeworkAdapter {
+  generatorId: string;
+  params: unknown;
+  thread: string;
+  pipe: string;
+}
+
 export interface BoilerPipeworkOptions {
   builtIn: BoilerPipeworkBuiltIn;
   /** Объём расширительного бака, л, если его нет в котле: позиции каталога 6–24. По умолчанию 8. */
   tankVolume?: number;
+  /**
+   * Чем выносы к группе безопасности и к баку набирают длину. Без него — одним сгоном 3/4 каталога:
+   * узел — одна связанная группа. С ним — отрезком трубы потребителя: на концах выноса — переходники
+   * `adapter`, деталь за выносом стоит напротив (без стыка), а пары разъёмов под трубу — в `runs`.
+   */
+  run?: { adapter: BoilerPipeworkAdapter };
 }
 
 /** Разъём детали узла: имя детали в описании и ID разъёма её модели. */
@@ -29,12 +48,25 @@ export interface BoilerPipeworkPort {
   connector: string;
 }
 
+/**
+ * Вынос под отрезок трубы: разъём под трубу со стороны котла (`from`) и напротив него (`to`) —
+ * оба смотрят друг на друга по одной оси. Трубу между ними прокладывает потребитель.
+ */
+export interface BoilerPipeworkRun {
+  /** К чему вынос: «группа безопасности», «бак». */
+  role: string;
+  from: BoilerPipeworkPort;
+  to: BoilerPipeworkPort;
+}
+
 export interface BoilerPipework {
   /** Узел: первая деталь — котёл («котёл»), к его патрубкам по стыкам — обвязка. */
   definition: AssemblyDefinition;
   /** Свободные концы подачи и обратки — наружная резьба 3/4, как у патрубков котла: к ним идёт магистраль. */
   supply: BoilerPipeworkPort;
   return: BoilerPipeworkPort;
+  /** Выносы под трубу потребителя (опция `run`); без неё — пусто: выносы набраны сгонами. */
+  runs: BoilerPipeworkRun[];
 }
 
 type Gender = 'internal' | 'external';
@@ -48,6 +80,15 @@ interface End {
 interface Port {
   connector: string;
   gender: Gender;
+}
+
+/** Деталь в разрез линии: генератор, параметры, вход (к концу линии), выход (новый конец; null — концевая). */
+interface Piece {
+  name: string;
+  generatorId: string;
+  params: unknown;
+  input: Port;
+  output: Port | null;
 }
 
 const BOILER = 'котёл';
@@ -70,7 +111,6 @@ const NIPPLE = { nominalLeft: NOMINAL, nominalRight: NOMINAL, length: 0.022 };
 const COUPLING = { nominalLeft: NOMINAL, nominalRight: NOMINAL, length: 0.033 };
 const TEE = { threadGender: 'internal', nominalLeft: NOMINAL, nominalBranch: NOMINAL, nominalRight: NOMINAL, length: 0.058, branchLength: 0.027 };
 const DRAIN_TEE = { threadGender: 'internal', nominalLeft: NOMINAL, nominalBranch: '1/2', nominalRight: NOMINAL, length: 0.056, branchLength: 0.027 };
-const EXTENSION = { nominal: NOMINAL, length: 0.051 };
 const ELBOW = { threadGender: 'internal', nominal: NOMINAL, armLength: 0.029 };
 const STRAINER = { nominal: NOMINAL, length: 0.065 };
 const DRAIN = { nominal: '1/2', hoseNominal: '16', length: 0.06 };
@@ -79,48 +119,67 @@ const SAFETY_NIPPLE = { nominalLeft: '1', nominalRight: NOMINAL, length: 0.034 }
 const PUMP = { nominal: '1 1/2', installLength: 0.18, housing: 'vrs', motor: 'small', terminalBox: 'top' };
 const PUMP_NUT = { pumpNominal: '1 1/2', pipeNominal: '1' };
 const PUMP_NIPPLE = { nominalLeft: '1', nominalRight: NOMINAL, length: 0.034 };
+/** Сгон 3/4 каталога длиной `length`, м. */
+const runningNipple = (length: number) => ({ nominal: NOMINAL, length, longThread: 0.045, shortThread: 0.012 });
+/** Посадка сгона в резьбу тройника и угольника, м: глубина наружной резьбы 3/4 — у них внутренняя глубже. */
+const RUNNING_SEAT = threadedSize(NOMINAL, 'external').depth;
+
+/**
+ * Вынос к группе безопасности — между торцами отвода тройника и входа угольника, м, у котла
+ * шириной `width`. Группа стоит сбоку от котла, слева от подачи, и не задевает его: от отвода
+ * тройника до бока котла — 0,3 ширины (патрубок — на 0,2 ширины от середины) без отвода (27 мм);
+ * дальше — половина группы (90 мм) и зазор 1 см, а плечо угольника (31 мм) — уже за выносом.
+ */
+const safetyGap = (width: number): number => 0.3 * width - 0.027 + 0.09 + 0.01 - 0.031;
+
+/**
+ * Вынос к баку — между торцами отвода тройника и входа угольника, м: бак висит перед линией
+ * обратки на угольнике (его плечо — 31 мм за выносом). Задний край бака — на 15 мм перед ручками
+ * кранов подачи и обратки (они — в 17 мм от торца отвода, в 44 мм от оси линии), а у выноса
+ * трубой (`piped`) — ещё и на 5 мм перед переходником на отводе (до 41 мм от торца): верх бака —
+ * на высоте этого переходника.
+ */
+const tankGap = (diameter: number, piped: boolean): number => diameter / 2 - 0.031 + (piped ? 0.046 : 0.032);
 
 /**
  * Довороты деталей вокруг оси стыка, градусы, у котла с патрубками снизу: отвод к группе
- * безопасности — наружу от котла, она стоит над ним под левым краем котла; отвод к баку —
- * вперёд (в помещение), бак висит под ним; слив и отстойник фильтра — наружу от котла,
- * мотор насоса и ручки кранов — вперёд. Исходный поворот детали зависит от того, что стоит перед ней, поэтому у деталей
- * после необязательных частей угол — по предшественнику: `union` (американка), `safety`
- * (тройник группы безопасности), `pump` (насос), `tank` (тройник бака). Подобраны по сборке;
- * тест стенда проверяет направления у всех сочетаний.
+ * безопасности — наружу от котла, она стоит сбоку от котла; отвод к баку — вперёд (в помещение),
+ * бак висит под ним; слив и отстойник фильтра — наружу от котла, мотор насоса и ручки кранов —
+ * вперёд. Исходный поворот детали зависит от того, что стоит перед ней, поэтому у деталей после
+ * необязательных частей угол — по предшественнику: `union` (американка), `safety` (тройник группы
+ * безопасности), `pump` (насос), `tank` (тройник бака); у деталей за выносом — по выносу:
+ * `nipple` (сгон), `pipe` (напротив отвода, под трубу). Подобраны по сборке; тест стенда проверяет
+ * направления у всех сочетаний.
  */
 export const BOILER_PIPEWORK_TURNS: Record<string, number | Record<string, number>> = {
   'тройник группы безопасности': 0,
-  'угольник группы безопасности': 180,
+  'угольник группы безопасности': { nipple: 180, pipe: 180 },
   'группа безопасности': 180,
   'кран подачи': { union: 270, safety: 270 },
   'насос': 0,
   'тройник бака': { union: 270, pump: 270 },
-  'угольник бака': 0,
+  'угольник бака': { nipple: 0, pipe: 0 },
   'фильтр': { union: 180, pump: 180, tank: 270 },
   'тройник слива': 0,
   'кран обратки': 90,
 };
 
-/** Удлинители 3/4 по линии подачи перед группой безопасности: она встаёт ниже котла. */
-const SAFETY_DROP = 4;
-/** Удлинители в отводе к группе безопасности: она стоит слева от линии подачи, не задевая её и бак. */
-const SAFETY_REACH = 2;
-/** Удлинители в отводе к баку: бак висит перед линией обратки, не задевая её. */
-const TANK_REACH = 3;
-
 /**
  * Обвязка котла (автоотопление редактора, docs/heating/boiler-pipework-plan.md в skeleton-wf):
  * то, что ставят между патрубками настенного котла и магистралью.
  *
- * - Подача: американка, [тройник с группой безопасности — если её нет в котле], кран.
- * - Обратка: американка, [насос — если его нет в котле], [тройник с расширительным баком —
- *   если его нет в котле], косой фильтр, тройник с краном заполнения и слива, кран.
+ * - Подача: американка, [тройник с выносом к группе безопасности — если её нет в котле], кран.
+ * - Обратка: американка, [насос — если его нет в котле], [тройник с выносом к расширительному
+ *   баку — если его нет в котле], косой фильтр, тройник с краном заполнения и слива, кран.
  *
  * Группа безопасности и бак стоят между котлом и краном: краном их от котла не отсечь.
  * Бак — на всасывании насоса. Концы узла — наружная резьба 3/4 кранов, как у патрубков:
  * магистраль подключается к ним тем же переходником. Котёл — только с патрубками снизу:
  * у остальных исполнений обвязка ушла бы в стену или корпус — ошибка с причиной.
+ *
+ * Детали соединяются напрямую или через один фитинг, цепочек удлинителей нет: где нужна длина
+ * (выносы к группе безопасности и к баку) — одна деталь, сгон 3/4, или отрезок трубы потребителя
+ * (`options.run`).
  */
 export function boilerPipework(boiler: BoilerPipeworkBoiler, options: BoilerPipeworkOptions): BoilerPipework {
   const connection = boiler.params.connection ?? 'back';
@@ -132,24 +191,23 @@ export function boilerPipework(boiler: BoilerPipeworkBoiler, options: BoilerPipe
   const volume = options.tankVolume ?? DEFAULT_TANK;
   const tank = TANKS[volume];
   if (!tank) throw new Error(`Обвязка котла: нет бака на ${volume} л — есть ${Object.keys(TANKS).join(', ')}`);
-  const { builtIn } = options;
+  const width = Number((boiler.params.dimensions as { x?: unknown } | undefined)?.x ?? 0.4);
+  const { builtIn, run } = options;
 
   const parts: AssemblyPart[] = [{ name: BOILER, generatorId: 'equipment.boiler', params: boiler.params }];
+  const runs: BoilerPipeworkRun[] = [];
 
   // Подача — левый патрубок, если смотреть на котёл спереди.
   const supply = new Line(parts, 'подачи', { part: BOILER, connector: 'bottom-left', gender: 'external' });
   supply.push('американка подачи', 'steel.union', UNION, { connector: 'inlet', gender: 'internal' }, { connector: 'outlet', gender: 'internal' });
   if (!builtIn.safetyGroup) {
-    for (let index = 1; index <= SAFETY_DROP; index += 1) {
-      supply.push(`удлинитель подачи ${index}`, 'steel.extension', EXTENSION, { connector: 'right', gender: 'external' }, { connector: 'left', gender: 'internal' });
-    }
     supply.push('тройник группы безопасности', 'steel.tee', TEE, { connector: 'left', gender: 'internal' }, { connector: 'right', gender: 'internal' }, turn('тройник группы безопасности', supply.after));
     supply.after = 'safety';
     const branch = new Line(parts, 'группы безопасности', { part: 'тройник группы безопасности', connector: 'top', gender: 'internal' });
-    for (let index = 1; index <= SAFETY_REACH; index += 1) {
-      branch.push(`удлинитель группы безопасности ${index}`, 'steel.extension', EXTENSION, { connector: 'right', gender: 'external' }, { connector: 'left', gender: 'internal' });
-    }
-    branch.push('угольник группы безопасности', 'steel.elbow-90', ELBOW, { connector: 'right', gender: 'internal' }, { connector: 'top', gender: 'internal' }, turn('угольник группы безопасности'));
+    runs.push(...branch.reach('группа безопасности', safetyGap(width), run, {
+      name: 'угольник группы безопасности', generatorId: 'steel.elbow-90', params: ELBOW,
+      input: { connector: 'right', gender: 'internal' }, output: { connector: 'top', gender: 'internal' },
+    }));
     branch.push('ниппель группы безопасности', 'steel.nipple', SAFETY_NIPPLE, { connector: 'right', gender: 'external' }, { connector: 'left', gender: 'external' });
     branch.push('группа безопасности', 'equipment.safety-group', SAFETY_GROUP, { connector: 'bottom', gender: 'internal' }, null, turn('группа безопасности'));
   }
@@ -169,10 +227,10 @@ export function boilerPipework(boiler: BoilerPipeworkBoiler, options: BoilerPipe
     back.push('тройник бака', 'steel.tee', TEE, { connector: 'left', gender: 'internal' }, { connector: 'right', gender: 'internal' }, turn('тройник бака', back.after));
     back.after = 'tank';
     const branch = new Line(parts, 'бака', { part: 'тройник бака', connector: 'top', gender: 'internal' });
-    for (let index = 1; index <= TANK_REACH; index += 1) {
-      branch.push(`удлинитель бака ${index}`, 'steel.extension', EXTENSION, { connector: 'right', gender: 'external' }, { connector: 'left', gender: 'internal' });
-    }
-    branch.push('угольник бака', 'steel.elbow-90', ELBOW, { connector: 'right', gender: 'internal' }, { connector: 'top', gender: 'internal' }, turn('угольник бака'));
+    runs.push(...branch.reach('бак', tankGap(tank.diameter, run !== undefined), run, {
+      name: 'угольник бака', generatorId: 'steel.elbow-90', params: ELBOW,
+      input: { connector: 'right', gender: 'internal' }, output: { connector: 'top', gender: 'internal' },
+    }));
     branch.push('бак', 'equipment.expansion-tank', { ...tank, nominal: NOMINAL, volume }, { connector: 'bottom', gender: 'external' }, null);
   }
   back.push('фильтр', 'equipment.strainer', STRAINER, { connector: 'right', gender: 'internal' }, { connector: 'left', gender: 'internal' }, turn('фильтр', back.after));
@@ -185,6 +243,7 @@ export function boilerPipework(boiler: BoilerPipeworkBoiler, options: BoilerPipe
     definition: { label: label(builtIn, volume), parts },
     supply: { part: 'кран подачи', connector: 'right' },
     return: { part: 'кран обратки', connector: 'right' },
+    runs,
   };
 }
 
@@ -211,6 +270,37 @@ class Line {
       attach: { connector: input.connector, to: this.end.part, toConnector: this.end.connector, ...(angle ? { angle } : {}) },
     });
     if (output) this.end = { part: name, connector: output.connector, gender: output.gender };
+  }
+
+  /**
+   * Вынос к `target` (группе безопасности, баку): деталь `next` встаёт входом на `gap` от конца
+   * линии (между торцами резьб) по его оси — конец линии и вход `next` — внутренняя резьба 3/4.
+   * Без `run` длину набирает один сгон 3/4 — самый короткий из каталога, что не короче выноса
+   * (не короче, — значит, деталь за ним встаёт чуть дальше); с `run` — отрезок трубы потребителя:
+   * переходники на конец линии и на вход `next`, а `next` стоит напротив, без стыка. Отдаёт пару
+   * разъёмов под трубу (без `run` — ничего).
+   */
+  reach(target: string, gap: number, run: BoilerPipeworkOptions['run'], next: Piece): BoilerPipeworkRun[] {
+    if (!run) {
+      const lengths = RUNNING_NIPPLES_3_4.map((mm) => mm / 1000);
+      const length = lengths.find((item) => item - 2 * RUNNING_SEAT >= gap - 1e-9) ?? lengths[lengths.length - 1];
+      this.push(`сгон ${this.role}`, 'steel.running-nipple', runningNipple(length), { connector: 'left', gender: 'external' }, { connector: 'right', gender: 'external' });
+      this.push(next.name, next.generatorId, next.params, next.input, next.output, turn(next.name, 'nipple'));
+      return [];
+    }
+    const { adapter } = run;
+    const near = `переходник ${this.role} у тройника`;
+    const far = `переходник ${this.role} у угольника`;
+    const from = this.end;
+    this.parts.push({ name: near, generatorId: adapter.generatorId, params: adapter.params, attach: { connector: adapter.thread, to: from.part, toConnector: from.connector } });
+    const angle = turn(next.name, 'pipe');
+    this.parts.push({
+      name: next.name, generatorId: next.generatorId, params: next.params,
+      across: { connector: next.input.connector, to: from.part, toConnector: from.connector, gap, ...(angle ? { angle } : {}) },
+    });
+    this.parts.push({ name: far, generatorId: adapter.generatorId, params: adapter.params, attach: { connector: adapter.thread, to: next.name, toConnector: next.input.connector } });
+    if (next.output) this.end = { part: next.name, connector: next.output.connector, gender: next.output.gender };
+    return [{ role: target, from: { part: near, connector: adapter.pipe }, to: { part: far, connector: adapter.pipe } }];
   }
 
   private adapt(generatorId: 'steel.nipple' | 'steel.coupling', params: typeof NIPPLE, gender: Gender): void {
@@ -252,11 +342,13 @@ const UNIT_VARIANTS: readonly (AssemblyRecipeVariant & { builtIn: BoilerPipework
 /**
  * Котёл настенный с патрубками снизу и обвязкой: американки и краны на подаче и обратке,
  * косой фильтр и кран слива на обратке; чего нет в котле — группа безопасности, бак 8 л,
- * насос. Свободны концы кранов — к ним прокладывают магистраль.
+ * насос. Выносы к группе безопасности и к баку — сгонами 3/4: типа труб узел не знает.
+ * Свободны концы кранов — к ним прокладывают магистраль. Версия 2 (0.8.0): выносы — сгоном,
+ * а не цепочкой удлинителей, группа безопасности — сбоку от котла.
  */
 export const BOILER_UNIT: AssemblyRecipe = {
   id: 'assembly.boiler-unit',
-  version: 1,
+  version: 2,
   title: 'Котёл с обвязкой',
   variants: UNIT_VARIANTS.map(({ key, label: text }) => ({ key, label: text })),
   build(variant?: string): AssemblyDefinition {

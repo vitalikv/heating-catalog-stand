@@ -16,16 +16,32 @@ export interface AssemblyPlacement {
 }
 
 /**
+ * Деталь напротив разъёма уже поставленной детали, через промежуток: встаёт так, как встала бы
+ * по attach (тот же доворот angle), но отодвинута по оси разъёма to.toConnector — между торцами
+ * разъёмов gap, м. Соединения нет: промежуток — место под отрезок трубы, которую прокладывает
+ * потребитель (в редакторе трубы — отдельные объекты, не детали узла).
+ */
+export interface AssemblyAcross {
+  connector: string;
+  to: string;
+  toConnector: string;
+  gap: number;
+  angle?: number;
+}
+
+/**
  * Деталь сборки ставится одним способом: attach — к какому разъёму уже поставленной детали её
  * присоединить, angle — доворот вокруг оси стыка, градусы (по умолчанию up разъёмов совпадают);
- * placement — явное положение без стыка. Оба сразу — ошибка описания. Без них деталь стоит
- * в начале координат (так ставится первая деталь).
+ * across — напротив разъёма через промежуток под трубу; placement — явное положение без стыка.
+ * Два способа сразу — ошибка описания. Без них деталь стоит в начале координат (так ставится
+ * первая деталь).
  */
 export interface AssemblyPart {
   name: string;
   generatorId: string;
   params: unknown;
   attach?: { connector: string; to: string; toConnector: string; angle?: number };
+  across?: AssemblyAcross;
   placement?: AssemblyPlacement;
 }
 
@@ -86,9 +102,10 @@ interface ClosureEnds {
   fixedConnector: Connector;
 }
 
-/** Как поставлена деталь: к какому разъёму какой детали или явным положением. */
+/** Как поставлена деталь: к какому разъёму какой детали, напротив разъёма или явным положением. */
 type Placement =
   | { kind: 'attach'; part: AssemblyPartModel; target: AssemblyPartModel; fixed: Connector; moving: Connector; joint: AssemblyJoint }
+  | { kind: 'across'; part: AssemblyPartModel; target: AssemblyPartModel; fixed: Connector; moving: Connector; angle: number; gap: number }
   | { kind: 'explicit'; part: AssemblyPartModel; reference: AssemblyPartModel | null; local: Matrix4 };
 
 /**
@@ -129,12 +146,16 @@ export class Assembly {
       const placed = { name: part.name, model, matrix: new Matrix4() };
       this.parts.push(placed);
 
-      if (part.attach && part.placement) {
-        this.errors.push(`${part.name}: задано и присоединение, и явное положение — нужно одно`);
+      if ([part.attach, part.across, part.placement].filter(Boolean).length > 1) {
+        this.errors.push(`${part.name}: задано несколько способов постановки (присоединение, напротив разъёма, явное положение) — нужен один`);
         continue;
       }
       if (part.placement) {
         this.placeExplicitly(placed, part.placement);
+        continue;
+      }
+      if (part.across) {
+        this.placeAcross(placed, part.across);
         continue;
       }
       if (!part.attach) continue;
@@ -163,10 +184,11 @@ export class Assembly {
    * Модели не перестраиваются.
    */
   setAngle(partName: string, degrees: number): void {
-    const start = this.placements.findIndex((placement) => placement.kind === 'attach' && placement.joint.part === partName);
+    const start = this.placements.findIndex((placement) => placement.kind !== 'explicit' && placement.part.name === partName);
     if (start < 0) return;
     const placement = this.placements[start];
     if (placement.kind === 'attach') placement.joint.angle = degrees;
+    if (placement.kind === 'across') placement.angle = degrees;
     for (const next of this.placements.slice(start)) Assembly.place(next);
     this.closureEnds.forEach((ends, i) => Object.assign(this.closures[i], Assembly.measureClosure(ends)));
   }
@@ -211,14 +233,40 @@ export class Assembly {
     Assembly.place(placement);
   }
 
+  private placeAcross(part: AssemblyPartModel, { connector, to, toConnector, gap, angle = 0 }: AssemblyAcross): void {
+    const target = this.parts.find((placed) => placed.name === to && placed !== part);
+    const fixed = target?.model.connectors.find((c) => c.id === toConnector);
+    const moving = part.model.connectors.find((c) => c.id === connector);
+    if (!target || !fixed || !moving) {
+      this.errors.push(`${part.name}: нет разъёма ${connector} или ${to}.${toConnector}`);
+      return;
+    }
+    if (!Number.isFinite(gap) || gap < 0) {
+      this.errors.push(`${part.name}: промежуток до ${to}.${toConnector} — не неотрицательное число: ${gap}`);
+      return;
+    }
+    const placement = { kind: 'across' as const, part, target, fixed, moving, angle, gap };
+    this.placements.push(placement);
+    Assembly.place(placement);
+  }
+
   private static place(placement: Placement): void {
     if (placement.kind === 'explicit') {
       const { part, reference, local } = placement;
       part.matrix.copy(reference ? new Matrix4().multiplyMatrices(reference.matrix, local) : local);
       return;
     }
-    const { part, target, fixed, moving, joint } = placement;
-    part.matrix.copy(ConnectorMating.place(fixed, target.matrix, moving, MathUtils.degToRad(joint.angle)));
+    const { part, target, fixed, moving } = placement;
+    const angle = placement.kind === 'attach' ? placement.joint.angle : placement.angle;
+    const matrix = ConnectorMating.place(fixed, target.matrix, moving, MathUtils.degToRad(angle));
+    if (placement.kind === 'across') {
+      // Как при стыке, но торец разъёма — на gap от торца fixed по его оси.
+      const direction = new Vector3().copy(fixed.direction).transformDirection(target.matrix);
+      const wanted = new Vector3().copy(fixed.position).applyMatrix4(target.matrix).addScaledVector(direction, placement.gap);
+      const actual = new Vector3().copy(moving.position).applyMatrix4(matrix);
+      matrix.premultiply(new Matrix4().makeTranslation(wanted.sub(actual)));
+    }
+    part.matrix.copy(matrix);
   }
 
   /** Габарит всей сборки: габариты деталей, поставленные их матрицами. */

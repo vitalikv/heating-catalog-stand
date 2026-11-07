@@ -245,7 +245,10 @@ describe('явное положение детали (часть 16)', () => {
   });
 
   it.each([
-    ['и attach, и placement', { attach: { connector: 'left', to: 'муфта', toConnector: 'right' }, placement: { at: { x: 0, y: 0, z: 0 } } }, 'и присоединение, и явное положение'],
+    ['и attach, и placement', { attach: { connector: 'left', to: 'муфта', toConnector: 'right' }, placement: { at: { x: 0, y: 0, z: 0 } } }, 'несколько способов постановки'],
+    ['и attach, и across', { attach: { connector: 'left', to: 'муфта', toConnector: 'right' }, across: { connector: 'left', to: 'муфта', toConnector: 'right', gap: 0.1 } }, 'несколько способов постановки'],
+    ['across от неизвестной детали', { across: { connector: 'left', to: 'нет такой', toConnector: 'right', gap: 0.1 } }, 'нет разъёма left или нет такой.right'],
+    ['across с отрицательным промежутком', { across: { connector: 'left', to: 'муфта', toConnector: 'right', gap: -0.01 } }, 'не неотрицательное число'],
     ['relativeTo неизвестной детали', { placement: { at: { x: 0, y: 0, z: 0 }, relativeTo: 'нет такой' } }, 'не найдена или ещё не поставлена'],
     ['relativeTo детали ниже по описанию', { placement: { at: { x: 0, y: 0, z: 0 }, relativeTo: 'последняя' } }, 'не найдена или ещё не поставлена'],
   ] as const)('%s — ошибка описания, деталь остаётся в начале координат', (_, how, message) => {
@@ -259,6 +262,44 @@ describe('явное положение детали (часть 16)', () => {
     expect(assembly.joints).toEqual([]);
     expect(assembly.parts[1].matrix.equals(new Matrix4())).toBe(true);
     assembly.dispose();
+  });
+
+  it('across — напротив разъёма через промежуток: как стык, но отодвинута по его оси, соединения нет', () => {
+    const port = (assembly: Assembly, name: string, id: string) => {
+      const part = assembly.parts.find((item) => item.name === name)!;
+      const connector = part.model.connectors.find((item) => item.id === id)!;
+      return { at: new Vector3().copy(connector.position).applyMatrix4(part.matrix), to: new Vector3().copy(connector.direction).transformDirection(part.matrix) };
+    };
+    const definition: AssemblyDefinition = { label: 'напротив', parts: [
+      { name: 'муфта', generatorId: 'steel.coupling', params: coupling },
+      { name: 'ниппель', generatorId: 'steel.nipple', params: nipple, attach: { connector: 'left', to: 'муфта', toConnector: 'right' } },
+      { name: 'вторая', generatorId: 'steel.coupling', params: coupling, across: { connector: 'left', to: 'ниппель', toConnector: 'right', gap: 0.12, angle: 90 } },
+    ] };
+    const assembly = new Assembly(registry, definition);
+    expect(assembly.errors).toEqual([]);
+    expect(assembly.joints.map(({ part }) => part)).toEqual(['ниппель']);
+    const check = () => {
+      const fixed = port(assembly, 'ниппель', 'right');
+      const moving = port(assembly, 'вторая', 'left');
+      // Торцы на одной оси, навстречу друг другу, между ними — промежуток.
+      expect(moving.at.distanceTo(fixed.at.clone().addScaledVector(fixed.to, 0.12))).toBeLessThan(1e-12);
+      expect(moving.to.dot(fixed.to)).toBeCloseTo(-1, 12);
+    };
+    check();
+    // Доворот — тот же, что у стыка: вторая муфта повёрнута на 90° вокруг оси.
+    const docked = new Assembly(registry, { label: 'стык', parts: [
+      ...definition.parts.slice(0, 2),
+      { name: 'вторая', generatorId: 'steel.coupling', params: coupling, attach: { connector: 'left', to: 'ниппель', toConnector: 'right', angle: 90 } },
+    ] });
+    const up = (item: Assembly) => new Vector3(0, 1, 0).transformDirection(item.parts[2].matrix);
+    expect(up(assembly).distanceTo(up(docked))).toBeLessThan(1e-12);
+    // setAngle переставляет и её, и детали после неё; промежуток остаётся.
+    assembly.setAngle('ниппель', 90);
+    check();
+    assembly.setAngle('вторая', 0);
+    check();
+    assembly.dispose();
+    docked.dispose();
   });
 
   it('пара гребёнок 67/68: обратная на 200 мм выше и на 32 мм ближе к стене, контуры с одним номером на одной вертикали', () => {

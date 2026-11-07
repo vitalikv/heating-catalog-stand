@@ -119,7 +119,8 @@ export { createModelObject } from './scene/ModelObject';
 // Стыковка и сборки.
 export { Assembly } from './assembly/Assembly';
 export type {
-  AssemblyClosure, AssemblyClosureDefinition, AssemblyDefinition, AssemblyJoint, AssemblyPart, AssemblyPartModel, AssemblyPlacement,
+  AssemblyAcross, AssemblyClosure, AssemblyClosureDefinition, AssemblyDefinition, AssemblyJoint, AssemblyPart, AssemblyPartModel,
+  AssemblyPlacement,
 } from './assembly/Assembly';
 export { ConnectorMating } from './assembly/ConnectorMating';
 export type { MatingCheck } from './assembly/ConnectorMating';
@@ -128,7 +129,8 @@ export type { AssemblyRecipe, AssemblyRecipeVariant } from './assembly/recipes/A
 export { radiatorPipework } from './assembly/recipes/radiatorPipework';
 export { boilerPipework } from './assembly/recipes/boilerPipework';
 export type {
-  BoilerPipework, BoilerPipeworkBoiler, BoilerPipeworkBuiltIn, BoilerPipeworkOptions, BoilerPipeworkPort,
+  BoilerPipework, BoilerPipeworkAdapter, BoilerPipeworkBoiler, BoilerPipeworkBuiltIn, BoilerPipeworkOptions, BoilerPipeworkPort,
+  BoilerPipeworkRun,
 } from './assembly/recipes/boilerPipework';
 export type {
   RadiatorPipework, RadiatorPipeworkConnection, RadiatorPipeworkOptions, RadiatorPipeworkPort, RadiatorPipeworkRadiator,

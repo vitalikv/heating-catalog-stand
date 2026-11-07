@@ -4,6 +4,9 @@ import { FILTER_CATALOG } from './filters';
 import { INSTRUMENT_CATALOG } from './instruments';
 import { MANIFOLD_CATALOG } from './manifold';
 
+/** Длины сгонов 3/4 каталога, мм: из них узел «Котёл с обвязкой» берёт выносы. */
+export const RUNNING_NIPPLES_3_4 = [100, 150, 200, 250] as const;
+
 /** Обобщённые модели вне gl2. Размеры — стартовые параметры для стенда, не паспортные изделия. */
 export const EXTENSION_CATALOG: CatalogEntry[] = [
   // Обратный клапан VALTEC VT.161, В–В (технический каталог 2017, с. 360): длина B, мм.
@@ -82,9 +85,16 @@ export const EXTENSION_CATALOG: CatalogEntry[] = [
   entry('steel.extension', ([['1/2', [20, 25, 30, 35, 40, 50, 60]], ['3/4', [26, 31, 36, 41, 51]], ['1', [27, 32, 37, 42, 52]]] as const)
     .flatMap(([nominal, lengths]) => lengths.map((a) => ({ label: `${nominal}, A = ${a} мм (VTr.197)`, params: { nominal, length: a / 1000 } })))),
   // Сгон Н–Н (позиция 12) — VALTEC VTr.653, каталог 2017, с. 79: L1 = 40, L2 = 10 мм.
-  entry('steel.running-nipple', [80, 100, 150, 200, 250].map((a) => ({
-    label: `1/2 × ${a} (VTr.653)`, params: { nominal: '1/2', length: a / 1000, longThread: 0.04, shortThread: 0.01 },
-  }))),
+  // 3/4 у VTr.653 нет — сгоны 3/4 обобщённые: длины как у 1/2, резьбы условно (L2 — не короче
+  // посадки резьбы 3/4). Ими узел «Котёл с обвязкой» набирает выносы одной деталью.
+  entry('steel.running-nipple', [
+    ...[80, 100, 150, 200, 250].map((a) => ({
+      label: `1/2 × ${a} (VTr.653)`, params: { nominal: '1/2', length: a / 1000, longThread: 0.04, shortThread: 0.01 },
+    })),
+    ...RUNNING_NIPPLES_3_4.map((a) => ({
+      label: `3/4 × ${a}`, params: { nominal: '3/4', length: a / 1000, longThread: 0.045, shortThread: 0.012 },
+    })),
+  ]),
   // Контргайка (позиция 13) — VALTEC VTr.656, каталог 2017, с. 81.
   entry('steel.locknut', (['1/2', '3/4', '1', '1 1/4', '1 1/2', '2'] as const).map((nominal) => ({
     label: `${nominal} (VTr.656)`, params: { nominal },
