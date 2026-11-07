@@ -87,6 +87,7 @@ import { PpBallValveGenerator } from './pp/PpBallValveGenerator';
 import { MpWallOutletGenerator } from './mp/MpWallOutletGenerator';
 import { MpOutletPlateGenerator } from './mp/MpOutletPlateGenerator';
 import { MpNutAdapterGenerator } from './mp/MpNutAdapterGenerator';
+import { HydraulicManifoldGenerator } from './equipment/HydraulicManifoldGenerator';
 
 /** Все генераторы библиотеки; порядок — порядок списка на стенде. */
 function createGenerators() {
@@ -179,6 +180,7 @@ function createGenerators() {
   new MpWallOutletGenerator(),
   new MpOutletPlateGenerator(),
   new MpNutAdapterGenerator(),
+  new HydraulicManifoldGenerator(),
   ] as const;
 }
 

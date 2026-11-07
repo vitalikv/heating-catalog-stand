@@ -14,6 +14,7 @@ describe('публичный API', () => {
         'createModelObject',
         'GeneratorParamsError',
         'GeneratorRegistry',
+        'hydraulicModule',
         'loadMaterialTextures',
         'MATERIAL_TEXTURE_FILES',
         'MaterialLibrary',

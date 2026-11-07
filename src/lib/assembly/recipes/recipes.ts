@@ -1,6 +1,7 @@
 import type { AssemblyRecipe } from './AssemblyRecipe';
 import { BOILER_UNIT } from './boilerPipework';
 import { BOILER_COLD_INLET } from './boilerColdInlet';
+import { HYDRAULIC_MODULE } from './hydraulicModule';
 import { MANIFOLD_RETURN, MANIFOLD_SUPPLY } from './manifolds';
 import { MIXING_UNIT } from './mixingUnit';
 import { PUMP_MIXING_MODULE } from './pumpMixingModule';
@@ -11,5 +12,5 @@ import { RADIATOR_SIDE } from './radiatorPipework';
 /** Производственные рецепты; диагностические сборки — только на стенде (src/stand/assemblies.ts). */
 export const ASSEMBLY_RECIPES: readonly AssemblyRecipe[] = [
   PUMP_MODULE, PUMP_MIXING_MODULE, MANIFOLD_SUPPLY, MANIFOLD_RETURN, RADIATOR_H_BLOCK, MIXING_UNIT, BOILER_COLD_INLET, RADIATOR_SIDE,
-  BOILER_UNIT,
+  BOILER_UNIT, HYDRAULIC_MODULE,
 ];

@@ -31,6 +31,7 @@ export type { StraightStrainerParams } from './generators/equipment/StraightStra
 export type { FlushFilterParams } from './generators/equipment/FlushFilterGenerator';
 export type { GaugeKind, GaugeParams } from './generators/equipment/GaugeGenerator';
 export type { SeparatorKind, SeparatorParams } from './generators/equipment/SeparatorGenerator';
+export type { HydraulicManifoldParams } from './generators/equipment/HydraulicManifoldGenerator';
 export type { SiphonTubeParams } from './generators/equipment/SiphonTubeGenerator';
 export type { BoilerSafetyGroupParams } from './generators/equipment/BoilerSafetyGroupGenerator';
 export type { WaterHammerArresterParams } from './generators/equipment/WaterHammerArresterGenerator';
@@ -128,6 +129,8 @@ export { ASSEMBLY_RECIPES } from './assembly/recipes/recipes';
 export type { AssemblyRecipe, AssemblyRecipeVariant } from './assembly/recipes/AssemblyRecipe';
 export { radiatorPipework } from './assembly/recipes/radiatorPipework';
 export { boilerPipework } from './assembly/recipes/boilerPipework';
+export { hydraulicModule } from './assembly/recipes/hydraulicModule';
+export type { HydraulicContour, HydraulicModule, HydraulicModuleOptions, HydraulicModulePort } from './assembly/recipes/hydraulicModule';
 export type {
   BoilerPipework, BoilerPipeworkAdapter, BoilerPipeworkBoiler, BoilerPipeworkBuiltIn, BoilerPipeworkOptions, BoilerPipeworkPort,
   BoilerPipeworkRun,

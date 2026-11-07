@@ -6,6 +6,10 @@ import { MANIFOLD_CATALOG } from './manifold';
 
 /** Длины сгонов 3/4 каталога, мм: из них узел «Котёл с обвязкой» берёт выносы. */
 export const RUNNING_NIPPLES_3_4 = [100, 150, 200, 250] as const;
+/** Сгоны 1" каталога, мм: обратка прямой насосной группы котельной — сгоном 200 мм. */
+export const RUNNING_NIPPLES_1 = [200, 250, 300] as const;
+/** Резьбы сгона 1": длинная и короткая, м (условно, по пропорциям 3/4). */
+export const RUNNING_NIPPLE_1_THREADS = { longThread: 0.05, shortThread: 0.014 } as const;
 
 /** Обобщённые модели вне gl2. Размеры — стартовые параметры для стенда, не паспортные изделия. */
 export const EXTENSION_CATALOG: CatalogEntry[] = [
@@ -93,6 +97,9 @@ export const EXTENSION_CATALOG: CatalogEntry[] = [
     })),
     ...RUNNING_NIPPLES_3_4.map((a) => ({
       label: `3/4 × ${a}`, params: { nominal: '3/4', length: a / 1000, longThread: 0.045, shortThread: 0.012 },
+    })),
+    ...RUNNING_NIPPLES_1.map((a) => ({
+      label: `1 × ${a}`, params: { nominal: '1', length: a / 1000, ...RUNNING_NIPPLE_1_THREADS },
     })),
   ]),
   // Контргайка (позиция 13) — VALTEC VTr.656, каталог 2017, с. 81.

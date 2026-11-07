@@ -1,5 +1,5 @@
 {
-  "package": "0.8.0",
+  "package": "0.9.0",
   "generators": {
     "equipment.air-vent": 1,
     "equipment.boiler": 1,
@@ -7,6 +7,7 @@
     "equipment.expansion-tank": 1,
     "equipment.flush-filter": 1,
     "equipment.gauge": 1,
+    "equipment.hydraulic-manifold": 1,
     "equipment.pump": 2,
     "equipment.pump-nut": 1,
     "equipment.safety-group": 1,
@@ -93,6 +94,7 @@
   "assemblies": {
     "assembly.boiler-cold-inlet": 1,
     "assembly.boiler-unit": 2,
+    "assembly.hydraulic-module": 1,
     "assembly.manifold-return": 1,
     "assembly.manifold-supply": 1,
     "assembly.mixing-unit": 1,

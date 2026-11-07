@@ -31,4 +31,8 @@ export const FILTER_CATALOG: CatalogEntry[] = [
       params: { kind, nominal, ends },
     })))),
   ),
+  // Гидрострелка с коллектором (позиция 107 — одним корпусом): у VALTEC такой нет, размеры условные.
+  entry('equipment.hydraulic-manifold', [2, 3, 4].flatMap((contours) => ['1', '1 1/4'].flatMap((nominal) => (['right', 'left'] as const).map((side) => ({
+    label: `${contours} контура, к котлу ${nominal}(в), гидрострелка ${side === 'right' ? 'справа' : 'слева'}`, params: { contours, nominal, side },
+  }))))),
 ];
